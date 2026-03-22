@@ -35,8 +35,8 @@ A marca utiliza elementos que remetem à precisão e tecnologia, buscando transm
 
 ---
 
-## 👤 Autor
-**Seu Nome** *Fundador & Especialista Técnico*
+## 👤 Autores:
+Grupo Smartfix (Fatec Barueri)
 
 ---
 > "SmartFix: Soluções inteligentes para um mundo conectado."
