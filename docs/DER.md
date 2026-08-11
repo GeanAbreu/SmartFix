@@ -1,63 +1,72 @@
 # 🗄️ Diagrama Entidade-Relacionamento (DER) — SmartFix
 
+**Documentação do Banco de Dados Relacional (Supabase / PostgreSQL)**  
+**Projeto:** SmartFix PWA Marketplace | **Arquitetura:** Next.js + Supabase / PostgreSQL  
+
+---
+
+## 📊 1. Diagrama DER
+
 ```mermaid
 erDiagram
-    CLIENTE ||--o{ PEDIDO_REPARO : realiza
-    ASSISTENCIA_TECNICA ||--o{ PEDIDO_REPARO : atende
-    ENTREGADOR ||--o{ PEDIDO_REPARO : realiza_entrega
-    PEDIDO_REPARO ||--o| PAGAMENTO : gera
-    CLIENTE ||--o{ AVALIACAO : escreve
-    ASSISTENCIA_TECNICA ||--o{ AVALIACAO : recebe
+    CLIENTS ||--o{ DEVICES : owns
+    CLIENTS ||--o{ REPAIR_ORDERS : requests
+    CLIENTS ||--o{ REVIEWS : writes
 
-    CLIENTE {
-        int id_cliente PK
-        string nome
+    PARTNER ||--o{ REPAIR_ORDERS : services
+    PARTNER ||--o{ REVIEWS : receives
+
+    DEVICES ||--o{ REPAIR_ORDERS : linked_to
+    REPAIR_ORDERS ||--o| REVIEWS : yields
+
+    CLIENTS {
+        uuid id PK
+        string full_name
         string email
-        string telefone
-        string endereco
+        string phone
+        string address
+        string tax_id
+        date birth_date
+        uuid user_id FK
     }
 
-    ASSISTENCIA_TECNICA {
-        int id_assistencia PK
-        string nome_empresa
-        string cnpj
+    PARTNER {
+        uuid id PK
+        string company_name
+        string tax_id
         string email
-        string telefone
-        string endereco
+        string phone
+        string address
+        uuid user_id FK
     }
 
-    ENTREGADOR {
-        int id_entregador PK
-        string nome
-        string telefone
-        string veiculo
+    DEVICES {
+        uuid id PK
+        string device_type
+        string brand
+        string model
+        string issue_type
+        string issue_description
+        uuid user_id FK
     }
 
-    PEDIDO_REPARO {
-        int id_pedido PK
-        string descricao_problema
+    REPAIR_ORDERS {
+        uuid id PK
+        string problem_description
         string status
-        date data_solicitacao
-        decimal valor_orcamento
-        int id_cliente FK
-        int id_assistencia FK
-        int id_entregador FK
+        date request_date
+        decimal estimated_budget
+        uuid client_id FK
+        uuid partner_id FK
+        uuid device_id FK
     }
 
-    PAGAMENTO {
-        int id_pagamento PK
-        decimal valor
-        string metodo_pagamento
-        string status_pagamento
-        date data_pagamento
-        int id_pedido FK
-    }
-
-    AVALIACAO {
-        int id_avaliacao PK
-        int nota
-        string comentario
-        date data_avaliacao
-        int id_cliente FK
-        int id_assistencia FK
+    REVIEWS {
+        uuid id PK
+        int rating
+        string comment
+        date review_date
+        uuid client_id FK
+        uuid partner_id FK
+        uuid repair_order_id FK
     }
