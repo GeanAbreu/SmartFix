@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Cliente | SmartFix</title>
+    <!-- SDK do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-blue: #0056b3;
+            --secondary-blue: #007bff;
+            --light-blue: #e6f2ff;
+            --dark-blue: #003366;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-blue);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .signup-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 86, 179, 0.15);
+            width: 100%;
+            max-width: 400px;
+            border-top: 5px solid var(--primary-blue);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h2 {
+            color: var(--dark-blue);
+            margin: 0 0 10px 0;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--dark-blue);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--secondary-blue);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-blue);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--dark-blue);
+        }
+
+        #message {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div class="signup-container">
+        <div class="header">
+            <h2>SmartFix</h2>
+            <p>Cadastro de Cliente</p>
+        </div>
+
+        <form id="smartfix-signup-form">
+            <!-- Dados de Autenticação -->
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" required placeholder="seu@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" required placeholder="Crie uma senha forte">
+            </div>
+
+            <!-- Dados Complementares para a tabela 'clients' -->
+            <div class="form-group">
+                <label for="full_name">Nome Completo</label>
+                <input type="text" id="full_name" required placeholder="Nome do cliente">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Telefone</label>
+                <input type="tel" id="phone" required placeholder="(11) 90000-0000">
+            </div>
+
+            <button type="submit" class="btn-submit">Criar Conta</button>
+        </form>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Inicialização do Supabase (Substitua pelas suas chaves do projeto SmartFix)
+        const SUPABASE_URL = 'SUA_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'SUA_SUPABASE_ANON_KEY';
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        document.getElementById('smartfix-signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const messageDiv = document.getElementById('message');
+            const submitBtn = document.querySelector('.btn-submit');
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const full_name = document.getElementById('full_name').value;
+            const phone = document.getElementById('phone').value;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processando...';
+            messageDiv.textContent = '';
+
+            try {
+                // 1. Cria a conta do usuário na tabela de auth do Supabase
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                });
+
+                if (authError) throw authError;
+
+                // 2. Verifica se o usuário foi criado para pegar o ID gerado
+                if (authData.user) {
+                    // 3. Persiste os dados complementares na tabela 'clients'
+                    const { error: dbError } = await supabase
+                        .from('clients')
+                        .insert([
+                            { 
+                                id: authData.user.id, // Relaciona com a tabela de auth
+                                full_name: full_name,
+                                phone: phone,
+                                email: email
+                            }
+                        ]);
+
+                    if (dbError) throw dbError;
+
+                    messageDiv.className = 'success';
+                    messageDiv.textContent = 'Cadastro realizado com sucesso na SmartFix!';
+                    document.getElementById('smartfix-signup-form').reset();
+                }
+                
+            } catch (error) {
+                messageDiv.className = 'error';
+                messageDiv.textContent = 'Erro ao cadastrar: ' + error.message;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Criar Conta';
+            }
+        });
+    </script>
+</body>
+</html>
