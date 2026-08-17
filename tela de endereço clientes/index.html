@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SmartFix - gerenciamento de endereços do cliente">
+  <title>SmartFix | Meus Endereços</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="header-container">
+      <a class="logo" href="#" aria-label="SmartFix - página inicial">
+        <span class="logo-mark">S</span>
+        <span>Smart<span>Fix</span></span>
+      </a>
+
+      <nav aria-label="Navegação principal">
+        <a href="#">Início</a>
+        <a href="#" class="active">Meu Perfil</a>
+        <a href="#">Meus Reparos</a>
+      </nav>
+
+      <button class="profile-button" type="button" aria-label="Abrir perfil">
+        <span>AF</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <section class="hero" aria-labelledby="titulo-pagina">
+      <div class="hero-content">
+        <p class="breadcrumb">Meu Perfil / Endereços</p>
+        <h1 id="titulo-pagina">Meus Endereços</h1>
+        <p>
+          Cadastre e gerencie os endereços utilizados para coleta e entrega
+          dos seus aparelhos.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-container" aria-labelledby="lista-titulo">
+      <div class="section-heading">
+        <div>
+          <h2 id="lista-titulo">Endereços cadastrados</h2>
+          <p>Você pode cadastrar mais de um endereço.</p>
+        </div>
+
+        <button id="btnNovoEndereco" class="btn btn-primary" type="button">
+          <span aria-hidden="true">+</span>
+          Novo endereço
+        </button>
+      </div>
+
+      <div id="mensagem" class="message" role="status" aria-live="polite"></div>
+
+      <div id="listaEnderecos" class="address-grid">
+        <div class="loading">Carregando endereços...</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div>
+        <strong>SmartFix</strong>
+        <p>Assistência técnica de forma simples, rápida e segura.</p>
+      </div>
+      <p>&copy; 2026 SmartFix. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true"
+       aria-labelledby="modalTitulo">
+    <div class="modal-overlay" data-close-modal></div>
+
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="modal-kicker">RF03</p>
+          <h2 id="modalTitulo">Adicionar endereço</h2>
+        </div>
+        <button id="btnFecharModal" class="close-button" type="button"
+                aria-label="Fechar formulário">&times;</button>
+      </div>
+
+      <form id="enderecoForm" novalidate>
+        <input type="hidden" id="enderecoId">
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="identificacao">Identificação do endereço *</label>
+            <input id="identificacao" name="identificacao" type="text"
+                   placeholder="Ex.: Casa, Trabalho..." required>
+          </div>
+
+          <div class="form-group">
+            <label for="tipo">Tipo de endereço *</label>
+            <select id="tipo" name="tipo" required>
+              <option value="">Selecione</option>
+              <option value="Casa">Casa</option>
+              <option value="Trabalho">Trabalho</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="cep">CEP *</label>
+            <div class="input-with-status">
+              <input id="cep" name="cep" type="text" inputmode="numeric"
+                     maxlength="9" placeholder="00000-000" required>
+              <span id="cepStatus" aria-live="polite"></span>
+            </div>
+            <small>Digite o CEP para preencher o endereço automaticamente.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="logradouro">Rua / Logradouro *</label>
+            <input id="logradouro" name="logradouro" type="text"
+                   placeholder="Rua, Avenida..." required>
+          </div>
+
+          <div class="form-group small-field">
+            <label for="numero">Número *</label>
+            <input id="numero" name="numero" type="text"
+                   placeholder="Ex.: 123" required>
+          </div>
+
+          <div class="form-group">
+            <label for="complemento">Complemento</label>
+            <input id="complemento" name="complemento" type="text"
+                   placeholder="Apartamento, bloco...">
+          </div>
+
+          <div class="form-group">
+            <label for="bairro">Bairro *</label>
+            <input id="bairro" name="bairro" type="text" required>
+          </div>
+
+          <div class="form-group">
+            <label for="cidade">Cidade *</label>
+            <input id="cidade" name="cidade" type="text" required>
+          </div>
+
+          <div class="form-group small-field">
+            <label for="estado">Estado *</label>
+            <input id="estado" name="estado" type="text"
+                   maxlength="2" placeholder="SP" required>
+          </div>
+        </div>
+
+        <label class="checkbox-label">
+          <input id="principal" name="principal" type="checkbox">
+          <span>Definir como endereço principal</span>
+        </label>
+
+        <div id="formErro" class="form-error" role="alert"></div>
+
+        <div class="form-actions">
+          <button id="btnCancelar" class="btn btn-secondary" type="button">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Salvar endereço
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
