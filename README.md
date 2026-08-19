@@ -1,99 +1,235 @@
-# 🔧 SmartFix — Plataforma de Gerenciamento de Reparos Eletrônicos
+# 🔧 SmartFix
 
-<p align="center">
-  <strong>Plataforma web para conectar clientes e assistências técnicas, centralizando todo o processo de manutenção de dispositivos eletrônicos.</strong>
-</p>
+<div align="center">
 
-<p align="center">
-  Projeto desenvolvido utilizando Next.js, TypeScript, PostgreSQL e Supabase.
-</p>
+### Plataforma de Gerenciamento de Reparos Eletrônicos
+
+**Conectando clientes e assistências técnicas em uma plataforma moderna, segura e centralizada.**
+
+<br>
+
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge\&logo=nextdotjs\&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge\&logo=typescript\&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge\&logo=react\&logoColor=61DAFB)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge\&logo=nodedotjs\&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge\&logo=supabase\&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge\&logo=postgresql\&logoColor=white)
+
+<br>
+
+**Status:** 🚧 Em desenvolvimento
+
+</div>
 
 ---
 
-## 📌 Sobre o Projeto
+# 🚀 Como executar o SmartFix
+
+Esta seção apresenta os passos necessários para baixar o projeto do GitHub e executá-lo localmente.
+
+## 📋 Pré-requisitos
+
+Antes de começar, certifique-se de possuir as seguintes ferramentas instaladas:
+
+| Ferramenta            | Finalidade                       |
+| --------------------- | -------------------------------- |
+| **Node.js**           | Ambiente de execução JavaScript  |
+| **npm**               | Gerenciamento das dependências   |
+| **Git**               | Clonagem e controle de versão    |
+| **Navegador moderno** | Execução da aplicação            |
+| **VS Code**           | Editor recomendado, mas opcional |
+
+Para verificar se Node.js, npm e Git estão instalados:
+
+```bash
+node --version
+npm --version
+git --version
+```
+
+---
+
+## 1️⃣ Clone o repositório
+
+Abra um terminal e execute:
+
+```bash
+git clone https://github.com/GeanAbreu/SmartFix
+```
+
+Acesse a pasta clonada:
+
+```bash
+cd SmartFix
+```
+
+---
+
+## 2️⃣ Acesse a aplicação
+
+O código-fonte da aplicação está localizado em:
+
+```text
+SmartFix/smartfix-app/
+```
+
+Entre nessa pasta:
+
+```bash
+cd smartfix-app
+```
+
+---
+
+## 3️⃣ Instale as dependências
+
+Execute:
+
+```bash
+npm install
+```
+
+O npm utilizará os arquivos `package.json` e `package-lock.json` para instalar automaticamente todas as dependências necessárias.
+
+> A pasta `node_modules` não é armazenada no GitHub e será criada automaticamente durante esse processo.
+
+---
+
+## 4️⃣ Configure as variáveis de ambiente
+
+Na raiz de:
+
+```text
+smartfix-app/
+```
+
+crie um arquivo chamado:
+
+```text
+.env.local
+```
+
+Configure nele as variáveis necessárias para conexão com o Supabase.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL = 'https://jrgelocbixpgttrxzawv.supabase.co';
+NEXT_PUBLIC_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZ2Vsb2NiaXhwZ3R0cnh6YXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTA1MjIsImV4cCI6MjEwMjEyNjUyMn0.ZYAs3UZNOCH65rW83J-npxbcEbqnrr0KYj3fPCRQYKU';
+```
+---
+
+## 5️⃣ Execute o projeto
+
+Dentro de `smartfix-app`, execute:
+
+```bash
+npm run dev
+```
+
+A aplicação será iniciada em modo de desenvolvimento.
+
+Por padrão, acesse:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## ⚡ Resumo da instalação
+
+```bash
+git clone https://github.com/GeanAbreu/SmartFix
+cd SmartFix/smartfix-app
+npm install
+npm run dev
+```
+
+> Antes de executar a aplicação, lembre-se de configurar o arquivo `.env.local`.
+
+---
+
+# 📌 Sobre o SmartFix
 
 O **SmartFix** é uma plataforma web desenvolvida para modernizar e simplificar o processo de solicitação, acompanhamento e gerenciamento de reparos em dispositivos eletrônicos.
 
-A proposta é criar um ambiente centralizado no qual clientes possam cadastrar seus dispositivos, solicitar serviços de assistência técnica e acompanhar o andamento dos reparos.
+A plataforma cria um ambiente centralizado no qual clientes podem cadastrar seus dispositivos, solicitar serviços de assistência técnica e acompanhar o andamento dos reparos.
 
-Ao mesmo tempo, assistências técnicas parceiras podem utilizar a plataforma para receber solicitações, administrar atendimentos e organizar os serviços realizados.
+Ao mesmo tempo, assistências técnicas parceiras podem utilizar o SmartFix para receber solicitações, administrar atendimentos e organizar os serviços realizados.
 
 O projeto busca proporcionar maior **organização, transparência, segurança e praticidade** durante todo o processo de manutenção.
 
 ---
 
-## 🎯 Objetivo
+# 🎯 Objetivo
 
-O principal objetivo do SmartFix é digitalizar o processo tradicional de assistência técnica, criando uma plataforma capaz de conectar:
+O principal objetivo do SmartFix é digitalizar o processo tradicional de assistência técnica e centralizar informações que normalmente ficam distribuídas entre mensagens, ligações, anotações e diferentes sistemas.
 
-- 👤 **Clientes**
-- 🛠️ **Assistências Técnicas**
-- 👨‍💼 **Administradores**
-- 📱 **Dispositivos cadastrados**
-- 📋 **Solicitações de reparo**
+A plataforma busca conectar:
 
-A plataforma pretende centralizar informações que normalmente ficam distribuídas entre mensagens, ligações, anotações e diferentes sistemas.
+* 👤 **Clientes**
+* 🛠️ **Assistências técnicas**
+* 👨‍💼 **Administradores**
+* 📱 **Dispositivos cadastrados**
+* 📋 **Solicitações de reparo**
 
 ---
 
-## ✨ Principais Funcionalidades
+# ✨ Funcionalidades
 
-### 👤 Cliente
+## 👤 Área do Cliente
 
 O cliente poderá:
 
-- Criar e acessar sua conta;
-- Gerenciar seus dados pessoais;
-- Cadastrar endereços;
-- Cadastrar dispositivos eletrônicos;
-- Solicitar serviços de assistência técnica;
-- Acompanhar o andamento de reparos;
-- Consultar histórico de solicitações.
+* Criar e acessar sua conta;
+* Gerenciar seus dados pessoais;
+* Cadastrar e gerenciar endereços;
+* Cadastrar dispositivos eletrônicos;
+* Solicitar serviços de assistência técnica;
+* Acompanhar o andamento dos reparos;
+* Consultar o histórico de solicitações.
 
-### 🛠️ Assistência Técnica
+## 🛠️ Área da Assistência Técnica
 
 As assistências parceiras poderão:
 
-- Criar cadastro na plataforma;
-- Gerenciar informações da assistência;
-- Receber solicitações de clientes;
-- Gerenciar atendimentos;
-- Atualizar o status dos reparos;
-- Consultar dispositivos vinculados às solicitações.
+* Criar cadastro na plataforma;
+* Gerenciar informações da assistência;
+* Receber solicitações de clientes;
+* Administrar atendimentos;
+* Atualizar o status dos reparos;
+* Consultar dispositivos vinculados às solicitações.
 
-### 🛡️ Administração
+## 🛡️ Área Administrativa
 
-O ambiente administrativo será responsável pelo gerenciamento da plataforma, incluindo:
+O ambiente administrativo será responsável por:
 
-- Gerenciamento de usuários;
-- Gerenciamento de assistências técnicas;
-- Aprovação de parceiros;
-- Controle das informações da plataforma;
-- Acompanhamento das operações do sistema.
-
----
-
-## 🧰 Tecnologias Utilizadas
-
-O SmartFix utiliza tecnologias modernas para desenvolvimento web.
-
-| Tecnologia | Utilização |
-|---|---|
-| **Next.js** | Framework principal da aplicação |
-| **React** | Construção das interfaces |
-| **TypeScript** | Desenvolvimento tipado |
-| **Node.js** | Ambiente de execução |
-| **CSS** | Estilização das interfaces |
-| **Supabase** | Backend e serviços da aplicação |
-| **PostgreSQL** | Banco de dados relacional |
-| **Git** | Controle de versão |
-| **GitHub** | Hospedagem e colaboração do código |
+* Gerenciar usuários;
+* Gerenciar assistências técnicas;
+* Aprovar parceiros;
+* Controlar informações da plataforma;
+* Acompanhar as operações do sistema.
 
 ---
 
-# 📂 Estrutura do Projeto
+# 🧰 Tecnologias
 
-O repositório foi organizado separando a aplicação, banco de dados e documentação.
+| Tecnologia     | Utilização                             |
+| -------------- | -------------------------------------- |
+| **Next.js**    | Framework principal da aplicação       |
+| **React**      | Construção das interfaces              |
+| **TypeScript** | Tipagem e desenvolvimento da aplicação |
+| **Node.js**    | Ambiente de execução                   |
+| **CSS**        | Estilização das interfaces             |
+| **Supabase**   | Backend, autenticação e serviços       |
+| **PostgreSQL** | Banco de dados relacional              |
+| **Git**        | Controle de versão                     |
+| **GitHub**     | Hospedagem e colaboração do código     |
+
+---
+
+# 📂 Estrutura do Repositório
+
+O SmartFix foi organizado separando **banco de dados**, **documentação** e **aplicação**.
 
 ```text
 SmartFix/
@@ -110,21 +246,45 @@ SmartFix/
 │   └── Requisitos_Não_Funcionais.md
 │
 ├── smartfix-app/
+│   ├── app/
+│   ├── lib/
+│   ├── public/
+│   ├── .gitignore
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── next.config.ts
+│   └── tsconfig.json
 │
 └── README.md
 ```
+
+### Organização
+
+| Diretório       | Responsabilidade                      |
+| --------------- | ------------------------------------- |
+| `Database/`     | Scripts e estrutura do banco de dados |
+| `docs/`         | Documentação técnica e acadêmica      |
+| `smartfix-app/` | Código-fonte da aplicação web         |
 
 ---
 
 # 🗄️ Banco de Dados
 
-Os arquivos relacionados à estrutura do banco de dados estão armazenados em:
+O SmartFix utiliza **PostgreSQL**, integrado à aplicação por meio do **Supabase**.
+
+Os scripts SQL utilizados para documentar e reproduzir a estrutura das tabelas estão armazenados em:
 
 ```text
 Database/tables/
 ```
 
-Essa pasta contém os scripts SQL utilizados para documentar e reproduzir as tabelas utilizadas pelo SmartFix.
+### Estrutura
+
+```text
+SmartFix/
+└── Database/
+    └── tables/
+```
 
 Entre as entidades utilizadas pelo sistema estão:
 
@@ -135,21 +295,44 @@ client_devices
 partner
 ```
 
-### Caminho
+Essas entidades representam os principais dados relacionados aos clientes, endereços, dispositivos e assistências técnicas cadastradas na plataforma.
+
+---
+
+# 🔗 Modelagem de Dados
+
+De forma simplificada, a organização das principais entidades segue esta estrutura:
 
 ```text
-SmartFix/
-└── Database/
-    └── tables/
+                    ┌──────────────────┐
+                    │     CLIENTS      │
+                    └────────┬─────────┘
+                             │
+                  ┌──────────┴──────────┐
+                  │                     │
+                  │ 1:N             1:N │
+                  ▼                     ▼
+       ┌───────────────────┐   ┌──────────────────┐
+       │ CLIENT_ADDRESSES  │   │  CLIENT_DEVICES  │
+       └───────────────────┘   └──────────────────┘
+
+
+                    ┌──────────────────┐
+                    │     PARTNER      │
+                    └──────────────────┘
 ```
 
-O banco de dados da aplicação utiliza **PostgreSQL**, integrado ao projeto através do **Supabase**.
+A documentação detalhada da modelagem pode ser encontrada em:
+
+```text
+docs/DER.md
+```
 
 ---
 
 # 📚 Documentação
 
-Toda a documentação técnica e acadêmica do projeto está centralizada em:
+Toda a documentação técnica e acadêmica do SmartFix está centralizada em:
 
 ```text
 docs/
@@ -157,37 +340,43 @@ docs/
 
 ## 📐 Diagramas
 
+**Caminho:**
+
 ```text
 docs/diagramas/
 ```
 
-Diretório destinado aos diagramas utilizados para representar visualmente a arquitetura, estrutura e modelagem do SmartFix.
+Contém os diagramas utilizados para representar visualmente a arquitetura, processos e modelagem do SmartFix.
 
 ---
 
 ## 🗃️ DER — Diagrama Entidade-Relacionamento
 
+**Caminho:**
+
 ```text
 docs/DER.md
 ```
 
-Documentação referente ao **Diagrama Entidade-Relacionamento (DER)** do SmartFix.
-
-O documento apresenta a organização das entidades do banco de dados e seus respectivos relacionamentos.
+Apresenta a organização das entidades do banco de dados e seus respectivos relacionamentos.
 
 ---
 
 ## 📋 Escopo do Projeto
 
+**Caminho:**
+
 ```text
 docs/Escopo_Projeto.md
 ```
 
-Documento responsável por apresentar o escopo do SmartFix, seus objetivos, limites e principais características.
+Apresenta o escopo do SmartFix, seus objetivos, limites e principais características.
 
 ---
 
 ## ⚖️ Lei 15.211/2025
+
+**Caminho:**
 
 ```text
 docs/Lei152112025.md
@@ -199,218 +388,121 @@ Documento destinado às informações relacionadas à **Lei nº 15.211/2025** co
 
 ## ✅ Requisitos Funcionais
 
+**Caminho:**
+
 ```text
 docs/Requisitos_Funcionais.md
 ```
 
-Contém os requisitos que representam as funcionalidades e comportamentos esperados do sistema.
+Contém os requisitos relacionados às funcionalidades e aos comportamentos esperados do SmartFix.
 
-Os requisitos funcionais especificam **o que o SmartFix deve fazer**.
+Os requisitos funcionais especificam **o que o sistema deve fazer**.
 
 ---
 
 ## ⚙️ Requisitos Não Funcionais
 
+**Caminho:**
+
 ```text
 docs/Requisitos_Não_Funcionais.md
 ```
 
-Contém os requisitos relacionados às características de qualidade e funcionamento da plataforma.
+Apresenta os requisitos relacionados à qualidade e ao funcionamento da plataforma, incluindo aspectos como:
 
-Podem envolver aspectos como:
-
-- Segurança;
-- Desempenho;
-- Disponibilidade;
-- Usabilidade;
-- Manutenibilidade;
-- Escalabilidade.
+* Segurança;
+* Desempenho;
+* Disponibilidade;
+* Usabilidade;
+* Manutenibilidade;
+* Escalabilidade.
 
 ---
 
-# 💻 Aplicação
+# 💻 Aplicação Web
 
-O código-fonte principal da plataforma está localizado em:
+O código-fonte principal está localizado em:
 
 ```text
 smartfix-app/
 ```
 
-### Caminho
+### Caminho completo
 
 ```text
 SmartFix/
 └── smartfix-app/
 ```
 
-Essa pasta concentra a aplicação desenvolvida utilizando **Next.js + React + TypeScript**.
+Essa pasta concentra a aplicação desenvolvida utilizando:
 
-A estrutura interna segue o padrão de roteamento e organização do **Next.js App Router**.
+```text
+Next.js
+   +
+React
+   +
+TypeScript
+   +
+Supabase
+```
+
+A aplicação utiliza a estrutura de roteamento do **Next.js App Router**.
 
 ---
 
-# 🗂️ Organização Geral
+# 🏗️ Arquitetura
 
-A divisão principal do repositório segue três responsabilidades:
-
-```text
-SmartFix
-│
-├── Database
-│     └── Banco de dados
-│
-├── docs
-│     └── Documentação do projeto
-│
-└── smartfix-app
-      └── Aplicação web
-```
-
-Essa organização permite separar claramente:
-
-**Código da aplicação**
+A aplicação busca manter responsabilidades separadas para facilitar manutenção e evolução do sistema.
 
 ```text
-smartfix-app/
+Interface
+   │
+   ▼
+Next.js / React
+   │
+   ▼
+Regras da aplicação
+   │
+   ▼
+Supabase
+   │
+   ▼
+PostgreSQL
 ```
 
-**Scripts e documentação do banco**
-
-```text
-Database/tables/
-```
-
-**Documentação técnica e acadêmica**
-
-```text
-docs/
-```
-
----
-
-# 🚀 Executando o Projeto
-
-## 1. Clone o repositório
-
-```bash
-git clone <URL-DO-REPOSITORIO>
-```
-
-Entre na pasta do projeto:
-
-```bash
-cd SmartFix
-```
-
----
-
-## 2. Acesse a aplicação
-
-```bash
-cd smartfix-app
-```
-
----
-
-## 3. Instale as dependências
-
-```bash
-npm install
-```
-
----
-
-## 4. Configure as variáveis de ambiente
-
-Crie o arquivo:
-
-```text
-.env.local
-```
-
-na pasta:
-
-```text
-smartfix-app/
-```
-
-As credenciais e configurações sensíveis da aplicação devem ser armazenadas através de variáveis de ambiente.
-
-> ⚠️ Nunca publique chaves privadas, senhas ou credenciais do Supabase no GitHub.
-
----
-
-## 5. Execute o ambiente de desenvolvimento
-
-```bash
-npm run dev
-```
-
-Depois, acesse a aplicação através do endereço informado pelo Next.js no terminal.
-
-Por padrão:
-
-```text
-http://localhost:3000
-```
+A arquitetura poderá evoluir conforme novas funcionalidades e padrões forem incorporados ao projeto.
 
 ---
 
 # 🔐 Segurança
 
-O projeto deve seguir boas práticas de segurança durante o desenvolvimento.
+O SmartFix busca seguir boas práticas de segurança durante o desenvolvimento.
 
 Entre elas:
 
-- Não armazenar senhas diretamente nas tabelas da aplicação;
-- Utilizar autenticação segura;
-- Proteger rotas privadas;
-- Utilizar variáveis de ambiente;
-- Configurar políticas de acesso ao banco de dados;
-- Validar dados recebidos pela aplicação;
-- Não publicar credenciais no repositório.
+* Utilização de autenticação segura;
+* Proteção de rotas privadas;
+* Utilização de variáveis de ambiente;
+* Validação dos dados recebidos pela aplicação;
+* Configuração adequada do acesso ao banco;
+* Utilização de políticas de segurança no Supabase;
+* Não armazenamento de credenciais diretamente no código;
+* Não publicação de senhas, tokens ou chaves privadas no GitHub.
 
 ---
 
-# 🗄️ Modelagem
+# 📄 Documentação Disponível
 
-A arquitetura de dados do SmartFix busca separar as diferentes responsabilidades do sistema.
-
-Exemplo simplificado:
-
-```text
-                ┌─────────────────┐
-                │     CLIENTS     │
-                └────────┬────────┘
-                         │
-             ┌───────────┴───────────┐
-             │                       │
-             ▼                       ▼
-┌─────────────────────┐   ┌─────────────────────┐
-│  CLIENT_ADDRESSES   │   │   CLIENT_DEVICES    │
-└─────────────────────┘   └─────────────────────┘
-
-
-                ┌─────────────────┐
-                │     PARTNER     │
-                └─────────────────┘
-```
-
-A documentação completa da modelagem pode ser encontrada em:
-
-```text
-docs/DER.md
-```
-
----
-
-# 🌱 Status do Projeto
-
-> 🚧 **Em desenvolvimento**
-
-O SmartFix encontra-se em processo contínuo de desenvolvimento e evolução.
-
-Novas funcionalidades, melhorias de interface, integrações e ajustes na arquitetura poderão ser adicionados conforme o avanço do projeto.
+| Documento                    | Caminho                             |
+| ---------------------------- | ----------------------------------- |
+| 🗄️ Tabelas do banco         | `Database/tables/`                  |
+| 📐 Diagramas                 | `docs/diagramas/`                   |
+| 🗃️ DER                      | `docs/DER.md`                       |
+| 📋 Escopo do Projeto         | `docs/Escopo_Projeto.md`            |
+| ⚖️ Lei 15.211/2025           | `docs/Lei152112025.md`              |
+| ✅ Requisitos Funcionais      | `docs/Requisitos_Funcionais.md`     |
+| ⚙️ Requisitos Não Funcionais | `docs/Requisitos_Não_Funcionais.md` |
+| 💻 Aplicação Web             | `smartfix-app/`                     |
 
 ---
 
@@ -418,41 +510,49 @@ Novas funcionalidades, melhorias de interface, integrações e ajustes na arquit
 
 O desenvolvimento do SmartFix utiliza **Git e GitHub** para controle de versão e colaboração.
 
-Para contribuir:
+## Criar uma nova branch
 
 ```bash
 git checkout -b nome-da-branch
 ```
 
-Após realizar as alterações:
+## Registrar alterações
 
 ```bash
 git add .
 git commit -m "Descrição da alteração"
+```
+
+## Enviar a branch
+
+```bash
 git push origin nome-da-branch
 ```
 
-Posteriormente, poderá ser aberto um **Pull Request** para revisão e integração das alterações.
+Após o envio, poderá ser aberto um **Pull Request** para revisão e integração das alterações ao projeto.
 
 ---
 
-# 📄 Documentação disponível
+# 🌱 Status do Projeto
 
-| Documento | Caminho |
-|---|---|
-| 🗄️ Tabelas do banco | `Database/tables/` |
-| 📐 Diagramas | `docs/diagramas/` |
-| 🗃️ DER | `docs/DER.md` |
-| 📋 Escopo do Projeto | `docs/Escopo_Projeto.md` |
-| ⚖️ Lei 15.211/2025 | `docs/Lei152112025.md` |
-| ✅ Requisitos Funcionais | `docs/Requisitos_Funcionais.md` |
-| ⚙️ Requisitos Não Funcionais | `docs/Requisitos_Não_Funcionais.md` |
-| 💻 Aplicação | `smartfix-app/` |
+> 🚧 **Projeto em desenvolvimento**
+
+O SmartFix encontra-se em processo contínuo de desenvolvimento.
+
+Novas funcionalidades, melhorias de interface, integrações, documentação e ajustes de arquitetura serão incorporados conforme a evolução do projeto.
 
 ---
 
-# 🔧 SmartFix
+<div align="center">
 
-**Tecnologia para tornar a manutenção de dispositivos eletrônicos mais simples, organizada e transparente.**
+## 🔧 SmartFix
+
+### Tecnologia para tornar a manutenção de dispositivos eletrônicos mais simples, organizada e transparente.
+
+**Next.js • TypeScript • Supabase • PostgreSQL**
+
+<br>
 
 Projeto desenvolvido para fins acadêmicos e de desenvolvimento de software.
+
+</div>
