@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b5cff" />
+
+  <title>SmartFix - Login</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      color: #0f172a;
+
+      background:
+        linear-gradient(
+          135deg,
+          #eff6ff,
+          #dbeafe 45%,
+          #bfdbfe
+        );
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      background: rgba(37, 99, 235, 0.12);
+      border-radius: 50%;
+      filter: blur(80px);
+      top: -150px;
+      left: -150px;
+      z-index: -1;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      background: rgba(14, 165, 233, 0.12);
+      border-radius: 50%;
+      filter: blur(90px);
+      right: -150px;
+      bottom: -150px;
+      z-index: -1;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card,
+    .dashboard {
+      width: min(100%, 440px);
+
+      background: rgba(255, 255, 255, 0.96);
+
+      border:
+        1px solid
+        rgba(59, 130, 246, 0.15);
+
+      border-radius: 24px;
+
+      padding: 32px;
+
+      box-shadow:
+        0 24px 70px
+        rgba(30, 64, 175, 0.18);
+
+      animation: appear 0.5s ease;
+    }
+
+    @keyframes appear {
+      from {
+        opacity: 0;
+        transform: translateY(15px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .brand {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .logo {
+      width: 54px;
+      height: 54px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 16px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #0b5cff,
+          #2563eb
+        );
+
+      color: #ffffff;
+
+      font-weight: 800;
+      font-size: 18px;
+
+      box-shadow:
+        0 10px 25px
+        rgba(37, 99, 235, 0.30);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 23px;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    h2 {
+      margin: 0 0 7px;
+      font-size: 29px;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    label {
+      font-weight: 650;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+
+      border:
+        1px solid
+        #cbd5e1;
+
+      border-radius: 12px;
+
+      outline: none;
+
+      font-size: 15px;
+
+      transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+
+      box-shadow:
+        0 0 0 4px
+        rgba(37, 99, 235, 0.12);
+    }
+
+    button {
+      width: 100%;
+
+      border: 0;
+
+      border-radius: 12px;
+
+      padding: 14px 16px;
+
+      margin-top: 12px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #0b5cff,
+          #2563eb
+        );
+
+      color: #ffffff;
+
+      font-weight: 750;
+
+      cursor: pointer;
+
+      font-size: 15px;
+
+      transition:
+        transform 0.2s,
+        box-shadow 0.2s,
+        opacity 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+
+      box-shadow:
+        0 10px 25px
+        rgba(37, 99, 235, 0.25);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .secondary {
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: none;
+    }
+
+    .secondary:hover {
+      box-shadow: none;
+      background: #dbeafe;
+    }
+
+    .message {
+      margin-top: 18px;
+
+      padding: 13px 15px;
+
+      border-radius: 12px;
+
+      background: #eff6ff;
+
+      color: #1e40af;
+
+      font-size: 14px;
+
+      line-height: 1.5;
+    }
+
+    .error {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .success {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .switch {
+      text-align: center;
+
+      margin-top: 20px;
+
+      color: #64748b;
+
+      font-size: 14px;
+    }
+
+    .switch button {
+      width: auto;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #2563eb;
+      box-shadow: none;
+    }
+
+    .switch button:hover {
+      transform: none;
+      text-decoration: underline;
+    }
+
+    .welcome {
+      margin: 25px 0 8px;
+      font-size: 21px;
+    }
+
+    .dashboard-info {
+      margin-top: 25px;
+      padding: 18px;
+      background: #eff6ff;
+      border-radius: 14px;
+      color: #1e40af;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .user-email {
+      word-break: break-word;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .loading {
+      width: 100%;
+      min-height: 300px;
+      display: grid;
+      place-items: center;
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    @media (max-width: 520px) {
+      .card,
+      .dashboard {
+        padding: 24px;
+        border-radius: 20px;
+      }
+
+      h2 {
+        font-size: 25px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app">
+    <div class="loading">
+      Carregando SmartFix...
+    </div>
+  </div>
+
+  <script>
+    /*
+     ============================================================
+       CONFIGURAÇÃO DO SUPABASE
+     ============================================================
+
+       SUBSTITUA OS DOIS VALORES ABAIXO PELAS CREDENCIAIS
+       DO SEU PROJETO SUPABASE.
+
+       Supabase:
+       Project URL
+       Project Settings > API > Project URL
+
+       Anon Key
+       Project Settings > API > anon public
+     */
+
+    const SUPABASE_URL =
+      "https://SEU-PROJETO.supabase.co";
+
+    const SUPABASE_ANON_KEY =
+      "SUA_CHAVE_ANON_AQUI";
+
+
+    /*
+     ============================================================
+       INICIALIZAÇÃO
+     ============================================================
+    */
+
+    const { createClient } =
+      window.supabase;
+
+    const supabase =
+      createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      );
+
+    const app =
+      document.getElementById("app");
+
+
+    /*
+     ============================================================
+       FUNÇÃO PARA MOSTRAR LOGIN
+     ============================================================
+    */
+
+    function renderLogin(
+      message = "",
+      type = ""
+    ) {
+
+      app.innerHTML = `
+
+        <main class="page">
+
+          <section class="card">
+
+            <div class="brand">
+
+              <div class="logo">
+                SF
+              </div>
+
+              <div>
+                <h1>SmartFix</h1>
+
+                <p>
+                  Gestão inteligente de serviços
+                </p>
+              </div>
+
+            </div>
+
+            <h2>
+              Entrar
+            </h2>
+
+            <p class="subtitle">
+              Acesse sua conta para continuar.
+            </p>
+
+            ${
+              message
+                ? `
+                  <div class="message ${type}">
+                    ${message}
+                  </div>
+                `
+                : ""
+            }
+
+            <form id="login-form">
+
+              <label for="email">
+                E-mail
+              </label>
+
+              <input
+                id="email"
+                type="email"
+                placeholder="voce@email.com"
+                autocomplete="email"
+                required
+              />
+
+              <label for="password">
+                Senha
+              </label>
+
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
+
+              <button
+                id="login-button"
+                type="submit"
+              >
+                Entrar no SmartFix
+              </button>
+
+            </form>
+
+            <div class="switch">
+
+              Ainda não possui uma conta?
+
+              <button
+                id="signup-button"
+                type="button"
+              >
+                Criar conta
+              </button>
+
+            </div>
+
+          </section>
+
+        </main>
+      `;
+
+
+      /*
+       ==========================================================
+         LOGIN
+       ==========================================================
+      */
+
+      const loginForm =
+        document.getElementById(
+          "login-form"
+        );
+
+      loginForm.addEventListener(
+        "submit",
+        async function(event) {
+
+          event.preventDefault();
+
+          const email =
+            document.getElementById(
+              "email"
+            ).value.trim();
+
+          const password =
+            document.getElementById(
+              "password"
+            ).value;
+
+          const loginButton =
+            document.getElementById(
+              "login-button"
+            );
+
+          loginButton.disabled = true;
+
+          loginButton.textContent =
+            "Entrando...";
+
+
+          try {
+
+            const {
+              error
+            } =
+              await supabase.auth
+                .signInWithPassword({
+
+                  email,
+
+                  password
+
+                });
+
+
+            if (error) {
+
+              renderLogin(
+                "E-mail ou senha inválidos.",
+                "error"
+              );
+
+              return;
+            }
+
+
+            /*
+             =====================================================
+               LOGIN REALIZADO
+               REDIRECIONAMENTO PARA DASHBOARD
+             =====================================================
+            */
+
+            window.location.hash =
+              "#dashboard";
+
+            await renderApp();
+
+          } catch (error) {
+
+            console.error(error);
+
+            renderLogin(
+              "Ocorreu um erro ao tentar realizar o login.",
+              "error"
+            );
+
+          } finally {
+
+            if (
+              document.getElementById(
+                "login-button"
+              )
+            ) {
+
+              document.getElementById(
+                "login-button"
+              ).disabled = false;
+
+            }
+
+          }
+
+        }
+      );
+
+
+      /*
+       ==========================================================
+         CADASTRO
+       ==========================================================
+      */
+
+      const signupButton =
+        document.getElementById(
+          "signup-button"
+        );
+
+      signupButton.addEventListener(
+        "click",
+        renderSignup
+      );
+    }
+
+
+    /*
+     ============================================================
+       TELA DE CADASTRO
+     ============================================================
+    */
+
+    function renderSignup() {
+
+      app.innerHTML = `
+
+        <main class="page">
+
+          <section class="card">
+
+            <div class="brand">
+
+              <div class="logo">
+                SF
+              </div>
+
+              <div>
+                <h1>SmartFix</h1>
+
+                <p>
+                  Gestão inteligente de serviços
+                </p>
+              </div>
+
+            </div>
+
+            <h2>
+              Criar conta
+            </h2>
+
+            <p class="subtitle">
+              Crie seu acesso ao SmartFix.
+            </p>
+
+            <form id="signup-form">
+
+              <label for="signup-email">
+                E-mail
+              </label>
+
+              <input
+                id="signup-email"
+                type="email"
+                placeholder="voce@email.com"
+                autocomplete="email"
+                required
+              />
+
+              <label for="signup-password">
+                Senha
+              </label>
+
+              <input
+                id="signup-password"
+                type="password"
+                placeholder="Mínimo recomendado: 6 caracteres"
+                autocomplete="new-password"
+                minlength="6"
+                required
+              />
+
+              <button
+                id="signup-submit"
+                type="submit"
+              >
+                Criar minha conta
+              </button>
+
+            </form>
+
+            <div class="switch">
+
+              Já possui uma conta?
+
+              <button
+                id="back-login"
+                type="button"
+              >
+                Voltar para o login
+              </button>
+
+            </div>
+
+          </section>
+
+        </main>
+      `;
+
+
+      document
+        .getElementById(
+          "back-login"
+        )
+        .addEventListener(
+          "click",
+          () => renderLogin()
+        );
+
+
+      document
+        .getElementById(
+          "signup-form"
+        )
+        .addEventListener(
+          "submit",
+          async function(event) {
+
+            event.preventDefault();
+
+            const email =
+              document
+                .getElementById(
+                  "signup-email"
+                )
+                .value.trim();
+
+            const password =
+              document
+                .getElementById(
+                  "signup-password"
+                )
+                .value;
+
+            const button =
+              document.getElementById(
+                "signup-submit"
+              );
+
+            button.disabled = true;
+
+            button.textContent =
+              "Criando conta...";
+
+
+            try {
+
+              const {
+                data,
+                error
+              } =
+                await supabase.auth
+                  .signUp({
+
+                    email,
+
+                    password,
+
+                    options: {
+
+                      emailRedirectTo:
+                        window.location.origin
+
+                    }
+
+                  });
+
+
+              if (error) {
+
+                renderSignupMessage(
+                  error.message,
+                  "error"
+                );
+
+                return;
+              }
+
+
+              if (
+                data &&
+                data.session
+              ) {
+
+                window.location.hash =
+                  "#dashboard";
+
+                await renderApp();
+
+                return;
+              }
+
+
+              renderSignupMessage(
+                "Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.",
+                "success"
+              );
+
+
+            } catch (error) {
+
+              console.error(error);
+
+              renderSignupMessage(
+                "Não foi possível criar sua conta.",
+                "error"
+              );
+
+            } finally {
+
+              if (
+                document.getElementById(
+                  "signup-submit"
+                )
+              ) {
+
+                document.getElementById(
+                  "signup-submit"
+                ).disabled = false;
+
+                document.getElementById(
+                  "signup-submit"
+                ).textContent =
+                  "Criar minha conta";
+
+              }
+
+            }
+
+          }
+        );
+    }
+
+
+    /*
+     ============================================================
+       MENSAGEM DE CADASTRO
+     ============================================================
+    */
+
+    function renderSignupMessage(
+      message,
+      type
+    ) {
+
+      const form =
+        document.getElementById(
+          "signup-form"
+        );
+
+      if (!form) return;
+
+      const oldMessage =
+        document.querySelector(
+          ".message"
+        );
+
+      if (oldMessage) {
+        oldMessage.remove();
+      }
+
+      const messageElement =
+        document.createElement(
+          "div"
+        );
+
+      messageElement.className =
+        `message ${type}`;
+
+      messageElement.textContent =
+        message;
+
+      form.insertAdjacentElement(
+        "beforebegin",
+        messageElement
+      );
+    }
+
+
+    /*
+     ============================================================
+       DASHBOARD
+     ============================================================
+    */
+
+    async function renderDashboard() {
+
+      const {
+        data: {
+          user
+        }
+      } =
+        await supabase.auth.getUser();
+
+
+      if (!user) {
+
+        window.location.hash =
+          "#login";
+
+        renderLogin();
+
+        return;
+      }
+
+
+      app.innerHTML = `
+
+        <main class="page">
+
+          <section class="dashboard">
+
+            <div class="brand">
+
+              <div class="logo">
+                SF
+              </div>
+
+              <div>
+                <h1>SmartFix</h1>
+
+                <p>
+                  Painel do usuário
+                </p>
+              </div>
+
+            </div>
+
+
+            <div class="welcome">
+
+              Olá! 👋
+
+            </div>
+
+
+            <p class="subtitle">
+
+              Você está conectado ao
+              sistema SmartFix.
+
+            </p>
+
+
+            <div class="dashboard-info">
+
+              <strong>
+                Usuário autenticado
+              </strong>
+
+              <br />
+
+              <span class="user-email">
+                ${user.email || "Usuário"}
+              </span>
+
+            </div>
+
+
+            <button
+              id="logout"
+              type="button"
+            >
+              Sair da conta
+            </button>
+
+          </section>
+
+        </main>
+
+      `;
+
+
+      document
+        .getElementById(
+          "logout"
+        )
+        .addEventListener(
+          "click",
+          async function() {
+
+            const {
+              error
+            } =
+              await supabase.auth
+                .signOut();
+
+
+            if (error) {
+
+              alert(
+                "Não foi possível sair da conta."
+              );
+
+              return;
+            }
+
+
+            window.location.hash =
+              "#login";
+
+            renderLogin();
+
+          }
+        );
+    }
+
+
+    /*
+     ============================================================
+       CONTROLE DA APLICAÇÃO
+     ============================================================
+    */
+
+    async function renderApp() {
+
+      const {
+        data: {
+          session
+        }
+      } =
+        await supabase.auth
+          .getSession();
+
+
+      if (
+        window.location.hash ===
+        "#dashboard"
+      ) {
+
+        if (!session) {
+
+          window.location.hash =
+            "#login";
+
+          renderLogin();
+
+          return;
+        }
+
+        await renderDashboard();
+
+        return;
+      }
+
+
+      if (session) {
+
+        window.location.hash =
+          "#dashboard";
+
+        await renderDashboard();
+
+        return;
+      }
+
+
+      renderLogin();
+    }
+
+
+    /*
+     ============================================================
+       MONITORAR ALTERAÇÕES DE LOGIN
+     ============================================================
+    */
+
+    supabase.auth
+      .onAuthStateChange(
+        async (
+          event,
+          session
+        ) => {
+
+          if (
+            event ===
+            "SIGNED_IN" &&
+            session
+          ) {
+
+            window.location.hash =
+              "#dashboard";
+
+            await renderDashboard();
+
+          }
+
+
+          if (
+            event ===
+            "SIGNED_OUT"
+          ) {
+
+            window.location.hash =
+              "#login";
+
+            renderLogin();
+
+          }
+
+        }
+      );
+
+
+    /*
+     ============================================================
+       MUDANÇA DE ROTA
+     ============================================================
+    */
+
+    window.addEventListener(
+      "hashchange",
+      renderApp
+    );
+
+
+    /*
+     ============================================================
+       INICIAR SMARTFIX
+     ============================================================
+    */
+
+    renderApp();
+
+  </script>
+
+</body>
+</html>
