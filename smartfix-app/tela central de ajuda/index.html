@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0866d8">
+    <title>SmartFix | Central de Ajuda</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="logo-area">
+            <div class="logo-icon">🔧</div>
+            <span>SmartFix</span>
+        </div>
+
+        <nav class="desktop-nav">
+            <a href="#">Início</a>
+            <a href="#">Meus Reparos</a>
+            <a href="#" class="active">Central de Ajuda</a>
+            <a href="#">Perfil</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="icon-button" aria-label="Notificações">🔔</button>
+            <div class="avatar">👤</div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <section class="page-heading">
+            <div>
+                <h1>Central de Ajuda e Chat</h1>
+                <p>Encontre respostas rápidas ou fale diretamente com a assistência técnica designada para o seu reparo.</p>
+            </div>
+
+            <div class="company-card">
+                <div class="company-icon">👥</div>
+                <div class="company-info">
+                    <span>Assistência Técnica Designada</span>
+                    <strong>TechFix Soluções</strong>
+                    <small><i></i> Online agora</small>
+                </div>
+                <div class="company-logo">TECH<br>FIX</div>
+            </div>
+        </section>
+
+        <section class="help-chat">
+
+            <!-- CENTRAL DE AJUDA -->
+            <div class="help-panel panel">
+                <div class="panel-title">
+                    <div class="title-icon">?</div>
+                    <h2>Central de Ajuda</h2>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="faqSearch" placeholder="Pesquisar dúvidas..." aria-label="Pesquisar dúvidas">
+                    <span>⌕</span>
+                </div>
+
+                <h3>Perguntas frequentes</h3>
+
+                <div class="faq-list" id="faqList">
+
+                    <div class="faq-item" data-question="Como acompanhar meu reparo?">
+                        <button class="faq-question">
+                            <span>📋</span>
+                            <strong>Como acompanhar meu reparo?</strong>
+                            <b>⌄</b>
+                        </button>
+                        <div class="faq-answer">
+                            Você pode acompanhar o andamento acessando a área <strong>Meus Reparos</strong>. O status será atualizado conforme a assistência avançar no serviço.
+                        </div>
+                    </div>
+
+                    <div class="faq-item" data-question="Problemas com coleta ou entrega">
+                        <button class="faq-question">
+                            <span>🚚</span>
+                            <strong>Problemas com coleta ou entrega</strong>
+                            <b>⌄</b>
+                        </button>
+                        <div class="faq-answer">
+                            Verifique o status da coleta ou entrega em <strong>Meus Reparos</strong>. Se precisar de ajuda, envie uma mensagem pelo chat.
+                        </div>
+                    </div>
+
+                    <div class="faq-item" data-question="Informações sobre orçamento">
+                        <button class="faq-question">
+                            <span>💰</span>
+                            <strong>Informações sobre orçamento</strong>
+                            <b>⌄</b>
+                        </button>
+                        <div class="faq-answer">
+                            Quando a assistência finalizar a avaliação, o orçamento ficará disponível para consulta e aprovação.
+                        </div>
+                    </div>
+
+                    <div class="faq-item" data-question="Garantia dos serviços">
+                        <button class="faq-question">
+                            <span>🛡️</span>
+                            <strong>Garantia dos serviços</strong>
+                            <b>⌄</b>
+                        </button>
+                        <div class="faq-answer">
+                            As informações de garantia podem variar conforme o serviço realizado. Consulte os detalhes do seu reparo ou fale com a assistência.
+                        </div>
+                    </div>
+
+                    <div class="faq-item" data-question="Cancelamento de serviço">
+                        <button class="faq-question">
+                            <span>📄</span>
+                            <strong>Cancelamento de serviço</strong>
+                            <b>⌄</b>
+                        </button>
+                        <div class="faq-answer">
+                            Para verificar a possibilidade de cancelamento, entre em contato com a assistência técnica responsável pelo reparo.
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="contact-card">
+                    <div class="contact-icon">🎧</div>
+                    <div>
+                        <h3>Não encontrou o que precisa?</h3>
+                        <p>Fale agora com a assistência técnica e receba ajuda personalizada.</p>
+                    </div>
+                    <button id="talkButton">Falar com a assistência</button>
+                </div>
+            </div>
+
+            <!-- CHAT -->
+            <div class="chat-panel panel">
+                <div class="chat-header">
+                    <div class="chat-title">
+                        <div class="chat-icon">💬</div>
+                        <h2>Chat com a Assistência</h2>
+                    </div>
+                    <span class="mobile-status"><i></i> Online</span>
+                </div>
+
+                <div class="messages" id="messages">
+                    <div class="day-divider"><span>Hoje</span></div>
+
+                    <div class="message received">
+                        <strong>TechFix Soluções</strong>
+                        <p>Olá! 👋<br>Como podemos ajudar você hoje?</p>
+                        <time>10:30</time>
+                    </div>
+
+                    <div class="message sent">
+                        <p>Olá! Gostaria de saber o status do meu reparo.</p>
+                        <time>10:31 ✓✓</time>
+                    </div>
+
+                    <div class="message received">
+                        <strong>TechFix Soluções</strong>
+                        <p>Claro! Por favor, me informe o número do seu protocolo.</p>
+                        <time>10:31</time>
+                    </div>
+
+                    <div class="message sent">
+                        <p>Protocolo: #SF12546</p>
+                        <time>10:32 ✓✓</time>
+                    </div>
+
+                    <div class="message received">
+                        <strong>TechFix Soluções</strong>
+                        <p>Seu reparo está em andamento.<br>Previsão de conclusão: 28/08.<br>Qualquer novidade, avisaremos aqui!</p>
+                        <time>10:32</time>
+                    </div>
+
+                    <div class="message sent">
+                        <p>Perfeito! Obrigado 😊</p>
+                        <time>10:33 ✓✓</time>
+                    </div>
+                </div>
+
+                <form class="chat-input" id="chatForm">
+                    <button type="button" class="attach-button" id="attachButton" aria-label="Anexar arquivo">📎</button>
+                    <input type="text" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off" required>
+                    <button type="submit" class="send-button" aria-label="Enviar mensagem">➤</button>
+                </form>
+                <input type="file" id="fileInput" hidden>
+            </div>
+
+        </section>
+    </main>
+
+    <footer class="bottom-nav">
+        <a href="#"><span>⌂</span>Início</a>
+        <a href="#"><span>🔧</span>Meus Reparos</a>
+        <a href="#" class="selected"><span>💬</span>Central de Ajuda</a>
+        <a href="#"><span>🏷</span>Orçamentos</a>
+        <a href="#"><span>♙</span>Perfil</a>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
