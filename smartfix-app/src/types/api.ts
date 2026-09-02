@@ -15,6 +15,19 @@ export type ClientProfile = {
   cpf: string | null;
 };
 
+export type ClientAddress = {
+  id: string;
+  apelido: string | null;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string | null;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  principal: boolean;
+};
+
 export type PartnerProfile = {
   id: string;
   name: string;
@@ -40,4 +53,3 @@ export type ApiFailure = {
 };
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
-

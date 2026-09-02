@@ -644,16 +644,16 @@ export default function ClientDashboard() {
             icon={
               <BellIcon />
             }
-            label="Mensagens"
-            disabled
+            label="Ajuda e Mensagens"
+            onClick={() => router.push("/cliente/ajuda")}
           />
 
           <NavItem
             icon={
               <UserIcon />
             }
-            label="Perfil"
-            disabled
+            label="Meus Endereços"
+            onClick={() => router.push("/cliente/enderecos")}
           />
 
           <NavItem
@@ -696,7 +696,7 @@ export default function ClientDashboard() {
 
           <button
             type="button"
-            onClick={() => router.push("/#contato")}
+            onClick={() => router.push("/cliente/ajuda")}
           >
             Falar com suporte
           </button>
