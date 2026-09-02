@@ -24,9 +24,24 @@ export type LocalAuthUser = {
   createdAt: string;
 };
 
+export type LocalClientAddress = {
+  id: string;
+  clientId: string;
+  apelido: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  principal: boolean;
+};
+
 type LocalAuthStore = {
   version: 1;
   users: LocalAuthUser[];
+  addresses?: LocalClientAddress[];
 };
 
 type CreateLocalUserInput = Omit<LocalAuthUser, "id" | "createdAt" | "isVerified">;
@@ -184,4 +199,110 @@ export function updateLocalPassword(id: string, passwordHash: string) {
 
 export function localAuthStoreStatus() {
   return withStore((store) => ({ users: store.users.length }));
+}
+
+function localAddresses(store: LocalAuthStore) {
+  store.addresses ??= [];
+  return store.addresses;
+}
+
+export function listLocalAddresses(clientId: string) {
+  return withStore((store) =>
+    localAddresses(store)
+      .filter((address) => address.clientId === clientId)
+      .sort((a, b) => Number(b.principal) - Number(a.principal))
+      .map((address) => ({ ...address }))
+  );
+}
+
+export function createLocalAddress(
+  clientId: string,
+  input: Omit<LocalClientAddress, "id" | "clientId">
+) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const clientAddresses = addresses.filter((address) => address.clientId === clientId);
+    const principal = input.principal || clientAddresses.length === 0;
+
+    if (principal) {
+      clientAddresses.forEach((address) => {
+        address.principal = false;
+      });
+    }
+
+    const address: LocalClientAddress = {
+      ...input,
+      id: randomUUID(),
+      clientId,
+      principal,
+    };
+    addresses.push(address);
+    return { ...address };
+  }, true);
+}
+
+export function updateLocalAddress(
+  clientId: string,
+  addressId: string,
+  input: Omit<LocalClientAddress, "id" | "clientId">
+) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const address = addresses.find(
+      (candidate) => candidate.id === addressId && candidate.clientId === clientId
+    );
+
+    if (!address) {
+      throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    }
+
+    if (input.principal) {
+      addresses.forEach((candidate) => {
+        if (candidate.clientId === clientId) candidate.principal = false;
+      });
+    }
+
+    Object.assign(address, {
+      ...input,
+      principal: address.principal || input.principal,
+    });
+    return { ...address };
+  }, true);
+}
+
+export function deleteLocalAddress(clientId: string, addressId: string) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const index = addresses.findIndex(
+      (candidate) => candidate.id === addressId && candidate.clientId === clientId
+    );
+
+    if (index < 0) {
+      throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    }
+
+    const [removed] = addresses.splice(index, 1);
+    if (removed.principal) {
+      const replacement = addresses.find((address) => address.clientId === clientId);
+      if (replacement) replacement.principal = true;
+    }
+  }, true);
+}
+
+export function setLocalPrimaryAddress(clientId: string, addressId: string) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const address = addresses.find(
+      (candidate) => candidate.id === addressId && candidate.clientId === clientId
+    );
+
+    if (!address) {
+      throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    }
+
+    addresses.forEach((candidate) => {
+      if (candidate.clientId === clientId) candidate.principal = candidate.id === addressId;
+    });
+    return { ...address, principal: true };
+  }, true);
 }

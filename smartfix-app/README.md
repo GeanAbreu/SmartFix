@@ -39,10 +39,15 @@ app/
   api/
     auth/{login,logout,register,session}/route.ts
     clients/me/route.ts
+    clients/addresses/route.ts
+    clients/addresses/[addressId]/route.ts
+    clients/addresses/[addressId]/primary/route.ts
     partners/me/route.ts
     health/database/route.ts
   cadastro/page.tsx
   cliente/dashboard/{page.tsx,ClientDashboard.tsx,dashboard.module.css}
+  cliente/ajuda/{page.tsx,HelpCenter.tsx,help.module.css}
+  cliente/enderecos/{page.tsx,AddressManager.tsx,addresses.module.css}
   parceiro/dashboard/{page.tsx,PartnerDashboard.tsx}
   login/page.tsx
   esqueci-senha/page.tsx
@@ -137,6 +142,11 @@ POST /api/auth/logout
 GET  /api/auth/session
 
 GET  /api/clients/me
+GET  /api/clients/addresses
+POST /api/clients/addresses
+PUT  /api/clients/addresses/:addressId
+DELETE /api/clients/addresses/:addressId
+PATCH /api/clients/addresses/:addressId/primary
 GET  /api/partners/me
 
 GET  /api/health/database
@@ -194,8 +204,10 @@ foi criada porque não foi possível comparar os models com o banco real sem
 
 ## Escopo atual
 
-Landing, cadastro, login, sessão, logout, identificação de papel e dashboards
-protegidos estão estruturados. O dashboard exibe zeros e estados vazios, sem
-simular reparos reais. Dispositivos, solicitações, orçamentos, pagamentos,
-mensagens, avaliações, notificações e recuperação automática de senha continuam
-como módulos futuros.
+Landing, cadastro, login, sessão, logout, identificação de papel, dashboards
+protegidos, central de ajuda e gestão de endereços estão estruturados. O
+dashboard exibe zeros e estados vazios, sem simular reparos reais. O chat da
+central de ajuda ainda é uma demonstração local claramente identificada.
+Dispositivos, solicitações, orçamentos, pagamentos, mensagens em tempo real,
+avaliações, notificações e recuperação automática de senha continuam como
+módulos futuros.
