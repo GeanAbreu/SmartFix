@@ -8,7 +8,10 @@ import {
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import type {
+  AuthenticatedUser,
+} from "@/src/types/api";
+import { readApiResponse } from "@/src/services/api-response.service";
 
 /* =========================================================
    TIPOS
@@ -38,6 +41,18 @@ type ModalState = {
   type: "success" | "error";
   title: string;
   message: string;
+};
+
+type RegisterData = {
+  user: AuthenticatedUser;
+};
+
+type ViaCepResponse = {
+  erro?: boolean | string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
 };
 
 /* =========================================================
@@ -488,7 +503,7 @@ export default function CadastroPage() {
       }
 
       const data =
-        await response.json();
+        (await response.json()) as ViaCepResponse;
 
       if (data.erro) {
         setErrors((prev) => ({
@@ -641,6 +656,7 @@ export default function CadastroPage() {
     /* DATA */
 
     if (
+      !isParceiro &&
       !formData.dataNascimento
     ) {
       newErrors.dataNascimento =
@@ -773,128 +789,65 @@ export default function CadastroPage() {
     setIsLoading(true);
 
     try {
-      const {
-        data: authData,
-        error: authError,
-      } =
-        await supabase.auth.signUp({
-          email:
-            formData.email
-              .trim()
-              .toLowerCase(),
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          tipoUsuario,
+          nomeCompleto: formData.nomeCompleto,
+          email: formData.email,
+          telefone: formData.telefone,
+          documento: formData.documento,
+          dataNascimento: formData.dataNascimento,
+          senha: formData.senha,
+          confirmarSenha: formData.confirmarSenha,
+          cep: formData.cep,
+          rua: formData.rua,
+          numero: formData.numero,
+          complemento: formData.complemento,
+          bairro: formData.bairro,
+          municipio: formData.municipio,
+          uf: formData.uf,
+        }),
+      });
 
-          password:
-            formData.senha,
-        });
+      const data = await readApiResponse<RegisterData>(response);
 
-      if (authError) {
-        throw authError;
-      }
+      if (!response.ok || !data.success) {
+        if (!data.success && data.errors) {
+          const backendErrors = Object.fromEntries(
+            Object.entries(data.errors)
+              .filter((entry): entry is [string, string[]] =>
+                Array.isArray(entry[1]) && entry[1].length > 0
+              )
+              .map(([field, messages]) => [field, messages[0]])
+          );
 
-      const tableName =
-        isParceiro
-          ? "partner"
-          : "clients";
+          setErrors((current) => ({ ...current, ...backendErrors }));
+        }
 
-      const docColumn =
-        isParceiro
-          ? "cnpj"
-          : "cpf";
-
-      if (!authData.user) {
-        throw new Error(
-          "Não foi possível criar o usuário."
-        );
-      }
-
-      const {
-        error: profileError,
-      } = await supabase
-        .from(tableName)
-        .insert([
-          {
-            id:
-              authData.user.id,
-
-            nome:
-              formData.nomeCompleto.trim(),
-
-            email:
-              formData.email
-                .trim()
-                .toLowerCase(),
-
-            telefone:
-              formData.telefone.trim(),
-
-            [docColumn]:
-              formData.documento.replace(
-                /\D/g,
-                ""
-              ),
-
-            data_nascimento:
-              formData.dataNascimento,
-
-            cep:
-              formData.cep.replace(
-                /\D/g,
-                ""
-              ),
-
-            logradouro:
-              formData.rua.trim(),
-
-            numero:
-              formData.numero.trim(),
-
-            complemento:
-              formData.complemento.trim(),
-
-            bairro:
-              formData.bairro.trim(),
-
-            municipio:
-              formData.municipio.trim(),
-
-            uf:
-              formData.uf
-                .trim()
-                .toUpperCase(),
-
-            senha:
-              formData.senha,
-          },
-        ]);
-
-      if (profileError) {
-        throw profileError;
+        throw new Error(data.message || "Não foi possível realizar o cadastro.");
       }
 
       setModal({
         isOpen: true,
         type: "success",
-        title:
-          "Cadastro realizado!",
+        title: "Cadastro realizado!",
         message:
-          "Sua conta SmartFix foi criada. Confirme seu e-mail para continuar.",
+          "Sua conta SmartFix foi criada com segurança. Você já pode entrar.",
       });
     } catch (err: unknown) {
-      let message =
-        "Não foi possível realizar o cadastro.";
-
-      if (
-        err instanceof Error
-      ) {
-        message = err.message;
-      }
-
       setModal({
         isOpen: true,
         type: "error",
-        title:
-          "Erro ao cadastrar",
-        message,
+        title: "Erro ao cadastrar",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Não foi possível realizar o cadastro.",
       });
     } finally {
       setIsLoading(false);
@@ -981,7 +934,7 @@ export default function CadastroPage() {
                 <ShieldIcon />
               </span>
 
-              Ambiente 100% Seguro
+              Acesso protegido
             </div>
 
             <div className="cadastro-sidebar-heading">
@@ -1349,38 +1302,27 @@ export default function CadastroPage() {
 
                 </div>
 
-                <div className="cadastro-field">
+                {!isParceiro && (
+                  <div className="cadastro-field">
+                    <label htmlFor="dataNascimento">
+                      DATA DE NASCIMENTO *
+                    </label>
 
-                  <label htmlFor="dataNascimento">
-                    {isParceiro
-                      ? "DATA DE FUNDAÇÃO"
-                      : "DATA DE NASCIMENTO"}
-                    {" "}*
-                  </label>
+                    <input
+                      id="dataNascimento"
+                      type="date"
+                      value={formData.dataNascimento}
+                      onChange={handleChange}
+                      className={
+                        errors.dataNascimento ? "field-error" : ""
+                      }
+                    />
 
-                  <input
-                    id="dataNascimento"
-                    type="date"
-                    value={
-                      formData.dataNascimento
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    className={
-                      errors.dataNascimento
-                        ? "field-error"
-                        : ""
-                    }
-                  />
-
-                  <span className="cadastro-error">
-                    {
-                      errors.dataNascimento
-                    }
-                  </span>
-
-                </div>
+                    <span className="cadastro-error">
+                      {errors.dataNascimento}
+                    </span>
+                  </div>
+                )}
 
               </div>
 
@@ -1758,11 +1700,11 @@ export default function CadastroPage() {
                 <p>
                   Ao criar sua conta, você
                   concorda com nossos{" "}
-                  <Link href="#">
+                  <Link href="/termos">
                     Termos de Uso
                   </Link>{" "}
                   e{" "}
-                  <Link href="#">
+                  <Link href="/privacidade">
                     Política de Privacidade
                   </Link>
                   .

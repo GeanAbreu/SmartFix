@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.smartfix-data/
 
 # next.js
 /.next/
@@ -39,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# template seguro de variáveis de ambiente
+!.env.example
+
+# local backup/distribution archives
+/smartfix-*.zip

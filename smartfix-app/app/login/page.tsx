@@ -8,8 +8,12 @@ import {
 } from "react";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import type {
+  AuthenticatedUser,
+} from "@/src/types/api";
+import { readApiResponse } from "@/src/services/api-response.service";
 
 /* =========================================================
    TIPOS
@@ -26,7 +30,10 @@ type ModalState = {
   message: string;
 };
 
-type TipoUsuario = "cliente" | "parceiro";
+type AuthData = {
+  user: AuthenticatedUser;
+  redirectTo: string;
+};
 
 /* =========================================================
    MÁSCARA CPF / CNPJ
@@ -244,43 +251,35 @@ export default function LoginPage() {
   ========================================================= */
 
   useEffect(() => {
-    const sessao =
-      localStorage.getItem(
-        "smartfix_user"
-      );
+    let active = true;
 
-    if (!sessao) {
-      return;
-    }
+    const checkSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
 
-    try {
-      const usuario =
-        JSON.parse(sessao);
+        if (!response.ok || !active) {
+          return;
+        }
 
-      if (
-        usuario.tipo ===
-        "cliente"
-      ) {
-        router.replace(
-          "/cliente/dashboard"
-        );
+        const data = await readApiResponse<AuthData>(response);
 
-        return;
+        if (response.ok && data.success) {
+          router.replace(data.data.redirectTo);
+        }
+      } catch {
+        // Sem sessão válida: permanece na tela de login.
       }
+    };
 
-      if (
-        usuario.tipo ===
-        "parceiro"
-      ) {
-        router.replace(
-          "/parceiro/dashboard"
-        );
-      }
-    } catch {
-      localStorage.removeItem(
-        "smartfix_user"
-      );
-    }
+    checkSession();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   /* =========================================================
@@ -356,16 +355,9 @@ export default function LoginPage() {
   ) => {
     event.preventDefault();
 
-    const id =
-      identificador.trim();
-
-    const senhaInformada =
-      senha;
-
-    const novosErros:
-      LoginErrors = {};
-
-    /* VALIDAÇÃO */
+    const id = identificador.trim();
+    const senhaInformada = senha;
+    const novosErros: LoginErrors = {};
 
     if (!id) {
       novosErros.identificador =
@@ -373,19 +365,11 @@ export default function LoginPage() {
     }
 
     if (!senhaInformada) {
-      novosErros.senha =
-        "Informe sua senha.";
+      novosErros.senha = "Informe sua senha.";
     }
 
-    if (
-      Object.keys(
-        novosErros
-      ).length > 0
-    ) {
-      setErrors(
-        novosErros
-      );
-
+    if (Object.keys(novosErros).length > 0) {
+      setErrors(novosErros);
       return;
     }
 
@@ -393,242 +377,34 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const isEmail =
-        id.includes("@");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          identificador: id,
+          senha: senhaInformada,
+        }),
+      });
 
-      const documento =
-        id.replace(
-          /\D/g,
-          ""
-        );
+      const data = await readApiResponse<AuthData>(response);
 
-      let usuarioEncontrado:
-        Record<string, any> | null =
-        null;
-
-      let tipoUsuario:
-        TipoUsuario | null =
-        null;
-
-      /* =====================================================
-         LOGIN POR E-MAIL
-      ===================================================== */
-
-      if (isEmail) {
-        const email =
-          id.toLowerCase();
-
-        /*
-          CLIENTE
-        */
-
-        const {
-          data: cliente,
-          error: clienteError,
-        } =
-          await supabase
-            .from("clients")
-            .select("*")
-            .eq(
-              "email",
-              email
-            )
-            .maybeSingle();
-
-        if (clienteError) {
-          console.error(
-            "Erro ao buscar cliente:",
-            clienteError
-          );
-        }
-
-        if (cliente) {
-          usuarioEncontrado =
-            cliente;
-
-          tipoUsuario =
-            "cliente";
-        }
-
-        /*
-          PARCEIRO
-        */
-
-        else {
-          const {
-            data: parceiro,
-            error: parceiroError,
-          } =
-            await supabase
-              .from("partner")
-              .select("*")
-              .eq(
-                "email",
-                email
-              )
-              .maybeSingle();
-
-          if (
-            parceiroError
-          ) {
-            console.error(
-              "Erro ao buscar parceiro:",
-              parceiroError
-            );
-          }
-
-          if (parceiro) {
-            usuarioEncontrado =
-              parceiro;
-
-            tipoUsuario =
-              "parceiro";
-          }
-        }
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Credenciais inválidas.");
       }
 
-      /* =====================================================
-         LOGIN POR CPF
-      ===================================================== */
-
-      else if (
-        documento.length <= 11
-      ) {
-        const {
-          data: cliente,
-          error,
-        } =
-          await supabase
-            .from("clients")
-            .select("*")
-            .eq(
-              "cpf",
-              documento
-            )
-            .maybeSingle();
-
-        if (error) {
-          console.error(
-            "Erro ao buscar CPF:",
-            error
-          );
-        }
-
-        if (cliente) {
-          usuarioEncontrado =
-            cliente;
-
-          tipoUsuario =
-            "cliente";
-        }
-      }
-
-      /* =====================================================
-         LOGIN POR CNPJ
-      ===================================================== */
-
-      else {
-        const {
-          data: parceiro,
-          error,
-        } =
-          await supabase
-            .from("partner")
-            .select("*")
-            .eq(
-              "cnpj",
-              documento
-            )
-            .maybeSingle();
-
-        if (error) {
-          console.error(
-            "Erro ao buscar CNPJ:",
-            error
-          );
-        }
-
-        if (parceiro) {
-          usuarioEncontrado =
-            parceiro;
-
-          tipoUsuario =
-            "parceiro";
-        }
-      }
-
-      /* =====================================================
-         VALIDA USUÁRIO E SENHA
-      ===================================================== */
-
-      if (
-        !usuarioEncontrado ||
-        usuarioEncontrado.senha !==
-          senhaInformada
-      ) {
-        throw new Error(
-          "Credenciais inválidas"
-        );
-      }
-
-      /* =====================================================
-         SALVA SESSÃO
-      ===================================================== */
-
-      const dadosSessao = {
-        id:
-          usuarioEncontrado.id,
-
-        tipo:
-          tipoUsuario,
-
-        nome:
-          usuarioEncontrado.nome ||
-          usuarioEncontrado
-            .nome_fantasia ||
-          "Usuário",
-
-        email:
-          usuarioEncontrado.email,
-      };
-
-      localStorage.setItem(
-        "smartfix_user",
-        JSON.stringify(
-          dadosSessao
-        )
-      );
-
-      /* =====================================================
-         REDIRECIONAMENTO
-      ===================================================== */
-
-      if (
-        tipoUsuario ===
-        "cliente"
-      ) {
-        router.push(
-          "/cliente/dashboard"
-        );
-
-        return;
-      }
-
-      router.push(
-        "/parceiro/dashboard"
-      );
+      router.push(data.data.redirectTo);
+      router.refresh();
     } catch (error) {
-      console.error(
-        "Erro no login:",
-        error
-      );
-
       setModal({
         isOpen: true,
-        title:
-          "Não foi possível entrar",
+        title: "Não foi possível entrar",
         message:
-          "E-mail, CPF, CNPJ ou senha incorretos. Verifique os dados informados e tente novamente.",
+          error instanceof Error
+            ? error.message
+            : "Não foi possível realizar o login.",
       });
     } finally {
       setIsLoading(false);
@@ -652,11 +428,15 @@ export default function LoginPage() {
 
           <div className="login-reference-left-image-container">
 
-            <img
+            <Image
               src="/images/smartfix-login-left.png"
               alt=""
               className="login-reference-left-image"
               draggable={false}
+              width={806}
+              height={963}
+              priority
+              sizes="(max-width: 900px) 100vw, 50vw"
             />
 
           </div>

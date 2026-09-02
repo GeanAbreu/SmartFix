@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -69,6 +70,18 @@ export default function LandingPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const data = new FormData(e.currentTarget);
+    const subject = String(data.get("assunto") ?? "Contato pelo site SmartFix");
+    const message = [
+      String(data.get("mensagem") ?? ""),
+      "",
+      `Nome: ${String(data.get("nome") ?? "")}`,
+      `E-mail: ${String(data.get("email") ?? "")}`,
+      `Telefone: ${String(data.get("telefone") ?? "")}`,
+    ].join("\n");
+
+    window.location.href = `mailto:contato@smartfix.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
 
     setFormSent(true);
 
@@ -237,7 +250,7 @@ export default function LandingPage() {
 
             <div className="security-badge">
               <span className="badge-icon">♢</span>
-              Ambiente 100% Seguro
+              Acesso protegido
             </div>
 
             <h1>
@@ -311,10 +324,14 @@ export default function LandingPage() {
 
             <div className="hero-image-wrapper">
 
-              <img
+              <Image
                 src="/images/smartfix-hero.png"
                 alt="Celular quebrado e notebook representando os serviços da SmartFix"
                 className="hero-image"
+                width={1536}
+                height={1536}
+                priority
+                sizes="(max-width: 900px) 90vw, 45vw"
               />
 
             </div>
@@ -322,15 +339,14 @@ export default function LandingPage() {
             <div className="success-card">
 
               <div className="avatars">
-                <div>👨🏻</div>
-                <div>👩🏻</div>
-                <div>👨🏽</div>
-                <span>+2k</span>
+                <div>🔧</div>
+                <div>✓</div>
+                <div>⌁</div>
               </div>
 
               <div>
-                <strong>Mais de 2.000</strong>
-                <p>consertos realizados com sucesso</p>
+                <strong>Processo centralizado</strong>
+                <p>do pedido ao acompanhamento do reparo</p>
               </div>
 
             </div>
@@ -382,9 +398,9 @@ export default function LandingPage() {
               <div className="benefit-icon">◇</div>
 
               <div>
-                <h3>Segurança garantida</h3>
+                <h3>Acesso protegido</h3>
                 <p>
-                  Pagamento seguro e garantia do serviço.
+                  Autenticação segura e dados fora do navegador.
                 </p>
               </div>
             </div>
@@ -550,9 +566,9 @@ export default function LandingPage() {
                 <li>✓ Câmera e diagnóstico</li>
               </ul>
 
-              <button>
+              <Link href="/cadastro">
                 Ver serviços →
-              </button>
+              </Link>
 
             </div>
 
@@ -575,9 +591,9 @@ export default function LandingPage() {
                 <li>✓ Diagnóstico</li>
               </ul>
 
-              <button>
+              <Link href="/cadastro">
                 Ver serviços →
-              </button>
+              </Link>
 
             </div>
 
@@ -600,9 +616,9 @@ export default function LandingPage() {
                 <li>✓ SSD e manutenção</li>
               </ul>
 
-              <button>
+              <Link href="/cadastro">
                 Ver serviços →
-              </button>
+              </Link>
 
             </div>
 
@@ -625,9 +641,9 @@ export default function LandingPage() {
                 <li>✓ Acessórios</li>
               </ul>
 
-              <button>
+              <Link href="/cadastro">
                 Ver serviços →
-              </button>
+              </Link>
 
             </div>
 
@@ -674,18 +690,18 @@ export default function LandingPage() {
             <div className="about-stats">
 
               <div>
-                <strong>2.000+</strong>
-                <span>Consertos realizados</span>
+                <strong>Um só fluxo</strong>
+                <span>Do cadastro ao reparo</span>
               </div>
 
               <div>
-                <strong>500+</strong>
-                <span>Profissionais</span>
+                <strong>Mais clareza</strong>
+                <span>Status centralizado</span>
               </div>
 
               <div>
-                <strong>98%</strong>
-                <span>Clientes satisfeitos</span>
+                <strong>Mais segurança</strong>
+                <span>Acesso protegido</span>
               </div>
 
             </div>
@@ -871,7 +887,7 @@ export default function LandingPage() {
 
               {formSent && (
                 <div className="success-message">
-                  ✓ Mensagem enviada com sucesso!
+                  Seu aplicativo de e-mail foi aberto. Revise e envie a mensagem.
                 </div>
               )}
 
@@ -960,7 +976,7 @@ export default function LandingPage() {
               Contato
             </button>
 
-            <Link href="#">
+            <Link href="/privacidade">
               Privacidade
             </Link>
 
