@@ -14,6 +14,6 @@ CREATE TABLE public.client_devices (
     -- Dados do dispositivo
     tipo TEXT NOT NULL,
     marca TEXT NOT NULL,
-    modelo TEXT,
+    modelo TEXT NOT NULL,
     foto_url TEXT NOT NULL
 );

@@ -1,14 +1,13 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "@/src/config/database";
 
-/**
- * O projeto recebido ainda não possui CRUD de dispositivos nem o DDL completo
- * desta tabela. Por isso, o model declara apenas as colunas relacionais seguras
- * (id e client_id), evitando inventar campos incompatíveis com o banco atual.
- */
 export class ClientDevice extends Model {
   declare id: string;
   declare client_id: string;
+  declare tipo: string;
+  declare marca: string;
+  declare modelo: string;
+  declare foto_url: string;
 }
 
 ClientDevice.init(
@@ -26,6 +25,22 @@ ClientDevice.init(
         key: "id",
       },
       onDelete: "CASCADE",
+    },
+    tipo: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    marca: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+    },
+    modelo: {
+      type: DataTypes.STRING(120),
+      allowNull: false,
+    },
+    foto_url: {
+      type: DataTypes.TEXT,
+      allowNull: false,
     },
   },
   {

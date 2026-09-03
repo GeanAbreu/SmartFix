@@ -621,7 +621,7 @@ export default function ClientDashboard() {
               <DocumentIcon />
             }
             label="Meus Dispositivos"
-            disabled
+            onClick={() => router.push("/cliente/dispositivos")}
           />
 
           <NavItem

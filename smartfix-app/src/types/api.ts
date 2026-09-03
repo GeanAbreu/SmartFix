@@ -28,6 +28,14 @@ export type ClientAddress = {
   principal: boolean;
 };
 
+export type ClientDevice = {
+  id: string;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  fotoUrl: string;
+};
+
 export type PartnerProfile = {
   id: string;
   name: string;

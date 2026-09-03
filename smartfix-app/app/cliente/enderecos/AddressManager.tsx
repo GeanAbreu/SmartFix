@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { ApiResponse, ClientAddress } from "@/src/types/api";
+import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import styles from "./addresses.module.css";
 
 type AddressForm = Omit<ClientAddress, "id">;
@@ -42,6 +43,8 @@ export default function AddressManager() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [cepStatus, setCepStatus] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<ClientAddress | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -150,14 +153,33 @@ export default function AddressManager() {
     }
   }
 
-  async function remove(address: ClientAddress) {
-    if (!window.confirm(`Excluir o endereço “${address.apelido ?? "Sem nome"}”?`)) return;
+  function requestDelete(address: ClientAddress) {
+    if (address.principal) {
+      setError("Defina outro endereço como principal antes de excluir este endereço.");
+      return;
+    }
+
+    setPendingDelete(address);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+
+    setDeleting(true);
     setError("");
-    const response = await fetch(`/api/clients/addresses/${address.id}`, { method: "DELETE" });
-    const result = await readResponse<Record<string, never>>(response);
-    if (!result.success) { setError(result.message); return; }
-    setMessage(result.message ?? "Endereço excluído.");
-    await loadAddresses();
+    try {
+      const response = await fetch(`/api/clients/addresses/${pendingDelete.id}`, { method: "DELETE" });
+      const result = await readResponse<Record<string, never>>(response);
+      if (!result.success) throw new Error(result.message);
+      setPendingDelete(null);
+      setMessage(result.message ?? "Endereço excluído.");
+      await loadAddresses();
+    } catch (caught) {
+      setPendingDelete(null);
+      setError(caught instanceof Error ? caught.message : "Não foi possível excluir o endereço.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function setPrimary(addressId: string) {
@@ -175,6 +197,7 @@ export default function AddressManager() {
         <Link href="/cliente/dashboard" className={styles.brand}>🔧 <strong>SMART<span>FIX</span></strong></Link>
         <nav aria-label="Navegação do cliente">
           <Link href="/cliente/dashboard">Início</Link>
+          <Link href="/cliente/dispositivos">Dispositivos</Link>
           <Link href="/cliente/ajuda">Central de Ajuda</Link>
           <span>Endereços</span>
         </nav>
@@ -201,7 +224,15 @@ export default function AddressManager() {
               <div className={styles.actions}>
                 <button type="button" onClick={() => openEdit(address)}>Editar</button>
                 {!address.principal && <button type="button" onClick={() => void setPrimary(address.id)}>Tornar principal</button>}
-                <button type="button" className={styles.delete} onClick={() => void remove(address)}>Excluir</button>
+                <button
+                  type="button"
+                  className={styles.delete}
+                  disabled={address.principal}
+                  title={address.principal ? "Defina outro endereço como principal antes de excluir este." : undefined}
+                  onClick={() => requestDelete(address)}
+                >
+                  {address.principal ? "Principal não pode ser excluído" : "Excluir"}
+                </button>
               </div>
             </article>
           ))}</div>
@@ -227,6 +258,15 @@ export default function AddressManager() {
           <div className={styles.formActions}><button type="button" onClick={closeModal}>Cancelar</button><button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar endereço"}</button></div>
         </form>
       </div>}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Excluir endereço?"
+        message={`O endereço “${pendingDelete?.apelido ?? "Sem nome"}” será removido permanentemente.`}
+        confirmLabel="Excluir endereço"
+        busy={deleting}
+        onCancel={() => { if (!deleting) setPendingDelete(null); }}
+        onConfirm={() => void confirmDelete()}
+      />
     </main>
   );
 }

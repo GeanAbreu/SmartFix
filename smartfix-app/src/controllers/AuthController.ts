@@ -176,22 +176,36 @@ export class AuthController {
         ]
           .filter(Boolean)
           .join(", ");
-        const user = await createLocalUser({
-          role: body.tipoUsuario === "cliente" ? "client" : "partner",
-          name: body.nomeCompleto,
-          email,
-          passwordHash: await hashPassword(body.senha),
-          document,
-          phone: body.telefone,
-          birthDate:
-            body.tipoUsuario === "cliente" ? body.dataNascimento : null,
-          companyName:
-            body.tipoUsuario === "parceiro" ? body.nomeCompleto : null,
-          address: fullAddress,
-          city: body.municipio,
-          state: body.uf.toUpperCase(),
-          zipCode: onlyDigits(body.cep),
-        });
+        const user = await createLocalUser(
+          {
+            role: body.tipoUsuario === "cliente" ? "client" : "partner",
+            name: body.nomeCompleto,
+            email,
+            passwordHash: await hashPassword(body.senha),
+            document,
+            phone: body.telefone,
+            birthDate:
+              body.tipoUsuario === "cliente" ? body.dataNascimento : null,
+            companyName:
+              body.tipoUsuario === "parceiro" ? body.nomeCompleto : null,
+            address: fullAddress,
+            city: body.municipio,
+            state: body.uf.toUpperCase(),
+            zipCode: onlyDigits(body.cep),
+          },
+          body.tipoUsuario === "cliente"
+            ? {
+                apelido: "Principal",
+                cep: onlyDigits(body.cep),
+                logradouro: body.rua,
+                numero: body.numero,
+                complemento: body.complemento || "",
+                bairro: body.bairro,
+                cidade: body.municipio,
+                estado: body.uf.toUpperCase(),
+              }
+            : undefined
+        );
 
         return localRegistrationResponse(user);
       }

@@ -58,15 +58,18 @@ ClientAddress.init(
     cidade: {
       type: DataTypes.STRING(100),
       allowNull: false,
+      field: "municipio",
     },
     estado: {
       type: DataTypes.CHAR(2),
       allowNull: false,
+      field: "uf",
     },
     principal: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+      field: "is_principal",
     },
   },
   {

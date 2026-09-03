@@ -3,6 +3,7 @@ import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
 import { requireSession } from "@/src/middlewares/auth.middleware";
 import { ClientAddress } from "@/src/models";
+import { assertAddressCanBeDeleted } from "@/src/services/address-policy.service";
 import {
   createLocalAddress,
   deleteLocalAddress,
@@ -145,12 +146,13 @@ export class AddressController {
         await sequelize.transaction(async (transaction) => {
           const address = await ClientAddress.findOne({ where: { id: addressId, client_id: clientId }, transaction });
           if (!address) throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
-          const wasPrimary = address.principal;
+
+          const count = await ClientAddress.count({
+            where: { client_id: clientId },
+            transaction,
+          });
+          assertAddressCanBeDeleted(address.principal, count);
           await address.destroy({ transaction });
-          if (wasPrimary) {
-            const replacement = await ClientAddress.findOne({ where: { client_id: clientId }, transaction });
-            if (replacement) await replacement.update({ principal: true }, { transaction });
-          }
         });
       }
       return noStoreResponse(NextResponse.json({ success: true, message: "Endereço excluído com sucesso.", data: {} }));

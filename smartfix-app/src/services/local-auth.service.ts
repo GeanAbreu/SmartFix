@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
+import { assertAddressCanBeDeleted } from "@/src/services/address-policy.service";
 import type { SessionRole } from "@/src/types/api";
 
 export type LocalAuthUser = {
@@ -38,13 +39,24 @@ export type LocalClientAddress = {
   principal: boolean;
 };
 
+export type LocalClientDevice = {
+  id: string;
+  clientId: string;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  fotoUrl: string;
+};
+
 type LocalAuthStore = {
   version: 1;
   users: LocalAuthUser[];
   addresses?: LocalClientAddress[];
+  devices?: LocalClientDevice[];
 };
 
 type CreateLocalUserInput = Omit<LocalAuthUser, "id" | "createdAt" | "isVerified">;
+type CreateLocalAddressInput = Omit<LocalClientAddress, "id" | "clientId" | "principal">;
 
 const dataDirectory = path.join(process.cwd(), ".smartfix-data");
 const dataFile = path.join(dataDirectory, "auth.json");
@@ -127,7 +139,10 @@ function withStore<T>(
   return current;
 }
 
-export function createLocalUser(input: CreateLocalUserInput) {
+export function createLocalUser(
+  input: CreateLocalUserInput,
+  initialAddress?: CreateLocalAddressInput
+) {
   return withStore((store) => {
     const normalizedEmail = input.email.toLowerCase();
 
@@ -158,6 +173,16 @@ export function createLocalUser(input: CreateLocalUserInput) {
     };
 
     store.users.push(user);
+
+    if (user.role === "client" && initialAddress) {
+      localAddresses(store).push({
+        ...initialAddress,
+        id: randomUUID(),
+        clientId: user.id,
+        principal: true,
+      });
+    }
+
     return { ...user };
   }, true);
 }
@@ -281,11 +306,11 @@ export function deleteLocalAddress(clientId: string, addressId: string) {
       throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
     }
 
-    const [removed] = addresses.splice(index, 1);
-    if (removed.principal) {
-      const replacement = addresses.find((address) => address.clientId === clientId);
-      if (replacement) replacement.principal = true;
-    }
+    const clientAddressCount = addresses.filter(
+      (candidate) => candidate.clientId === clientId
+    ).length;
+    assertAddressCanBeDeleted(addresses[index].principal, clientAddressCount);
+    addresses.splice(index, 1);
   }, true);
 }
 
@@ -304,5 +329,67 @@ export function setLocalPrimaryAddress(clientId: string, addressId: string) {
       if (candidate.clientId === clientId) candidate.principal = candidate.id === addressId;
     });
     return { ...address, principal: true };
+  }, true);
+}
+
+function localDevices(store: LocalAuthStore) {
+  store.devices ??= [];
+  return store.devices;
+}
+
+export function listLocalDevices(clientId: string) {
+  return withStore((store) =>
+    localDevices(store)
+      .filter((device) => device.clientId === clientId)
+      .map((device) => ({ ...device }))
+  );
+}
+
+export function createLocalDevice(
+  clientId: string,
+  input: Omit<LocalClientDevice, "id" | "clientId">
+) {
+  return withStore((store) => {
+    const device: LocalClientDevice = {
+      ...input,
+      id: randomUUID(),
+      clientId,
+    };
+    localDevices(store).push(device);
+    return { ...device };
+  }, true);
+}
+
+export function updateLocalDevice(
+  clientId: string,
+  deviceId: string,
+  input: Omit<LocalClientDevice, "id" | "clientId">
+) {
+  return withStore((store) => {
+    const device = localDevices(store).find(
+      (candidate) => candidate.id === deviceId && candidate.clientId === clientId
+    );
+
+    if (!device) {
+      throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
+    }
+
+    Object.assign(device, input);
+    return { ...device };
+  }, true);
+}
+
+export function deleteLocalDevice(clientId: string, deviceId: string) {
+  return withStore((store) => {
+    const devices = localDevices(store);
+    const index = devices.findIndex(
+      (candidate) => candidate.id === deviceId && candidate.clientId === clientId
+    );
+
+    if (index < 0) {
+      throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
+    }
+
+    devices.splice(index, 1);
   }, true);
 }
