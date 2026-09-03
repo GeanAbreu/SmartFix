@@ -7,6 +7,7 @@ import type {
   ApiResponse,
   PartnerProfile,
 } from "@/src/types/api";
+import { readApiResponse } from "@/src/services/api-response.service";
 
 type PartnerData = {
   partner: PartnerProfile;
@@ -16,6 +17,8 @@ export default function PartnerDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("Parceiro");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
   useEffect(() => {
     const loadSession = async () => {
@@ -42,12 +45,34 @@ export default function PartnerDashboard() {
   }, [router]);
 
   const logout = async () => {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    router.replace("/login");
-    router.refresh();
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await readApiResponse(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Não foi possível sair da conta.");
+      }
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      setLogoutError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível sair da conta. Tente novamente."
+      );
+      setIsLoggingOut(false);
+    }
   };
 
   if (loading) {
@@ -65,8 +90,20 @@ export default function PartnerDashboard() {
         </p>
         <div className="partner-placeholder-actions">
           <Link href="/">Voltar ao início</Link>
-          <button type="button" onClick={logout}>Sair</button>
+          <button
+            type="button"
+            onClick={logout}
+            disabled={isLoggingOut}
+            aria-busy={isLoggingOut}
+          >
+            {isLoggingOut ? "Saindo..." : "Sair da conta"}
+          </button>
         </div>
+        {logoutError && (
+          <p className="partner-placeholder-error" role="alert">
+            {logoutError}
+          </p>
+        )}
       </section>
     </main>
   );

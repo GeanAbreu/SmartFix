@@ -12,6 +12,7 @@ import type {
   ApiResponse,
   ClientProfile,
 } from "@/src/types/api";
+import { readApiResponse } from "@/src/services/api-response.service";
 
 import styles from "./dashboard.module.css";
 
@@ -336,6 +337,9 @@ export default function ClientDashboard() {
   const [currentDate, setCurrentDate] =
     useState<Date | null>(null);
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
   useEffect(() => {
     const updateClock = () => setCurrentDate(new Date());
     updateClock();
@@ -387,14 +391,34 @@ export default function ClientDashboard() {
   ========================================================= */
 
   const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    setLogoutError("");
+
     try {
-      await fetch("/api/auth/logout", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });
-    } finally {
+
+      const data = await readApiResponse(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Não foi possível sair da conta.");
+      }
+
       router.replace("/login");
       router.refresh();
+    } catch (error) {
+      setLogoutError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível sair da conta. Tente novamente."
+      );
+      setIsLoggingOut(false);
     }
   };
 
@@ -712,13 +736,21 @@ export default function ClientDashboard() {
           onClick={
             handleLogout
           }
+          disabled={isLoggingOut}
+          aria-busy={isLoggingOut}
         >
           <LogoutIcon />
 
           <span>
-            Sair da conta
+            {isLoggingOut ? "Saindo..." : "Sair da conta"}
           </span>
         </button>
+
+        {logoutError && (
+          <p className={styles.logoutError} role="alert">
+            {logoutError}
+          </p>
+        )}
       </aside>
 
       {/* =====================================================

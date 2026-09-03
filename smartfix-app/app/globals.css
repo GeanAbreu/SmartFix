@@ -5687,6 +5687,23 @@ a {
   border: 1px solid var(--border);
 }
 
+.partner-placeholder-actions button:hover:not(:disabled),
+.partner-placeholder-actions button:focus-visible {
+  border-color: var(--orange);
+}
+
+.partner-placeholder-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.partner-placeholder-card .partner-placeholder-error {
+  margin-top: 14px;
+  color: #d84f4f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 /* ============================================================
    PÁGINAS INSTITUCIONAIS
 ============================================================ */
