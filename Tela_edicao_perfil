@@ -283,4 +283,448 @@ function Index() {
   );
 }
 
+import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Phone, Plus, Star, Trash2, LogOut, Pencil, X } from "lucide-react";
+
+export const Route = createFileRoute("/_authenticated/perfil")({
+  head: () => ({
+    meta: [
+      { title: "Meus dados cadastrais — SmartFix" },
+      {
+        name: "description",
+        content:
+          "Visualize e edite seus dados cadastrais, endereço de coleta e telefones de contato na plataforma SmartFix.",
+      },
+      { property: "og:title", content: "Meus dados cadastrais — SmartFix" },
+      {
+        property: "og:description",
+        content: "Gerencie dados pessoais, endereço de coleta e telefones de contato.",
+      },
+    ],
+  }),
+  component: PerfilPage,
+});
+
+type Profile = {
+  id: string;
+  full_name: string;
+  email: string;
+  cpf: string | null;
+  birth_date: string | null;
+  zip_code: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+};
+
+type PhoneRow = {
+  id: string;
+  label: string;
+  number: string;
+  is_primary: boolean;
+};
+
+const emptyForm: Omit<Profile, "id"> = {
+  full_name: "",
+  email: "",
+  cpf: "",
+  birth_date: "",
+  zip_code: "",
+  street: "",
+  number: "",
+  complement: "",
+  district: "",
+  city: "",
+  state: "",
+};
+
+function PerfilPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [newPhone, setNewPhone] = useState({ label: "Celular", number: "" });
+
+  const profileQuery = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user!.id;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return data as Profile;
+      const inserted = await supabase
+        .from("profiles")
+        .insert({ id: userId, email: auth.user!.email ?? "" })
+        .select("*")
+        .single();
+      if (inserted.error) throw inserted.error;
+      return inserted.data as Profile;
+    },
+  });
+
+  const phonesQuery = useQuery({
+    queryKey: ["phones"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("phones")
+        .select("id, label, number, is_primary")
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PhoneRow[];
+    },
+  });
+
+  useEffect(() => {
+    if (profileQuery.data) {
+      const { id: _id, ...rest } = profileQuery.data;
+      setForm({
+        ...emptyForm,
+        ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v ?? ""])),
+      } as Omit<Profile, "id">);
+    }
+  }, [profileQuery.data]);
+
+  const saveProfile = useMutation({
+    mutationFn: async () => {
+      const id = profileQuery.data!.id;
+      const payload = {
+        full_name: form.full_name,
+        cpf: form.cpf || null,
+        birth_date: form.birth_date || null,
+        zip_code: form.zip_code || null,
+        street: form.street || null,
+        number: form.number || null,
+        complement: form.complement || null,
+        district: form.district || null,
+        city: form.city || null,
+        state: form.state || null,
+      };
+      const { error } = await supabase.from("profiles").update(payload).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Dados cadastrais atualizados.");
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addPhone = useMutation({
+    mutationFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const isFirst = (phonesQuery.data?.length ?? 0) === 0;
+      const { error } = await supabase.from("phones").insert({
+        user_id: auth.user!.id,
+        label: newPhone.label,
+        number: newPhone.number,
+        is_primary: isFirst,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewPhone({ label: "Celular", number: "" });
+      toast.success("Telefone adicionado.");
+      queryClient.invalidateQueries({ queryKey: ["phones"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removePhone = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("phones").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Telefone removido.");
+      queryClient.invalidateQueries({ queryKey: ["phones"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setPrimary = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user!.id;
+      const clear = await supabase
+        .from("phones")
+        .update({ is_primary: false })
+        .eq("user_id", userId);
+      if (clear.error) throw clear.error;
+      const { error } = await supabase.from("phones").update({ is_primary: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["phones"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    queryClient.clear();
+    navigate({ to: "/auth" });
+  }
+
+  const field = (key: keyof typeof emptyForm) => ({
+    value: form[key] ?? "",
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((f) => ({ ...f, [key]: e.target.value })),
+    disabled: !editing,
+  });
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="bg-brand-gradient">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-5">
+          <Link to="/" className="text-xl font-black tracking-tight text-primary-foreground">
+            Smart<span className="opacity-80">Fix</span>
+          </Link>
+          <Button variant="secondary" size="sm" onClick={signOut}>
+            <LogOut /> Sair
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Meus dados cadastrais</h1>
+          <p className="text-sm text-muted-foreground">
+            Mantenha suas informações e contatos atualizados para agilizar coletas e entregas.
+          </p>
+        </div>
+
+        <Card className="shadow-card">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>Dados pessoais e endereço de coleta</CardTitle>
+              <CardDescription>
+                {editing ? "Edite os campos e salve as alterações." : "Visualização dos seus dados."}
+              </CardDescription>
+            </div>
+            {!profileQuery.isLoading &&
+              (editing ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditing(false);
+                    profileQuery.refetch();
+                  }}
+                >
+                  <X /> Cancelar
+                </Button>
+              ) : (
+                <Button variant="accent" size="sm" onClick={() => setEditing(true)}>
+                  <Pencil /> Editar
+                </Button>
+              ))}
+          </CardHeader>
+          <CardContent>
+            {profileQuery.isLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : (
+              <form
+                className="space-y-6"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveProfile.mutate();
+                }}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="full_name">Nome completo</Label>
+                    <Input id="full_name" required {...field("full_name")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input id="email" value={form.email} disabled />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input id="cpf" placeholder="000.000.000-00" {...field("cpf")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="birth_date">Data de nascimento</Label>
+                    <Input id="birth_date" type="date" {...field("birth_date")} />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 sm:grid-cols-6">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="zip_code">CEP</Label>
+                    <Input id="zip_code" placeholder="00000-000" {...field("zip_code")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-4">
+                    <Label htmlFor="street">Rua</Label>
+                    <Input id="street" {...field("street")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="number">Número</Label>
+                    <Input id="number" {...field("number")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-4">
+                    <Label htmlFor="complement">Complemento</Label>
+                    <Input id="complement" {...field("complement")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="district">Bairro</Label>
+                    <Input id="district" {...field("district")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-3">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input id="city" {...field("city")} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-1">
+                    <Label htmlFor="state">UF</Label>
+                    <Input id="state" maxLength={2} {...field("state")} />
+                  </div>
+                </div>
+
+                {editing && (
+                  <Button type="submit" variant="hero" disabled={saveProfile.isPending}>
+                    {saveProfile.isPending ? "Salvando..." : "Salvar alterações"}
+                  </Button>
+                )}
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Phone className="text-accent" /> Telefones de contato
+            </CardTitle>
+            <CardDescription>
+              Cadastre um ou mais telefones. O principal será usado na logística de coleta.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {phonesQuery.isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : phonesQuery.data && phonesQuery.data.length > 0 ? (
+              <ul className="space-y-2">
+                {phonesQuery.data.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{p.number}</span>
+                      <Badge variant="secondary">{p.label}</Badge>
+                      {p.is_primary && <Badge className="bg-accent text-accent-foreground">Principal</Badge>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!p.is_primary && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPrimary.mutate(p.id)}
+                          aria-label="Definir como principal"
+                        >
+                          <Star /> Principal
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removePhone.mutate(p.id)}
+                        aria-label="Remover telefone"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum telefone cadastrado ainda.</p>
+            )}
+
+            <Separator />
+
+            <form
+              className="grid gap-3 sm:grid-cols-[160px_1fr_auto]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newPhone.number.trim()) {
+                  toast.error("Informe o número.");
+                  return;
+                }
+                addPhone.mutate();
+              }}
+            >
+              <Select
+                value={newPhone.label}
+                onValueChange={(v) => setNewPhone((p) => ({ ...p, label: v }))}
+              >
+                <SelectTrigger aria-label="Tipo de telefone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Celular">Celular</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Residencial">Residencial</SelectItem>
+                  <SelectItem value="Comercial">Comercial</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="(00) 00000-0000"
+                value={newPhone.number}
+                onChange={(e) => setNewPhone((p) => ({ ...p, number: e.target.value }))}
+                aria-label="Número de telefone"
+              />
+              <Button type="submit" variant="accent" disabled={addPhone.isPending}>
+                <Plus /> Adicionar
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+
+
 
