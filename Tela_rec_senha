@@ -1,0 +1,113 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Wrench } from "lucide-react";
+import { toast } from "sonner";
+
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export const Route = createFileRoute("/auth/forgot-password")({
+  head: () => ({
+    meta: [
+      { title: "Esqueci minha senha - SmartFix" },
+      { name: "description", content: "Recupere o acesso à sua conta SmartFix com redefinição de senha por e-mail." },
+      { property: "og:title", content: "Esqueci minha senha - SmartFix" },
+      { property: "og:description", content: "Recupere o acesso à sua conta SmartFix com redefinição de senha por e-mail." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: ForgotPasswordPage,
+});
+
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setSent(true);
+    toast.success("E-mail de redefinição enviado!");
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted px-4 py-12">
+      <Card className="w-full max-w-md border border-border/50 shadow-xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+            <Wrench className="h-7 w-7" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold tracking-tight">Esqueceu sua senha?</h1>
+          </CardTitle>
+          <CardDescription>
+            Digite seu e-mail abaixo e enviaremos um link seguro para redefinir sua senha.
+          </CardDescription>
+        </CardHeader>
+
+        {sent ? (
+          <CardContent className="space-y-6">
+            <div className="rounded-lg bg-primary/10 p-4 text-center text-sm text-primary">
+              Se houver uma conta cadastrada com <strong>{email}</strong>, você receberá um e-mail com as instruções de redefinição em breve.
+            </div>
+            <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link to="/">Voltar para o início</Link>
+            </Button>
+          </CardContent>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  name="email"
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                disabled={loading}
+              >
+                {loading ? "Enviando..." : "Enviar link de redefinição"}
+              </Button>
+            </CardContent>
+          </form>
+        )}
+
+        <CardFooter className="justify-center">
+          <Link
+            to="/"
+            className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-primary"
+          >
+            Voltar para a página inicial
+          </Link>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
