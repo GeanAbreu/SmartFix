@@ -631,6 +631,505 @@ main {
   from { opacity: 0; transform: translateY(0.5rem); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* ====================================================================
+   SmartFix — Rastreio da O.S. · lógica (Supabase realtime)
+   Conecta-se ao banco Supabase usando a chave pública (anon),
+   que é segura para uso no navegador.
+   ==================================================================== */
+
+/* ----------------------------------------------------------------
+   CONFIGURAÇÃO DO SUPABASE
+   ----------------------------------------------------------------
+   Substitua SUPABASE_URL e SUPABASE_ANON_KEY pelas credenciais do
+   seu projeto Supabase (Project Settings → API).
+   Estas chaves são públicas (publishable/anon) e protegidas por RLS.
+   ---------------------------------------------------------------- */
+const SUPABASE_URL = "https://elkllprwbkablnlgbcvq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_W8qSii99JZ9HnzkhUDAzsA_srCixJfL";
+
+/* Código da O.S. de demonstração (igual ao seedado no banco) */
+const OS_CODE = "SFX-2026-45821";
+
+/* Cria o cliente Supabase (via CDN) */
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { params: { eventsPerSecond: 2 } },
+});
+
+/* ----------------------------------------------------------------
+   DEFINIÇÃO DAS ETAPAS OFICIAIS (RF12)
+   ---------------------------------------------------------------- */
+const STEPS = [
+  {
+    id: "aguardando-coleta",
+    label: "Aguardando Coleta",
+    description: "Coleta agendada com o parceiro logístico",
+    detail: "Coleta agendada para 01/09 às 09h. Entregador a caminho do endereço cadastrado.",
+    icon: "truck",
+    at: "01/09 · 08:20",
+  },
+  {
+    id: "em-diagnostico",
+    label: "Em Diagnóstico",
+    description: "Assistência técnica analisando o aparelho",
+    detail: "Aparelho recebido na SmartCell Assistência com checklist de entrada e fotos.",
+    icon: "search",
+    at: "01/09 · 11:05",
+  },
+  {
+    id: "aguardando-aprovacao",
+    label: "Aguardando Aprovação",
+    description: "Orçamento enviado — aguardando sua decisão",
+    detail: "Diagnóstico concluído: falha na placa de carga. Aprove o orçamento para iniciar o reparo.",
+    icon: "clipboard",
+    at: "01/09 · 13:42",
+  },
+  {
+    id: "em-reparo",
+    label: "Em Reparo",
+    description: "Técnico executando o serviço aprovado",
+    detail: "Substituição do componente e testes de bancada realizados pelo técnico responsável.",
+    icon: "wrench",
+    at: null,
+  },
+  {
+    id: "pronto-entrega",
+    label: "Pronto para Entrega",
+    description: "Aparelho reparado e testado",
+    detail: "Aparelho aprovado no controle de qualidade e liberado para a entrega.",
+    icon: "package",
+    at: null,
+  },
+  {
+    id: "concluido",
+    label: "Concluído",
+    description: "Entrega realizada e serviço finalizado",
+    detail: "Serviço concluído. Avalie a assistência técnica para ajudar outros clientes.",
+    icon: "shield",
+    at: null,
+  },
+];
+
+/* Ícones SVG (lucide-style) */
+const ICONS = {
+  truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg>',
+  search: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+  clipboard: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg>',
+  wrench: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+  package: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>',
+  shield: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
+  check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+  checkCircle: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+  xCircle: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
+  circleDashed: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.1 2.18a10 10 0 0 1 3.8 0"/><path d="M17.6 3.71a10 10 0 0 1 2.69 2.7"/><path d="M21.82 10.1a10 10 0 0 1 0 3.8"/><path d="M20.29 17.6a10 10 0 0 1-2.7 2.69"/><path d="M13.9 21.82a10 10 0 0 1-3.8 0"/><path d="M6.4 20.29a10 10 0 0 1-2.69-2.7"/><path d="M2.18 13.9a10 10 0 0 1 0-3.8"/><path d="M3.71 6.4a10 10 0 0 1 2.7-2.69"/></svg>',
+  badge: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  creditCard: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+  bike: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>',
+  mapPin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  star: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.88l.88 5.14a.53.53 0 0 1-.771.56l-4.62-2.43a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.88-5.139a2.122 2.122 0 0 0-.612-1.88L2.16 9.795a.53.53 0 0 1 .294-.906l5.166-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>',
+  message: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+  copy: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
+  radio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>',
+  loader: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+};
+
+/* ----------------------------------------------------------------
+   ESTADO
+   ---------------------------------------------------------------- */
+let order = null;
+let ratingValue = 0;
+
+/* ----------------------------------------------------------------
+   UTILITÁRIOS
+   ---------------------------------------------------------------- */
+const brl = (v) =>
+  Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[c])
+  );
+
+function toast(message, type = "default", desc = "") {
+  const wrap = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.innerHTML = `<div class="t-title">${esc(message)}</div>${desc ? `<div class="t-desc">${esc(desc)}</div>` : ""}`;
+  wrap.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = "0";
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
+/* ----------------------------------------------------------------
+   RELÓGIO (tempo real)
+   ---------------------------------------------------------------- */
+function startClock() {
+  const el = document.getElementById("clock");
+  const tick = () => {
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ----------------------------------------------------------------
+   BUSCA A O.S. NO BANCO + ASSINA REALTIME (RNF03)
+   ---------------------------------------------------------------- */
+async function loadOrder() {
+  const { data, error } = await supabase
+    .from("service_orders")
+    .select("*")
+    .eq("code", OS_CODE)
+    .single();
+
+  if (error) {
+    toast("Não foi possível carregar a O.S.", "error");
+    document.getElementById("app").innerHTML =
+      '<div class="loading"><p style="color:#dc2626">Erro ao carregar a Ordem de Serviço.</p></div>';
+    return;
+  }
+
+  order = data;
+  render();
+
+  /* Assina atualizações em tempo real */
+  supabase
+    .channel(`service-order-${OS_CODE}`)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "service_orders" },
+      (payload) => {
+        const row = payload.new;
+        if (row.code === OS_CODE) {
+          order = row;
+          render();
+        }
+      }
+    )
+    .subscribe();
+}
+
+/* ----------------------------------------------------------------
+   AÇÕES — aprovar / recusar orçamento (RF14)
+   ---------------------------------------------------------------- */
+async function approveQuote() {
+  if (!order) return;
+  const { error } = await supabase
+    .from("service_orders")
+    .update({
+      quote_decision: "approved",
+      current_step: 3,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id);
+
+  if (error) {
+    toast("Não foi possível registrar a aprovação", "error");
+    return;
+  }
+  /* Atualização otimista — o realtime confirma em seguida */
+  order.quote_decision = "approved";
+  order.current_step = 3;
+  render();
+  toast("Orçamento aprovado", "success", "A assistência já foi notificada e iniciará o reparo.");
+}
+
+async function refuseQuote() {
+  if (!order) return;
+  const { error } = await supabase
+    .from("service_orders")
+    .update({
+      quote_decision: "refused",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id);
+
+  if (error) {
+    toast("Não foi possível registrar a recusa", "error");
+    return;
+  }
+  order.quote_decision = "refused";
+  render();
+  toast("Orçamento recusado", "default", "Seu aparelho será devolvido sem custo de reparo.");
+}
+
+/* ----------------------------------------------------------------
+   AVALIAÇÃO (RF17) — só após concluir
+   ---------------------------------------------------------------- */
+function setRating(n) {
+  ratingValue = n;
+  render();
+}
+async function submitRating() {
+  if (ratingValue === 0) {
+    toast("Selecione uma nota de 1 a 5 estrelas", "error");
+    return;
+  }
+  const { error } = await supabase
+    .from("service_orders")
+    .update({
+      rating: ratingValue,
+      rated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id);
+  if (error) {
+    toast("Não foi possível salvar a avaliação", "error");
+    return;
+  }
+  order.rating = ratingValue;
+  render();
+  toast("Obrigado pela avaliação!", "success", "Seu feedback ajuda outros clientes.");
+}
+
+/* ----------------------------------------------------------------
+   COPIAR LINK (RF13)
+   ---------------------------------------------------------------- */
+async function copyLink() {
+  const url = `${window.location.origin}${window.location.pathname}?os=${OS_CODE}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link de rastreio copiado", "success");
+  } catch {
+    toast("Não foi possível copiar o link", "error");
+  }
+}
+
+/* ----------------------------------------------------------------
+   RENDER
+   ---------------------------------------------------------------- */
+function render() {
+  if (!order) return;
+  const app = document.getElementById("app");
+
+  const currentIndex = order.current_step ?? 0;
+  const quoteDecision = order.quote_decision ?? "pending";
+  const total =
+    Number(order.quote_labor) + Number(order.quote_parts) + Number(order.quote_logistics);
+  const progress = Math.round(((currentIndex + 0.5) / STEPS.length) * 100);
+  const current = STEPS[currentIndex] ?? STEPS[0];
+
+  const clock = new Date().toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  /* Status de cada etapa */
+  const stepStatus = (i) =>
+    i < currentIndex ? "done" : i === currentIndex ? "current" : "pending";
+
+  /* Timeline HTML */
+  const timelineHTML = STEPS.map((step, i) => {
+    const status = stepStatus(i);
+    const dotIcon =
+      status === "done"
+        ? ICONS.checkCircle
+        : status === "current"
+          ? ICONS[step.icon]
+          : ICONS.circleDashed;
+    const at =
+      step.at ?? (status === "current" ? "Agora" : status === "pending" ? "Aguardando" : "");
+    const desc = status === "pending" ? step.description : step.detail;
+    return `
+      <li class="tl-item ${status}">
+        <span class="tl-dot">${dotIcon}</span>
+        <div class="tl-card">
+          <div class="top">
+            <p class="name">${esc(step.label)}</p>
+            <span class="at">${esc(at)}</span>
+          </div>
+          <p class="desc">${esc(desc)}</p>
+        </div>
+      </li>`;
+  }).join("");
+
+  /* Card de orçamento (RF14) */
+  let quoteHTML = "";
+  if (quoteDecision === "pending" && currentIndex === 2) {
+    quoteHTML = `
+      <section class="card quote-card">
+        <div class="quote-head">
+          ${ICONS.clipboard}
+          <h2>Orçamento aguardando sua aprovação</h2>
+        </div>
+        <dl class="quote-list">
+          <div class="line"><dt>Mão de obra</dt><dd class="val">${brl(order.quote_labor)}</dd></div>
+          <div class="line"><dt>${esc(order.quote_parts_label ?? "Peças")}</dt><dd class="val">${brl(order.quote_parts)}</dd></div>
+          <div class="line"><dt>Logística (coleta + entrega)</dt><dd class="val">${brl(order.quote_logistics)}</dd></div>
+          <div class="line total"><dt>Total</dt><dd class="val">${brl(total)}</dd></div>
+        </dl>
+        <p class="quote-hint">Prazo: 2 dias úteis após a aprovação · Garantia de 3 meses · Pagamento via PIX ou cartão somente após a aprovação.</p>
+        <div class="btn-row">
+          <button class="btn btn-brand" onclick="approveQuote()">${ICONS.checkCircle} Aprovar orçamento</button>
+          <button class="btn btn-ghost" onclick="refuseQuote()">${ICONS.xCircle} Recusar</button>
+        </div>
+      </section>`;
+  } else if (quoteDecision === "approved") {
+    quoteHTML = `
+      <section class="card banner ok">
+        ${ICONS.badge}
+        <p><strong>Orçamento aprovado</strong> — ${brl(total)}. Finalize o pagamento para liberar a entrega.</p>
+        <button class="btn btn-primary btn-sm">${ICONS.creditCard} Pagar com PIX ou cartão</button>
+      </section>`;
+  } else if (quoteDecision === "refused") {
+    quoteHTML = `
+      <section class="card banner no">
+        ${ICONS.xCircle}
+        <p><strong>Orçamento recusado.</strong> A devolução do aparelho será agendada sem custo de reparo.</p>
+      </section>`;
+  }
+
+  /* Avaliação (RF17) */
+  let ratingHTML = "";
+  if (currentIndex >= STEPS.length - 1) {
+    const stars = Array.from({ length: 5 }, (_, i) => {
+      const filled = i < (ratingValue || order.rating || 0);
+      return `<button onclick="setRating(${i + 1})" aria-label="${i + 1} estrelas">
+        <span style="color:${filled ? "var(--brand)" : "var(--border)"}">${ICONS.star}</span>
+      </button>`;
+    }).join("");
+    ratingHTML = `
+      <section class="card rating">
+        <p class="head">Avaliação do serviço</p>
+        <p class="sub">Dê uma nota de 1 a 5 estrelas e deixe um comentário sobre a assistência técnica.</p>
+        <div class="stars active">${stars}</div>
+        <textarea placeholder="Deixe um comentário (opcional)"></textarea>
+        <button class="btn btn-brand btn-sm" onclick="submitRating()">Enviar avaliação</button>
+      </section>`;
+  } else {
+    ratingHTML = `
+      <section class="card rating">
+        <p class="head">Avaliação do serviço</p>
+        <p class="sub">Disponível quando a O.S. estiver <strong>Concluída</strong>. Você poderá dar uma nota de 1 a 5 estrelas e deixar um comentário.</p>
+        <div class="stars">${Array.from({ length: 5 }, () => ICONS.star).join("")}</div>
+      </section>`;
+  }
+
+  app.innerHTML = `
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="topbar">
+          <div class="brand">
+            <span class="brand-badge">${ICONS.wrench}</span>
+            <span class="brand-text">Smart<strong>Fix</strong></span>
+          </div>
+          <div class="live-chip">
+            <span class="live-dot"></span>
+            ${ICONS.radio}
+            Tempo real · <span id="clock">${clock}</span>
+          </div>
+        </div>
+
+        <div class="hero-info">
+          <p class="label">Ordem de Serviço</p>
+          <h1>O.S. <span class="code">${esc(order.code)}</span></h1>
+          <p class="device">${esc(order.device)} · ${esc(order.issue)}</p>
+        </div>
+
+        <div class="progress-block">
+          <div class="progress-row">
+            <span class="pct">${progress}% concluído</span>
+            <span class="forecast">Previsão de entrega: ${esc(order.delivery_forecast ?? "a definir")}</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" style="width:${progress}%"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="card status-card">
+        <div class="row">
+          <span class="status-icon">${ICONS[current.icon]}</span>
+          <div class="text">
+            <p class="kicker">Status atual da O.S.</p>
+            <p class="title">${esc(current.label)}</p>
+            <p class="detail">${esc(current.detail)}</p>
+          </div>
+          <span class="chip-running">${ICONS.loader} Em andamento</span>
+        </div>
+      </section>
+
+      ${quoteHTML}
+
+      <section class="card logistics">
+        <div class="head">${ICONS.bike}<h2>Logística</h2></div>
+        <div class="grid">
+          <div class="box pickup">
+            <p class="kicker">Coleta realizada</p>
+            <p class="place">${ICONS.mapPin} Rua das Palmeiras, 240 — Centro · 01/09 às 09:12</p>
+          </div>
+          <div class="box delivery">
+            <p class="kicker">Entrega prevista</p>
+            <p class="place">${ICONS.mapPin} Mesmo endereço · 04/09 entre 14h e 18h</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="timeline">
+        <h2>Linha do tempo da O.S.</h2>
+        <p class="sub">Atualizada automaticamente sempre que a assistência técnica muda o status.</p>
+        <ol class="tl-list">${timelineHTML}</ol>
+      </section>
+
+      <section class="partner-row">
+        <div class="card partner">
+          <p class="kicker">Assistência credenciada</p>
+          <div class="info">
+            <span class="avatar">SC</span>
+            <div>
+              <p class="name">SmartCell Assistência ${ICONS.badge}</p>
+              <p class="meta">${ICONS.star} 4,9 · 1.240 serviços · Técnico: Rafael Souza</p>
+            </div>
+          </div>
+        </div>
+        <button class="btn-contact">${ICONS.message} Falar com a assistência</button>
+      </section>
+
+      <section class="card share">
+        <h2>Acompanhe de qualquer lugar</h2>
+        <p class="sub">Escaneie o QR Code ou use o link abaixo para abrir esta página sem login.</p>
+        <div class="body">
+          <div class="qr-box" id="qrcode"></div>
+          <div class="url-box">
+            <p class="url-text" id="url-text"></p>
+            <button class="btn-copy" onclick="copyLink()">${ICONS.copy} Copiar link de rastreio</button>
+          </div>
+        </div>
+      </section>
+
+      ${ratingHTML}
+
+      <p class="footer-note">SmartFix · Dados protegidos conforme a LGPD — visíveis apenas às partes envolvidas nesta Ordem de Serviço.</p>
+    </main>
+  `;
+
+  startClock();
+
+  /* Gera o QR Code (RF13) */
+  const url = `${window.location.origin}${window.location.pathname}?os=${OS_CODE}`;
+  const qrEl = document.getElementById("qrcode");
+  if (qrEl) {
+    qrEl.innerHTML = "";
+    new QRCode(qrEl, { text: url, width: 104, height: 104, correctLevel: QRCode.CorrectLevel.M });
+  }
+  const urlText = document.getElementById("url-text");
+  if (urlText) urlText.textContent = url;
+}
+
+/* ----------------------------------------------------------------
+   INICIALIZAÇÃO
+   ---------------------------------------------------------------- */
+window.addEventListener("DOMContentLoaded", loadOrder);
+
 
 
 
