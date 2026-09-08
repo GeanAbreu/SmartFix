@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartFix — Rastreio da O.S. em tempo real</title>
+  <meta name="description" content="Acompanhe em tempo real cada etapa da sua Ordem de Serviço SmartFix: coleta, diagnóstico, aprovação do orçamento, reparo e entrega." />
+  <meta property="og:title" content="SmartFix — Rastreio da O.S. em tempo real" />
+  <meta property="og:description" content="Página de tracking da SmartFix: transparência total no diagnóstico, orçamento, reparo e logística do seu aparelho." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Supabase JS client (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <!-- QRCode (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.16/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Container para toasts -->
+  <div id="toasts" class="toasts"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
