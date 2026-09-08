@@ -140,4 +140,75 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck, Truck, Wrench } from "lucide-react";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "SmartFix — Assistência técnica com coleta e entrega" },
+      {
+        name: "description",
+        content:
+          "Plataforma SmartFix: solicite orçamentos de reparo, acompanhe sua ordem de serviço e gerencie seus dados cadastrais e telefones de contato.",
+      },
+      { property: "og:title", content: "SmartFix — Assistência técnica com coleta e entrega" },
+      {
+        property: "og:description",
+        content: "Conecte-se a assistências técnicas credenciadas com transparência e rastreio.",
+      },
+    ],
+  }),
+  component: Index,
+});
+
+function Index() {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="bg-brand-gradient">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5">
+          <span className="text-xl font-black tracking-tight text-primary-foreground">
+            Smart<span className="opacity-80">Fix</span>
+          </span>
+          <Button asChild variant="secondary" size="sm">
+            <Link to="/auth">Entrar</Link>
+          </Button>
+        </div>
+        <div className="mx-auto max-w-5xl px-4 pb-16 pt-8">
+          <h1 className="max-w-2xl text-3xl font-black leading-tight text-primary-foreground sm:text-5xl">
+            Seu aparelho consertado sem sair de casa.
+          </h1>
+          <p className="mt-4 max-w-xl text-primary-foreground/85">
+            Orçamentos transparentes de assistências credenciadas, coleta agendada e
+            acompanhamento em tempo real.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild variant="secondary" size="lg">
+              <Link to="/perfil">Meus dados cadastrais</Link>
+            </Button>
+            <Button asChild variant="accent" size="lg">
+              <Link to="/auth">Criar conta</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto grid max-w-5xl gap-4 px-4 py-12 sm:grid-cols-3">
+        {[
+          { icon: Wrench, title: "Diagnóstico claro", text: "Orçamento detalhado de peças e mão de obra." },
+          { icon: Truck, title: "Coleta e entrega", text: "Agende a retirada e acompanhe o trajeto." },
+          { icon: ShieldCheck, title: "Pagamento seguro", text: "PIX ou cartão com repasse protegido." },
+        ].map(({ icon: Icon, title, text }) => (
+          <article key={title} className="rounded-xl border border-border bg-card p-5 shadow-card">
+            <Icon className="text-accent" />
+            <h2 className="mt-3 font-semibold">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+          </article>
+        ))}
+      </main>
+    </div>
+  );
 }
+
