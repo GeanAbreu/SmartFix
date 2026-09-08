@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel Admin - Credenciamento RF19</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="card">
+    <h2>Aprovação de Parceiro</h2>
+    <div class="info">
+      <p><strong>Assistência:</strong> <span id="nomeParceiro">NETFIXER</span></p>
+      <p><strong>CNPJ:</strong> <span id="cnpjParceiro">12.345.678/0001-95</span></p>
+      <p><strong>Status Atual:</strong> <span id="statusAtual">Carregando...</span></p>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-aprovar" onclick="processarStatus('Ativo')">Aprovar</button>
+      <button class="btn-recusar" onclick="processarStatus('Inativo')">Recusar</button>
+    </div>
+
+    <p id="statusMessage"></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
