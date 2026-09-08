@@ -1,0 +1,559 @@
+-- =====================================================
+-- SMARTFIX
+-- NOVO BANCO DE DADOS
+-- ORDENS DE SERVIÇO + SERVIÇOS + AVALIAÇÕES
+-- PostgreSQL / Supabase
+-- =====================================================
+
+
+-- =====================================================
+-- 1. CRIAR SCHEMA
+-- =====================================================
+
+CREATE SCHEMA IF NOT EXISTS ordens_de_serviço;
+
+
+-- =====================================================
+-- 2. CLIENTES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.clients (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    full_name VARCHAR(150) NOT NULL,
+
+    username VARCHAR(50) NOT NULL UNIQUE,
+
+    email VARCHAR(150) NOT NULL UNIQUE,
+
+    phone VARCHAR(20),
+
+    birth_date DATE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+);
+
+
+-- =====================================================
+-- 3. ENDEREÇOS DOS CLIENTES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.client_addresses (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    client_id UUID NOT NULL,
+
+    street VARCHAR(150) NOT NULL,
+
+    number VARCHAR(20) NOT NULL,
+
+    complement VARCHAR(100),
+
+    neighborhood VARCHAR(100),
+
+    city VARCHAR(100) NOT NULL,
+
+    state VARCHAR(2) NOT NULL,
+
+    postal_code VARCHAR(10) NOT NULL,
+
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_client_addresses_client
+
+        FOREIGN KEY (client_id)
+
+        REFERENCES smartfix.clients(id)
+
+        ON DELETE CASCADE
+
+);
+
+
+-- =====================================================
+-- 4. APARELHOS DOS CLIENTES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.client_devices (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    client_id UUID NOT NULL,
+
+    device_type VARCHAR(50) NOT NULL,
+
+    brand VARCHAR(80) NOT NULL,
+
+    model VARCHAR(100) NOT NULL,
+
+    serial_number VARCHAR(100),
+
+    description TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_client_devices_client
+
+        FOREIGN KEY (client_id)
+
+        REFERENCES smartfix.clients(id)
+
+        ON DELETE CASCADE
+
+);
+
+
+-- =====================================================
+-- 5. ASSISTÊNCIAS TÉCNICAS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.partners (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    business_name VARCHAR(150) NOT NULL,
+
+    document VARCHAR(30) UNIQUE,
+
+    email VARCHAR(150) NOT NULL UNIQUE,
+
+    phone VARCHAR(20),
+
+    description TEXT,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_partners_status
+
+        CHECK (status IN ('active', 'inactive'))
+
+);
+
+
+-- =====================================================
+-- 6. SERVIÇOS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.services (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    partner_id UUID NOT NULL,
+
+    name VARCHAR(150) NOT NULL,
+
+    description TEXT,
+
+    base_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+
+    estimated_days INTEGER NOT NULL DEFAULT 1,
+
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_services_price
+
+        CHECK (base_price >= 0),
+
+    CONSTRAINT chk_services_days
+
+        CHECK (estimated_days >= 0),
+
+    CONSTRAINT fk_services_partner
+
+        FOREIGN KEY (partner_id)
+
+        REFERENCES smartfix.partners(id)
+
+        ON DELETE CASCADE
+
+);
+
+
+-- =====================================================
+-- 7. ORDENS DE SERVIÇO
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.orders (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    order_number VARCHAR(30) NOT NULL UNIQUE,
+
+    client_id UUID NOT NULL,
+
+    device_id UUID NOT NULL,
+
+    partner_id UUID NOT NULL,
+
+    problem_description TEXT NOT NULL,
+
+    diagnosis TEXT,
+
+    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+
+    total_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+
+    opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    completed_at TIMESTAMPTZ,
+
+    CONSTRAINT chk_orders_total
+
+        CHECK (total_amount >= 0),
+
+    CONSTRAINT chk_orders_status
+
+        CHECK (
+
+            status IN (
+
+                'pending',
+
+                'approved',
+
+                'in_progress',
+
+                'waiting_parts',
+
+                'ready',
+
+                'completed',
+
+                'cancelled'
+
+            )
+
+        ),
+
+    CONSTRAINT fk_orders_client
+
+        FOREIGN KEY (client_id)
+
+        REFERENCES smartfix.clients(id)
+
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_orders_device
+
+        FOREIGN KEY (device_id)
+
+        REFERENCES smartfix.client_devices(id)
+
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_orders_partner
+
+        FOREIGN KEY (partner_id)
+
+        REFERENCES smartfix.partners(id)
+
+        ON DELETE RESTRICT
+
+);
+
+
+-- =====================================================
+-- 8. SERVIÇOS DA ORDEM
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.order_services (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    order_id UUID NOT NULL,
+
+    service_id UUID NOT NULL,
+
+    quantity INTEGER NOT NULL DEFAULT 1,
+
+    unit_price NUMERIC(10,2) NOT NULL,
+
+    subtotal NUMERIC(10,2)
+
+        GENERATED ALWAYS AS (quantity * unit_price) STORED,
+
+    CONSTRAINT chk_order_services_quantity
+
+        CHECK (quantity > 0),
+
+    CONSTRAINT chk_order_services_price
+
+        CHECK (unit_price >= 0),
+
+    CONSTRAINT fk_order_services_order
+
+        FOREIGN KEY (order_id)
+
+        REFERENCES smartfix.orders(id)
+
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_order_services_service
+
+        FOREIGN KEY (service_id)
+
+        REFERENCES smartfix.services(id)
+
+        ON DELETE RESTRICT
+
+);
+
+
+-- =====================================================
+-- 9. HISTÓRICO DE STATUS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.order_status_history (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    order_id UUID NOT NULL,
+
+    previous_status VARCHAR(30),
+
+    new_status VARCHAR(30) NOT NULL,
+
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    notes TEXT,
+
+    CONSTRAINT fk_order_status_history_order
+
+        FOREIGN KEY (order_id)
+
+        REFERENCES smartfix.orders(id)
+
+        ON DELETE CASCADE
+
+);
+
+
+-- =====================================================
+-- 10. AVALIAÇÕES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS smartfix.reviews (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    order_id UUID NOT NULL UNIQUE,
+
+    client_id UUID NOT NULL,
+
+    partner_id UUID NOT NULL,
+
+    rating INTEGER NOT NULL,
+
+    comment TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_reviews_rating
+
+        CHECK (rating BETWEEN 1 AND 5),
+
+    CONSTRAINT fk_reviews_order
+
+        FOREIGN KEY (order_id)
+
+        REFERENCES smartfix.orders(id)
+
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_reviews_client
+
+        FOREIGN KEY (client_id)
+
+        REFERENCES smartfix.clients(id)
+
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_reviews_partner
+
+        FOREIGN KEY (partner_id)
+
+        REFERENCES smartfix.partners(id)
+
+        ON DELETE RESTRICT
+
+);
+
+
+-- =====================================================
+-- 11. ÍNDICES
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_addresses_client
+
+    ON smartfix.client_addresses(client_id);
+
+CREATE INDEX IF NOT EXISTS idx_devices_client
+
+    ON smartfix.client_devices(client_id);
+
+CREATE INDEX IF NOT EXISTS idx_services_partner
+
+    ON smartfix.services(partner_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_client
+
+    ON smartfix.orders(client_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_partner
+
+    ON smartfix.orders(partner_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_status
+
+    ON smartfix.orders(status);
+
+CREATE INDEX IF NOT EXISTS idx_order_services_order
+
+    ON smartfix.order_services(order_id);
+
+CREATE INDEX IF NOT EXISTS idx_order_history_order
+
+    ON smartfix.order_status_history(order_id);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_partner
+
+    ON smartfix.reviews(partner_id);
+
+
+-- =====================================================
+-- 12. ATUALIZAR TOTAL DA ORDEM AUTOMATICAMENTE
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION smartfix.update_order_total()
+
+RETURNS TRIGGER
+
+LANGUAGE plpgsql
+
+AS $$
+
+BEGIN
+
+    UPDATE smartfix.orders
+
+    SET total_amount = COALESCE(
+
+        (
+
+            SELECT SUM(subtotal)
+
+            FROM smartfix.order_services
+
+            WHERE order_id = COALESCE(NEW.order_id, OLD.order_id)
+
+        ),
+
+        0
+
+    )
+
+    WHERE id = COALESCE(NEW.order_id, OLD.order_id);
+
+    RETURN COALESCE(NEW, OLD);
+
+END;
+
+$$;
+
+
+CREATE OR REPLACE TRIGGER trigger_update_order_total
+
+AFTER INSERT OR UPDATE OR DELETE
+
+ON smartfix.order_services
+
+FOR EACH ROW
+
+EXECUTE FUNCTION smartfix.update_order_total();
+
+
+-- =====================================================
+-- 13. REGISTRAR HISTÓRICO DE STATUS AUTOMATICAMENTE
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION smartfix.register_order_status()
+
+RETURNS TRIGGER
+
+LANGUAGE plpgsql
+
+AS $$
+
+BEGIN
+
+    IF TG_OP = 'INSERT' THEN
+
+        INSERT INTO smartfix.order_status_history (
+
+            order_id,
+
+            previous_status,
+
+            new_status
+
+        )
+
+        VALUES (
+
+            NEW.id,
+
+            NULL,
+
+            NEW.status
+
+        );
+
+    ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+
+        INSERT INTO smartfix.order_status_history (
+
+            order_id,
+
+            previous_status,
+
+            new_status
+
+        )
+
+        VALUES (
+
+            NEW.id,
+
+            OLD.status,
+
+            NEW.status
+
+        );
+
+    END IF;
+
+    RETURN NEW;
+
+END;
+
+$$;
+
+
+CREATE OR REPLACE TRIGGER trigger_register_order_status
+
+AFTER INSERT OR UPDATE OF status
+
+ON smartfix.orders
+
+FOR EACH ROW
+
+EXECUTE FUNCTION smartfix.register_order_status();
