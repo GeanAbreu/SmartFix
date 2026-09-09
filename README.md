@@ -1,114 +1,354 @@
 # SmartFix
 
-Plataforma de gerenciamento de reparos eletrônicos com Next.js App Router,
-React, TypeScript, Sequelize e PostgreSQL. A aplicação fica em `smartfix-app/`.
+O **SmartFix** é uma plataforma web criada para organizar e facilitar o processo de manutenção de dispositivos eletrônicos, conectando **clientes, assistências técnicas e administradores** em um único sistema.
 
-## Funcionalidades
+O projeto foi planejado para centralizar todo o fluxo de um reparo, desde o cadastro do aparelho até a conclusão do serviço, tornando o processo mais organizado, transparente e fácil de acompanhar.
 
-- Cadastro, login, sessão assinada, logout e dashboards por papel.
-- Perfil do cliente e gestão de endereços, com endereço principal protegido.
-- Dispositivos com foto, apelido, série/IMEI, busca e filtro de categoria.
-- Solicitação de reparo com triagem, sintomas e checklist de acessórios.
-- Catálogo de serviços da assistência, orçamento por item, aprovação pelo
-  cliente, acompanhamento de etapas, histórico e avaliação após conclusão.
-- Aprovação administrativa de parceiros e notificações internas persistidas.
-- Recuperação de senha por e-mail e login Google após vínculo explícito,
-  habilitados quando os serviços externos estão configurados.
-- Central de ajuda; o chat da central continua uma demonstração identificada.
+## Sobre o projeto
+
+A ideia do SmartFix surgiu da necessidade de melhorar a comunicação entre clientes e assistências técnicas durante o processo de manutenção de aparelhos eletrônicos.
+
+Em muitos casos, informações sobre orçamento, andamento do reparo, diagnóstico e conclusão do serviço ficam espalhadas entre mensagens, ligações ou controles manuais.
+
+O SmartFix foi planejado para concentrar essas informações em uma única plataforma.
+
+O sistema trabalha com três tipos principais de usuários:
+
+* **Cliente:** cadastra seus dispositivos, solicita reparos, acompanha ordens e aprova orçamentos.
+* **Parceiro:** representa a assistência técnica responsável pelo atendimento e execução dos serviços.
+* **Administrador:** controla e aprova os parceiros cadastrados na plataforma.
+
+## Fluxo principal
+
+O fluxo de uma solicitação de reparo foi planejado da seguinte forma:
+
+```text
+Cliente cadastra o dispositivo
+        ↓
+Solicita um reparo
+        ↓
+Assistência realiza a triagem
+        ↓
+Diagnóstico do aparelho
+        ↓
+Criação do orçamento
+        ↓
+Cliente aprova ou rejeita
+        ↓
+Reparo é realizado
+        ↓
+Cliente acompanha as etapas
+        ↓
+Serviço é concluído
+        ↓
+Cliente pode avaliar o atendimento
+```
+
+Dessa forma, tanto o cliente quanto a assistência conseguem acompanhar todas as etapas do serviço dentro da própria plataforma.
+
+## Tecnologias utilizadas
+
+O SmartFix está sendo desenvolvido com:
+
+* Next.js
+* React
+* TypeScript
+* Node.js
+* Sequelize
+* PostgreSQL
+* CSS Modules
+
+A aplicação principal está localizada em:
+
+```text
+smartfix-app/
+```
 
 ## Arquitetura
 
+O projeto utiliza o **App Router do Next.js** e foi estruturado em camadas para manter uma separação clara entre interface, regras de negócio e persistência de dados.
+
 ```text
-View (app/**/*.tsx)
-  -> fetch /api/...
-  -> Route Handler (app/api/**/route.ts)
-  -> Routes (src/routes)
-  -> Controllers (src/controllers)
-  -> Models / Services
-  -> Sequelize -> PostgreSQL
+View
+  ↓
+API Route
+  ↓
+Routes
+  ↓
+Controllers
+  ↓
+Models / Services
+  ↓
+Sequelize
+  ↓
+PostgreSQL
 ```
 
-O navegador não acessa o banco diretamente. Não existe um servidor Express
-paralelo nem aplicações Vite concorrentes. O frontend usa CSS global e CSS
-Modules. Controllers fazem validação e autorização no servidor.
+O navegador não acessa o banco de dados diretamente.
 
-Clientes, parceiros, endereços e aparelhos mantêm os models existentes. Ordens
-com triagem, orçamento, histórico e avaliação são agregados JSONB na tabela
-`public.workflow_records`, que também guarda serviços, notificações e registros
-de autenticação auxiliares. As operações de escrita são serializadas em
-transação. Os totais dos orçamentos são derivados de valores inteiros em centavos.
+As validações, regras de negócio e permissões são processadas no servidor.
 
-## Instalação e execução
+O projeto também foi planejado para funcionar como uma única aplicação, sem a necessidade de manter um servidor Express separado ou diferentes aplicações frontend concorrentes.
 
-Use Node.js compatível com Next.js 16 (validado com Node 24).
+## Funcionalidades atuais
 
-```powershell
-cd smartfix-app
-npm ci
-Copy-Item .env.example .env.local
-npm run dev
+Atualmente, o SmartFix conta com funcionalidades como:
+
+* Cadastro de usuários.
+* Login e logout.
+* Sessões autenticadas.
+* Recuperação de senha.
+* Login com Google após vínculo da conta.
+* Perfil do cliente.
+* Cadastro e gerenciamento de endereços.
+* Cadastro de dispositivos.
+* Foto do dispositivo.
+* Apelido, número de série e IMEI.
+* Busca e filtro de dispositivos.
+* Solicitação de reparos.
+* Triagem de aparelhos.
+* Registro de sintomas.
+* Checklist de acessórios.
+* Catálogo de serviços.
+* Criação de orçamento por item.
+* Aprovação ou rejeição de orçamento pelo cliente.
+* Acompanhamento das etapas do reparo.
+* Histórico das ordens.
+* Notificações internas.
+* Avaliação após conclusão do serviço.
+* Aprovação administrativa de parceiros.
+* Dashboards separados por tipo de usuário.
+
+## Banco de dados
+
+O projeto utiliza **PostgreSQL com Sequelize**.
+
+Entidades como clientes, parceiros, endereços e dispositivos possuem seus próprios models.
+
+Parte do fluxo operacional do sistema também utiliza registros armazenados em estruturas JSONB no PostgreSQL, incluindo informações relacionadas a:
+
+* ordens;
+* triagens;
+* orçamentos;
+* histórico;
+* avaliações;
+* serviços;
+* notificações.
+
+Os valores dos orçamentos são tratados internamente em **centavos**, evitando problemas de arredondamento com valores monetários.
+
+## Estrutura do projeto
+
+A estrutura principal segue aproximadamente o formato:
+
+```text
+smartfix-app/
+│
+├── app/
+│   ├── api/
+│   ├── cliente/
+│   ├── parceiro/
+│   ├── admin/
+│   ├── cadastro/
+│   ├── login/
+│   └── ...
+│
+├── src/
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│   └── ...
+│
+├── Database/
+│   ├── migrations/
+│   └── tables/
+│
+├── docs/
+├── public/
+├── package.json
+└── .env.example
 ```
-
-Acesse `http://localhost:3000`. Preencha `DATABASE_URL` e `SESSION_SECRET` em
-`.env.local`; esse arquivo não é versionado. Para PostgreSQL local, normalmente
-use `DB_SSL=false`. Não desabilite a verificação de certificado em um banco
-remoto sem avaliar a configuração do provedor.
-
-Em development, sem `DATABASE_URL`, a aplicação usa `.smartfix-data/auth.json`
-com hashes bcrypt e gravação serializada. Remova a URL de exemplo para usar
-esse modo. `SMARTFIX_LOCAL_DATA_DIR` permite escolher uma pasta isolada de
-ambiente. Em produção são obrigatórios banco e segredo de sessão.
-
-Gere um segredo de sessão:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-```
-
-## Atualização de uma instalação existente
-
-Antes de executar esta versão com PostgreSQL, aplique
-[`Database/migrations/20260909_contributions.sql`](Database/migrations/20260909_contributions.sql)
-com a conta de migration no banco correto. O script adiciona dois campos aos
-aparelhos e a tabela de workflow, sem recriar os usuários ou aplicar
-`sequelize.sync()`.
-
-A conta de servidor precisa de acesso à nova tabela; usuários de navegador
-Supabase não recebem acesso. A aplicação não executa migrations automaticamente.
-Os SQLs legados em `Database/tables/` são materiais históricos e não um instalador
-completo: compare-os com os models antes de provisionar um banco vazio.
-
-## Configurações opcionais
-
-| Variável | Uso |
-| --- | --- |
-| `APP_URL` | Origem pública da aplicação; HTTPS em produção. |
-| `ADMIN_USER_IDS` | IDs de contas previamente cadastradas, separados por vírgula. Vazio bloqueia o painel administrativo. |
-| `RESEND_API_KEY`, `MAIL_FROM` | Recuperação de senha e e-mail de credenciamento. O remetente precisa ser validado no provedor. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Login Google, com callback `${APP_URL}/api/auth/google/callback`. |
-
-Administradores acessam `/admin/parceiros` com sua sessão normal. O usuário
-vincula o Google pelo perfil ou dashboard de parceiro antes do primeiro login
-social. A recuperação de senha usa um link de uso único com validade de 15
-minutos e invalida as sessões anteriores. Sem provedor de e-mail configurado,
-a recuperação informa indisponibilidade; as notificações internas funcionam.
 
 ## Rotas principais
 
-| Área | Rotas |
-| --- | --- |
-| Conta | `/cadastro`, `/login`, `/esqueci-senha`, `/redefinir-senha` |
-| Cliente | `/cliente/dashboard`, `/cliente/perfil`, `/cliente/enderecos`, `/cliente/dispositivos`, `/cliente/ordens`, `/cliente/notificacoes`, `/cliente/ajuda` |
-| Parceiro | `/parceiro/dashboard`, `/parceiro/ordens`, `/parceiro/servicos`, `/parceiro/notificacoes` |
-| Administração | `/admin/parceiros` |
+### Conta
 
-APIs novas: `/api/orders`, `/api/orders/:id`, `/api/services`, `/api/partners`,
-`/api/partners/:id/approval`, `/api/notifications`, `/api/notifications/:id`,
-`PATCH /api/clients/me` e endpoints de recuperação/Google em `/api/auth`.
-As APIs anteriores de autenticação, endereços e dispositivos continuam válidas.
-Respostas JSON usam `{ success: true, data }` ou `{ success: false, message }`.
+```text
+/cadastro
+/login
+/esqueci-senha
+/redefinir-senha
+```
+
+### Cliente
+
+```text
+/cliente/dashboard
+/cliente/perfil
+/cliente/enderecos
+/cliente/dispositivos
+/cliente/ordens
+/cliente/notificacoes
+/cliente/ajuda
+```
+
+### Parceiro
+
+```text
+/parceiro/dashboard
+/parceiro/ordens
+/parceiro/servicos
+/parceiro/notificacoes
+```
+
+### Administração
+
+```text
+/admin/parceiros
+```
+
+## Principais APIs
+
+Entre as APIs utilizadas no projeto estão:
+
+```text
+/api/orders
+/api/orders/:id
+
+/api/services
+
+/api/partners
+/api/partners/:id/approval
+
+/api/notifications
+/api/notifications/:id
+
+/api/clients/me
+```
+
+Também existem endpoints relacionados a autenticação em:
+
+```text
+/api/auth
+```
+
+As respostas seguem o padrão:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+ou, em caso de erro:
+
+```json
+{
+  "success": false,
+  "message": "Descrição do erro"
+}
+```
+
+## Executando o projeto
+
+É necessário utilizar uma versão do Node.js compatível com **Next.js 16**.
+
+O projeto foi validado com Node.js 24.
+
+### 1. Entre na pasta da aplicação
+
+```powershell
+cd smartfix-app
+```
+
+### 2. Instale as dependências
+
+```powershell
+npm ci
+```
+
+### 3. Crie o arquivo de ambiente
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+### 4. Configure as variáveis principais
+
+```env
+DATABASE_URL=
+SESSION_SECRET=
+```
+
+### 5. Execute o projeto
+
+```powershell
+npm run dev
+```
+
+Depois acesse:
+
+```text
+http://localhost:3000
+```
+
+## Variáveis opcionais
+
+O projeto também possui suporte para algumas configurações adicionais:
+
+```env
+APP_URL=
+ADMIN_USER_IDS=
+RESEND_API_KEY=
+MAIL_FROM=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+SMARTFIX_LOCAL_DATA_DIR=
+```
+
+Essas variáveis permitem configurar recursos como:
+
+* URL pública da aplicação;
+* usuários administradores;
+* recuperação de senha por e-mail;
+* login com Google;
+* diretório de dados locais em desenvolvimento.
+
+## Desenvolvimento local sem banco
+
+Durante o desenvolvimento, caso `DATABASE_URL` não esteja configurada, a aplicação pode utilizar armazenamento local em:
+
+```text
+.smartfix-data/auth.json
+```
+
+Esse modo utiliza hashes bcrypt e gravação serializada.
+
+Em produção, banco de dados e segredo de sessão são obrigatórios.
+
+## Atualização do banco
+
+Para instalações existentes que utilizam PostgreSQL, pode ser necessário aplicar a migration:
+
+```text
+Database/migrations/20260909_contributions.sql
+```
+
+A aplicação não executa migrations automaticamente.
+
+Os arquivos existentes em:
+
+```text
+Database/tables/
+```
+
+são materiais históricos do projeto e não devem ser considerados um instalador completo do banco.
 
 ## Validação
+
+Antes de integrar novas alterações ao projeto, podem ser executados:
 
 ```powershell
 npm run lint
@@ -118,14 +358,73 @@ npm run build
 npm audit
 ```
 
-Os testes incluem persistência em pasta temporária, isolamento entre clientes,
-permissões administrativas, transições de ordens, orçamento, avaliações,
-notificações, recuperação de senha e revogação de sessões. Não usam o banco ou
-os provedores de produção.
+Os testes verificam principalmente:
 
-A integração mantém o histórico das contribuições de todas as branches. Veja
-[`docs/integracao-branches.md`](docs/integracao-branches.md) para o mapeamento dos
-protótipos, decisões de adaptação e configuração por ambiente.
+* autenticação;
+* persistência;
+* isolamento entre clientes;
+* permissões administrativas;
+* transições de ordens;
+* orçamento;
+* avaliações;
+* notificações;
+* recuperação de senha;
+* revogação de sessões.
 
-Pagamentos, logística real e chat em tempo real continuam fora do escopo
-implementado. O acompanhamento de ordens atualiza por consulta a cada 30 segundos.
+## Como o projeto está sendo desenvolvido
+
+O SmartFix ainda está em desenvolvimento e vem sendo construído de forma incremental.
+
+Durante o desenvolvimento, diferentes protótipos, telas e funcionalidades foram sendo integrados e adaptados para manter uma única estrutura de projeto.
+
+A proposta é evitar soluções duplicadas e manter uma arquitetura centralizada, utilizando o próprio Next.js tanto para a interface quanto para as APIs da aplicação.
+
+O desenvolvimento está sendo organizado para permitir a expansão futura da plataforma sem comprometer as funcionalidades já existentes.
+
+Mais informações sobre a integração das diferentes partes do projeto estão disponíveis em:
+
+```text
+docs/integracao-branches.md
+```
+
+## Funcionalidades futuras
+
+Algumas funcionalidades ainda não fazem parte do escopo atual, mas podem ser adicionadas futuramente:
+
+* Pagamentos online.
+* Chat em tempo real.
+* Retirada e entrega de dispositivos.
+* Integração com serviços de logística.
+* Atualizações em tempo real por WebSocket.
+* Relatórios administrativos.
+* Métricas de desempenho das assistências.
+* Sistema de reputação de parceiros.
+* Aplicativo mobile.
+
+## Objetivo do SmartFix
+
+O objetivo do SmartFix é tornar o processo de assistência técnica mais organizado, transparente e simples para todos os envolvidos.
+
+Para o cliente, a plataforma permite acompanhar o que está acontecendo com seu aparelho.
+
+Para a assistência técnica, o sistema centraliza informações sobre clientes, dispositivos, ordens, diagnósticos, serviços e orçamentos.
+
+A ideia é transformar um processo normalmente descentralizado em um fluxo digital único:
+
+```text
+Cliente
+   ↓
+SmartFix
+   ↓
+Assistência Técnica
+   ↓
+Triagem → Orçamento → Reparo → Conclusão
+   ↓
+Acompanhamento pelo cliente
+```
+
+## Status
+
+**Projeto em desenvolvimento.**
+
+As principais funcionalidades relacionadas a autenticação, clientes, parceiros, dispositivos, ordens de reparo, orçamento, acompanhamento, notificações e administração já fazem parte da estrutura atual do SmartFix.
