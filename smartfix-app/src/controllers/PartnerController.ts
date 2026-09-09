@@ -16,7 +16,7 @@ import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 export class PartnerController {
   static async me(request: NextRequest) {
     try {
-      const session = requireSession(request);
+      const session = await requireSession(request);
 
       if (session.role !== "partner") {
         return noStoreResponse(NextResponse.json(

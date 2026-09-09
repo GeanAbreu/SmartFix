@@ -38,6 +38,9 @@ export default function DeviceManager() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const filtered = devices.filter((device) => (!category || device.tipo === category) && [device.marca, device.modelo, device.apelido, device.numeroSerie].join(" ").toLowerCase().includes(query.toLowerCase()));
 
   const brands = getDeviceBrands(form.tipo);
   const models = getDeviceModels(form.tipo, form.marca);
@@ -73,7 +76,7 @@ export default function DeviceManager() {
 
   function openEdit(device: ClientDevice) {
     setEditingId(device.id);
-    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl });
+    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl, apelido: device.apelido || "", numeroSerie: device.numeroSerie || "" });
     setError("");
     setOpen(true);
   }
@@ -183,10 +186,12 @@ export default function DeviceManager() {
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && !open && <p className={styles.error} role="alert">{error}</p>}
 
+        <div className={styles.formGrid}><label>Buscar por aparelho, apelido ou série<input value={query} onChange={(event) => setQuery(event.target.value)} /></label><label>Categoria<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Todas</option>{DEVICE_TYPES.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label></div>
+        {!loading && devices.length > 0 && !filtered.length && <p>Nenhum dispositivo corresponde à busca.</p>}
         {loading ? <div className={styles.empty}>Carregando dispositivos...</div> : devices.length === 0 ? (
           <div className={styles.empty}><span>⌁</span><strong>Nenhum dispositivo cadastrado</strong><p>Adicione seu primeiro aparelho para começar.</p><button type="button" onClick={openNew}>Cadastrar dispositivo</button></div>
         ) : (
-          <div className={styles.grid}>{devices.map((device) => (
+          <div className={styles.grid}>{filtered.map((device) => (
             <article key={device.id} className={styles.card}>
               <div className={styles.photo}>
                 <Image src={device.fotoUrl} alt={`${device.marca} ${device.modelo}`} fill sizes="(max-width: 700px) 100vw, 360px" unoptimized />
@@ -194,7 +199,7 @@ export default function DeviceManager() {
               </div>
               <div className={styles.cardBody}>
                 <p>{device.marca}</p>
-                <h3>{device.modelo}</h3>
+                <h3>{device.apelido || device.modelo}</h3><p>{device.numeroSerie}</p><Link href="/cliente/ordens">Solicitar reparo</Link>
                 <div className={styles.actions}>
                   <button type="button" onClick={() => openEdit(device)}>Editar</button>
                   <button type="button" className={styles.delete} onClick={() => setPendingDelete(device)}>Excluir</button>
@@ -210,6 +215,7 @@ export default function DeviceManager() {
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.formHeader}><div><small>MEU APARELHO</small><h2 id="device-title">{editingId ? "Editar dispositivo" : "Adicionar dispositivo"}</h2></div><button type="button" onClick={closeModal} aria-label="Fechar">×</button></div>
           <div className={styles.formGrid}>
+            <label>Apelido<input maxLength={100} value={form.apelido || ""} onChange={(event) => setForm({ ...form, apelido: event.target.value })} /></label><label>Número de série / IMEI<input maxLength={100} value={form.numeroSerie || ""} onChange={(event) => setForm({ ...form, numeroSerie: event.target.value })} /></label>
             <label>Tipo de dispositivo *<select value={form.tipo} onChange={(event) => selectType(event.target.value)} required><option value="">Selecione o tipo</option>{DEVICE_TYPES.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}</select></label>
             <label>Marca *<select value={form.marca} onChange={(event) => selectBrand(event.target.value)} disabled={!form.tipo} required><option value="">Selecione a marca</option>{brands.map((marca) => <option key={marca} value={marca}>{marca}</option>)}</select></label>
             <label className={styles.wide}>Modelo *<select value={form.modelo} onChange={(event) => setForm((current) => ({ ...current, modelo: event.target.value }))} disabled={!form.marca} required><option value="">Selecione o modelo</option>{models.map((modelo) => <option key={modelo} value={modelo}>{modelo}</option>)}</select></label>

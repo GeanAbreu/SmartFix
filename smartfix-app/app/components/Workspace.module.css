@@ -1,0 +1,142 @@
+.page {
+  min-height: 100vh;
+  background: #f2f5f9;
+  color: #14253d;
+  padding: 24px;
+}
+.inner {
+  max-width: 1100px;
+  margin: auto;
+}
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid #d7dee8;
+  margin-bottom: 32px;
+}
+.nav a {
+  color: #173b67;
+  font-weight: 600;
+}
+.page h1 {
+  font-size: 32px;
+  margin: 0 0 12px;
+}
+.page h2 {
+  font-size: 21px;
+  margin: 0 0 14px;
+}
+.page h3 {
+  margin: 8px 0;
+}
+.card {
+  padding: 24px;
+  background: white;
+  border: 1px solid #d7dee8;
+  border-radius: 14px;
+  margin: 20px 0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.form {
+  display: grid;
+  gap: 16px;
+}
+.page label {
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.page input:not([type="checkbox"]),
+.page select,
+.page textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #a9b6c8;
+  border-radius: 7px;
+  color: #14253d;
+  background: white;
+  font: inherit;
+}
+.page textarea {
+  min-height: 90px;
+}
+.page fieldset {
+  border: 1px solid #d7dee8;
+  padding: 16px;
+  border-radius: 8px;
+}
+.check {
+  display: flex !important;
+  align-items: center;
+  margin: 10px 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+.page button {
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 7px;
+  background: #173b67;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+}
+.page button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.muted {
+  color: #526078;
+  font-size: 14px;
+}
+.message {
+  padding: 14px;
+  background: #e3edf9;
+  border-radius: 7px;
+  white-space: pre-wrap;
+}
+.status {
+  display: inline-block;
+  border-radius: 20px;
+  background: #e9eff6;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  font-size: 13px;
+}
+.page table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+.page td,
+.page th {
+  padding: 10px 4px;
+  border-bottom: 1px solid #e3e8ef;
+}
+@media (max-width: 600px) {
+  .page {
+    padding: 14px;
+  }
+  .card {
+    padding: 16px;
+  }
+}

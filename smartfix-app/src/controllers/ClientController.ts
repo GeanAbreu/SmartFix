@@ -12,11 +12,24 @@ import {
   sessionCookieOptions,
 } from "@/src/services/session.service";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
+import { actorFrom } from "@/src/services/account.service";
+import { profileInput } from "@/src/validations/profile.validation";
+import { updateLocalProfile } from "@/src/services/local-auth.service";
 
 export class ClientController {
+  static async update(request: NextRequest) {
+    try {
+      const actor = await actorFrom(request);
+      if (actor.role !== "client") throw new AppError("Área exclusiva de clientes.", 403, "FORBIDDEN");
+      const input = profileInput.parse(await request.json());
+      if (usesLocalAuthStore()) await updateLocalProfile(actor.sub, { name: input.nome, phone: input.telefone });
+      else await Client.update(input, { where: { id: actor.sub } });
+      return noStoreResponse(NextResponse.json({ success: true, data: {} }));
+    } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
+  }
   static async me(request: NextRequest) {
     try {
-      const session = requireSession(request);
+      const session = await requireSession(request);
 
       if (session.role !== "client") {
         return noStoreResponse(NextResponse.json(

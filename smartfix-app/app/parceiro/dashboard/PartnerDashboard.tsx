@@ -85,11 +85,10 @@ export default function PartnerDashboard() {
         <span className="partner-placeholder-kicker">SmartFix Parceiros</span>
         <h1>Olá, {name}</h1>
         <p>
-          Sua autenticação e área protegida já estão conectadas ao backend MVC com Sequelize.
-          Os módulos operacionais do parceiro podem ser adicionados nesta rota sem expor o banco ao navegador.
+          Gerencie suas ordens, prepare orçamentos e acompanhe as notificações de credenciamento.
         </p>
         <div className="partner-placeholder-actions">
-          <Link href="/">Voltar ao início</Link>
+          <Link href="/parceiro/ordens">Ordens de serviço</Link><Link href="/parceiro/servicos">Serviços</Link><Link href="/parceiro/notificacoes">Notificações</Link><a href="/api/auth/google?link=true">Vincular Google</a>
           <button
             type="button"
             onClick={logout}

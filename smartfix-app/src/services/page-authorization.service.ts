@@ -7,6 +7,7 @@ import {
   verifySessionToken,
 } from "@/src/services/session.service";
 import type { SessionRole } from "@/src/types/api";
+import { isSessionRevoked } from "./session-revocation.service";
 
 export async function requirePageRole(expectedRole: SessionRole) {
   const cookieStore = await cookies();
@@ -18,7 +19,7 @@ export async function requirePageRole(expectedRole: SessionRole) {
 
   const session = verifySessionToken(token);
 
-  if (!session) {
+  if (!session || await isSessionRevoked(session)) {
     redirect("/login");
   }
 
@@ -32,4 +33,3 @@ export async function requirePageRole(expectedRole: SessionRole) {
 
   return session;
 }
-

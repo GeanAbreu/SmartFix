@@ -34,6 +34,8 @@ export type ClientDevice = {
   marca: string;
   modelo: string;
   fotoUrl: string;
+  apelido?: string;
+  numeroSerie?: string;
 };
 
 export type PartnerProfile = {

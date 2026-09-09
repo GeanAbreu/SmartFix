@@ -15,8 +15,8 @@ import {
 import { addressInputSchema, type AddressInput } from "@/src/validations/address.validation";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
-function clientIdFrom(request: NextRequest) {
-  const session = requireSession(request);
+async function clientIdFrom(request: NextRequest) {
+  const session = await requireSession(request);
   if (session.role !== "client") {
     throw new AppError("Esta área é exclusiva para clientes.", 403, "FORBIDDEN");
   }
@@ -49,7 +49,7 @@ function serialize(address: ClientAddress) {
 export class AddressController {
   static async list(request: NextRequest) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const addresses = usesLocalAuthStore()
         ? await listLocalAddresses(clientId)
         : (assertDatabaseConfigured(), await ClientAddress.findAll({
@@ -79,7 +79,7 @@ export class AddressController {
 
   static async create(request: NextRequest) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const input = normalize(addressInputSchema.parse(await request.json()));
       let address;
       if (usesLocalAuthStore()) {
@@ -107,7 +107,7 @@ export class AddressController {
 
   static async update(request: NextRequest, addressId: string) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const input = normalize(addressInputSchema.parse(await request.json()));
       let address;
       if (usesLocalAuthStore()) {
@@ -138,7 +138,7 @@ export class AddressController {
 
   static async remove(request: NextRequest, addressId: string) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       if (usesLocalAuthStore()) {
         await deleteLocalAddress(clientId, addressId);
       } else {
@@ -163,7 +163,7 @@ export class AddressController {
 
   static async setPrimary(request: NextRequest, addressId: string) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       let address;
       if (usesLocalAuthStore()) {
         address = await setLocalPrimaryAddress(clientId, addressId);

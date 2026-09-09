@@ -490,7 +490,7 @@ export class AuthController {
 
   static async session(request: NextRequest) {
     try {
-      const session = requireSession(request);
+      const session = await requireSession(request);
 
       if (usesLocalAuthStore()) {
         const user = await findLocalUserById(session.sub);

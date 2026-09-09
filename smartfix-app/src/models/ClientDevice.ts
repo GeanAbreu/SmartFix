@@ -8,6 +8,8 @@ export class ClientDevice extends Model {
   declare marca: string;
   declare modelo: string;
   declare foto_url: string;
+  declare apelido: string;
+  declare numero_serie: string;
 }
 
 ClientDevice.init(
@@ -38,6 +40,8 @@ ClientDevice.init(
       type: DataTypes.STRING(120),
       allowNull: false,
     },
+    apelido: { type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
+    numero_serie: { type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
     foto_url: {
       type: DataTypes.TEXT,
       allowNull: false,

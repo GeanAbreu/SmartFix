@@ -13,8 +13,8 @@ import {
 import { deviceInputSchema } from "@/src/validations/device.validation";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
-function clientIdFrom(request: NextRequest) {
-  const session = requireSession(request);
+async function clientIdFrom(request: NextRequest) {
+  const session = await requireSession(request);
   if (session.role !== "client") {
     throw new AppError("Esta área é exclusiva para clientes.", 403, "FORBIDDEN");
   }
@@ -28,13 +28,15 @@ function serialize(device: ClientDevice) {
     marca: device.marca,
     modelo: device.modelo,
     fotoUrl: device.foto_url,
+    apelido: device.apelido,
+    numeroSerie: device.numero_serie,
   };
 }
 
 export class DeviceController {
   static async list(request: NextRequest) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const devices = usesLocalAuthStore()
         ? await listLocalDevices(clientId)
         : (assertDatabaseConfigured(), await ClientDevice.findAll({
@@ -57,7 +59,7 @@ export class DeviceController {
 
   static async create(request: NextRequest) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const input = deviceInputSchema.parse(await request.json());
       const device = usesLocalAuthStore()
         ? await createLocalDevice(clientId, input)
@@ -67,6 +69,8 @@ export class DeviceController {
             marca: input.marca,
             modelo: input.modelo,
             foto_url: input.fotoUrl,
+            apelido: input.apelido,
+            numero_serie: input.numeroSerie,
           }));
 
       return noStoreResponse(NextResponse.json({
@@ -81,7 +85,7 @@ export class DeviceController {
 
   static async update(request: NextRequest, deviceId: string) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
       const input = deviceInputSchema.parse(await request.json());
       let device;
 
@@ -100,6 +104,8 @@ export class DeviceController {
           marca: input.marca,
           modelo: input.modelo,
           foto_url: input.fotoUrl,
+            apelido: input.apelido,
+            numero_serie: input.numeroSerie,
         });
       }
 
@@ -115,7 +121,7 @@ export class DeviceController {
 
   static async remove(request: NextRequest, deviceId: string) {
     try {
-      const clientId = clientIdFrom(request);
+      const clientId = await clientIdFrom(request);
 
       if (usesLocalAuthStore()) {
         await deleteLocalDevice(clientId, deviceId);

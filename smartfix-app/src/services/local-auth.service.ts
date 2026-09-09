@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 import { assertAddressCanBeDeleted } from "@/src/services/address-policy.service";
 import type { SessionRole } from "@/src/types/api";
+import type { WorkflowRecord } from "@/src/types/workflow";
 
 export type LocalAuthUser = {
   id: string;
@@ -46,6 +47,8 @@ export type LocalClientDevice = {
   marca: string;
   modelo: string;
   fotoUrl: string;
+  apelido?: string;
+  numeroSerie?: string;
 };
 
 type LocalAuthStore = {
@@ -53,12 +56,15 @@ type LocalAuthStore = {
   users: LocalAuthUser[];
   addresses?: LocalClientAddress[];
   devices?: LocalClientDevice[];
+  workflow?: WorkflowRecord[];
 };
 
 type CreateLocalUserInput = Omit<LocalAuthUser, "id" | "createdAt" | "isVerified">;
 type CreateLocalAddressInput = Omit<LocalClientAddress, "id" | "clientId" | "principal">;
 
-const dataDirectory = path.join(process.cwd(), ".smartfix-data");
+const dataDirectory = process.env.NODE_ENV === "development" && process.env.SMARTFIX_LOCAL_DATA_DIR
+  ? path.resolve(process.env.SMARTFIX_LOCAL_DATA_DIR)
+  : path.join(process.cwd(), ".smartfix-data");
 const dataFile = path.join(dataDirectory, "auth.json");
 
 const globalForLocalAuth = globalThis as unknown as {
@@ -139,6 +145,33 @@ function withStore<T>(
   return current;
 }
 
+export function localWorkflow<T>(operation: (records: WorkflowRecord[]) => Promise<T> | T, write: boolean) {
+  return withStore((store) => { store.workflow ??= []; return operation(store.workflow); }, write);
+}
+
+export function updateLocalProfile(id: string, input: { name: string; phone: string }) {
+  return withStore((store) => {
+    const user = store.users.find((candidate) => candidate.id === id);
+    if (!user) throw new AppError("Usuário não encontrado.", 404, "NOT_FOUND");
+    user.name = input.name; user.phone = input.phone;
+  }, true);
+}
+
+export function listLocalPartners() {
+  return withStore((store) => store.users.filter((user) => user.role === "partner").map((user) => ({
+    id: user.id, name: user.companyName || user.name, email: user.email, document: user.document, isVerified: user.isVerified,
+  })));
+}
+
+export function verifyLocalPartner(id: string, verified: boolean, notification?: WorkflowRecord) {
+  return withStore((store) => {
+    const user = store.users.find((candidate) => candidate.id === id && candidate.role === "partner");
+    if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
+    user.isVerified = verified;
+    if (notification) { store.workflow ??= []; store.workflow.push(notification); }
+  }, true);
+}
+
 export function createLocalUser(
   input: CreateLocalUserInput,
   initialAddress?: CreateLocalAddressInput
@@ -210,7 +243,7 @@ export function findLocalUserById(id: string) {
   });
 }
 
-export function updateLocalPassword(id: string, passwordHash: string) {
+export function updateLocalPassword(id: string, passwordHash: string, expectedHash?: string) {
   return withStore((store) => {
     const user = store.users.find((candidate) => candidate.id === id);
 
@@ -218,6 +251,7 @@ export function updateLocalPassword(id: string, passwordHash: string) {
       throw new AppError("Usuário não encontrado.", 401, "UNAUTHENTICATED");
     }
 
+    if (expectedHash !== undefined && user.passwordHash !== expectedHash) throw new AppError("Link inválido. Solicite outro.", 422, "INVALID_RESET");
     user.passwordHash = passwordHash;
   }, true);
 }

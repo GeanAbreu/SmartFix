@@ -15,6 +15,7 @@ import type {
 import { readApiResponse } from "@/src/services/api-response.service";
 
 import styles from "./dashboard.module.css";
+import { ORDER_LABELS, type RepairOrder } from "@/src/types/workflow";
 
 /* =========================================================
    TIPOS
@@ -339,6 +340,21 @@ export default function ClientDashboard() {
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [orders, setOrders] = useState<RepairOrder[]>([]);
+  const [ordersError, setOrdersError] = useState("");
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
+  const [tracking, setTracking] = useState("");
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/orders", { cache: "no-store" }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os reparos.");
+      if (active) { setOrders(result.data.orders); setOrdersLoaded(true); }
+    }).catch((error: Error) => { if (active) setOrdersError(error.message); });
+    return () => { active = false; };
+  }, []);
+  const ratings = orders.flatMap((order) => order.review ? [order.review.rating] : []);
+  const averageRating = ratings.length ? (ratings.reduce((a,b) => a+b, 0) / ratings.length).toFixed(1).replace(".", ",") : "—";
 
   useEffect(() => {
     const updateClock = () => setCurrentDate(new Date());
@@ -637,7 +653,7 @@ export default function ClientDashboard() {
               <RepairsIcon />
             }
             label="Meus Reparos"
-            disabled
+            onClick={() => router.push("/cliente/ordens")}
           />
 
           <NavItem
@@ -653,7 +669,7 @@ export default function ClientDashboard() {
               <PlusOrderIcon />
             }
             label="Solicitar Reparo"
-            disabled
+            onClick={() => router.push("/cliente/ordens")}
           />
 
           <NavItem
@@ -684,8 +700,8 @@ export default function ClientDashboard() {
             icon={
               <SettingsIcon />
             }
-            label="Configurações"
-            disabled
+            label="Meu Perfil"
+            onClick={() => router.push("/cliente/perfil")}
           />
         </nav>
 
@@ -815,8 +831,8 @@ export default function ClientDashboard() {
                 styles.notificationButton
               }
               aria-label="Notificações"
-              disabled
-              title="Nenhuma notificação"
+              title="Abrir notificações"
+              onClick={() => router.push("/cliente/notificacoes")}
             >
               <BellIcon />
             </button>
@@ -876,7 +892,7 @@ export default function ClientDashboard() {
               </span>
 
               <strong>
-                0
+                {ordersLoaded ? orders.length : "—"}
               </strong>
 
               <p>
@@ -928,7 +944,7 @@ export default function ClientDashboard() {
               </span>
 
               <strong>
-                0
+                {ordersLoaded ? orders.filter((order) => !["completed", "cancelled"].includes(order.status)).length : "—"}
               </strong>
 
               <p>
@@ -980,7 +996,7 @@ export default function ClientDashboard() {
               </span>
 
               <strong>
-                0
+                {ordersLoaded ? orders.filter((order) => order.status === "completed").length : "—"}
               </strong>
 
               <p>
@@ -1032,11 +1048,11 @@ export default function ClientDashboard() {
               </span>
 
               <strong>
-                0,0
+                {averageRating}
               </strong>
 
               <p>
-                Nenhuma avaliação
+                {ratings.length ? "Avaliações dos seus reparos" : "Nenhuma avaliação"}
               </p>
             </div>
 
@@ -1096,8 +1112,7 @@ export default function ClientDashboard() {
 
                 <button
                   type="button"
-                  disabled
-                  title="Disponível quando o módulo de reparos for implementado"
+                  onClick={() => router.push("/cliente/ordens")}
                 >
                   Ver todos
                 </button>
@@ -1110,8 +1125,8 @@ export default function ClientDashboard() {
               >
                 <div className={styles.emptyState}>
                   <span><ClipboardIcon /></span>
-                  <strong>Nenhum reparo cadastrado</strong>
-                  <p>Seus pedidos aparecerão aqui quando o módulo de reparos estiver disponível.</p>
+                  <strong>{ordersError || (ordersLoaded ? (orders.length ? `${orders.length} reparo(s) cadastrado(s)` : "Nenhum reparo cadastrado") : "Carregando reparos...")}</strong>
+                  <p>Acompanhe suas solicitações na página Meus Reparos.</p>
                 </div>
               </div>
 
@@ -1122,8 +1137,7 @@ export default function ClientDashboard() {
                 className={
                   styles.newOrder
                 }
-                disabled
-                title="Cadastro de reparos em desenvolvimento"
+                onClick={() => router.push("/cliente/ordens")}
               >
                 <span>
                   +
@@ -1262,10 +1276,7 @@ export default function ClientDashboard() {
                   </h2>
 
                   <p>
-                    O acompanhamento por
-                    código ficará disponível
-                    junto com o módulo de
-                    reparos.
+                    Consulte o histórico, o orçamento e o andamento de suas ordens.
                   </p>
 
                   <div
@@ -1275,15 +1286,14 @@ export default function ClientDashboard() {
                   >
                     <input
                       type="text"
-                      value=""
-                      readOnly
-                      disabled
-                      placeholder="Ainda não disponível"
+                      value={tracking}
+                      onChange={(event) => setTracking(event.target.value)}
+                      placeholder="Código da ordem"
                     />
 
                     <button
                       type="button"
-                      disabled
+                      onClick={() => router.push(`/cliente/ordens?q=${encodeURIComponent(tracking)}`)}
                     >
                       Acompanhar
                     </button>
@@ -1323,8 +1333,8 @@ export default function ClientDashboard() {
                 className={styles.emptyState}
               >
                 <span><ClockIcon /></span>
-                <strong>Nenhum pedido selecionado</strong>
-                <p>Não há um status real para exibir neste momento.</p>
+                <strong>{orders[0] ? orders[0].device : "Nenhum pedido selecionado"}</strong>
+                <p>{orders[0] ? ORDER_LABELS[orders[0].status] : "Consulte seus reparos para acompanhar uma ordem."}</p>
               </div>
             </article>
 

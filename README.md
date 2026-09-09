@@ -1,21 +1,22 @@
 # SmartFix
 
-Plataforma de gerenciamento de reparos eletrônicos construída com Next.js App
-Router, React, TypeScript, Sequelize e PostgreSQL. A aplicação usa os Route
-Handlers do próprio Next.js como entrada HTTP; não existe servidor Express
-paralelo e o navegador não acessa o banco diretamente.
+Plataforma de gerenciamento de reparos eletrônicos com Next.js App Router,
+React, TypeScript, Sequelize e PostgreSQL. A aplicação fica em `smartfix-app/`.
 
-## Tecnologias
+## Funcionalidades
 
-- Next.js 16 e React 19
-- TypeScript em modo `strict`
-- PostgreSQL
-- Sequelize ORM
-- Zod para validação de entrada
-- bcryptjs para hash de senha
-- CSS global preservado para landing, login e cadastro; CSS Module no dashboard
+- Cadastro, login, sessão assinada, logout e dashboards por papel.
+- Perfil do cliente e gestão de endereços, com endereço principal protegido.
+- Dispositivos com foto, apelido, série/IMEI, busca e filtro de categoria.
+- Solicitação de reparo com triagem, sintomas e checklist de acessórios.
+- Catálogo de serviços da assistência, orçamento por item, aprovação pelo
+  cliente, acompanhamento de etapas, histórico e avaliação após conclusão.
+- Aprovação administrativa de parceiros e notificações internas persistidas.
+- Recuperação de senha por e-mail e login Google após vínculo explícito,
+  habilitados quando os serviços externos estão configurados.
+- Central de ajuda; o chat da central continua uma demonstração identificada.
 
-## Arquitetura MVC
+## Arquitetura
 
 ```text
 View (app/**/*.tsx)
@@ -23,196 +24,108 @@ View (app/**/*.tsx)
   -> Route Handler (app/api/**/route.ts)
   -> Routes (src/routes)
   -> Controllers (src/controllers)
-  -> Models (src/models)
-  -> Sequelize
-  -> PostgreSQL
+  -> Models / Services
+  -> Sequelize -> PostgreSQL
 ```
 
-Os arquivos `route.ts` apenas expõem métodos dos módulos de rotas. Validação,
-autenticação, autorização, transações e respostas HTTP ficam nos controllers e
-serviços.
+O navegador não acessa o banco diretamente. Não existe um servidor Express
+paralelo nem aplicações Vite concorrentes. O frontend usa CSS global e CSS
+Modules. Controllers fazem validação e autorização no servidor.
 
-## Estrutura relevante
+Clientes, parceiros, endereços e aparelhos mantêm os models existentes. Ordens
+com triagem, orçamento, histórico e avaliação são agregados JSONB na tabela
+`public.workflow_records`, que também guarda serviços, notificações e registros
+de autenticação auxiliares. As operações de escrita são serializadas em
+transação. Os totais dos orçamentos são derivados de valores inteiros em centavos.
 
-```text
-smartfix-app/
-  app/
-    api/
-      auth/{login,logout,register,session}/route.ts
-      clients/me/route.ts
-      clients/addresses/route.ts
-      clients/addresses/[addressId]/route.ts
-      clients/addresses/[addressId]/primary/route.ts
-      partners/me/route.ts
-      health/database/route.ts
-    cadastro/page.tsx
-    cliente/dashboard/{page.tsx,ClientDashboard.tsx,dashboard.module.css}
-    cliente/ajuda/{page.tsx,HelpCenter.tsx,help.module.css}
-    cliente/enderecos/{page.tsx,AddressManager.tsx,addresses.module.css}
-    parceiro/dashboard/{page.tsx,PartnerDashboard.tsx}
-    login/page.tsx
-    esqueci-senha/page.tsx
-    privacidade/page.tsx
-    termos/page.tsx
-    page.tsx
-  src/
-    config/database.ts
-    controllers/
-    errors/
-    middlewares/
-    models/
-    routes/
-    services/
-    types/
-    validations/
-  tests/
-    auth.validation.test.ts
-    security-services.test.ts
-```
+## Instalação e execução
 
-O código da aplicação fica em `smartfix-app/`. As pastas `Database/` e `docs/`
-na raiz preservam os materiais de banco de dados e a documentação do projeto.
-
-## Instalação
-
-```bash
-cd smartfix-app
-npm install
-```
-
-Crie o arquivo local de ambiente.
-
-Windows PowerShell:
+Use Node.js compatível com Next.js 16 (validado com Node 24).
 
 ```powershell
+cd smartfix-app
+npm ci
 Copy-Item .env.example .env.local
+npm run dev
 ```
 
-Linux/macOS:
+Acesse `http://localhost:3000`. Preencha `DATABASE_URL` e `SESSION_SECRET` em
+`.env.local`; esse arquivo não é versionado. Para PostgreSQL local, normalmente
+use `DB_SSL=false`. Não desabilite a verificação de certificado em um banco
+remoto sem avaliar a configuração do provedor.
 
-```bash
-cp .env.example .env.local
-```
+Em development, sem `DATABASE_URL`, a aplicação usa `.smartfix-data/auth.json`
+com hashes bcrypt e gravação serializada. Remova a URL de exemplo para usar
+esse modo. `SMARTFIX_LOCAL_DATA_DIR` permite escolher uma pasta isolada de
+ambiente. Em produção são obrigatórios banco e segredo de sessão.
 
-Preencha as variáveis:
+Gere um segredo de sessão:
 
-```env
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/postgres
-DB_SSL=true
-DB_SSL_REJECT_UNAUTHORIZED=true
-DB_LOGGING=false
-DB_POOL_MAX=5
-SESSION_SECRET=uma-chave-aleatoria-com-pelo-menos-32-caracteres
-```
-
-Durante o desenvolvimento, se `.env.local` ou `DATABASE_URL` não existirem, a
-SmartFix usa automaticamente um armazenamento local em `.smartfix-data/`. As
-senhas continuam protegidas com bcrypt e o arquivo não é versionado. Em
-produção, `DATABASE_URL` e `SESSION_SECRET` continuam obrigatórios.
-
-Gere um segredo de sessão local com:
-
-```bash
+```powershell
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Para PostgreSQL local, normalmente use `DB_SSL=false`. Mantenha a validação de
-certificado ativa; defina `DB_SSL_REJECT_UNAUTHORIZED=false` somente quando o
-provedor exigir e o risco tiver sido avaliado.
+## Atualização de uma instalação existente
 
-## Execução
+Antes de executar esta versão com PostgreSQL, aplique
+[`Database/migrations/20260909_contributions.sql`](Database/migrations/20260909_contributions.sql)
+com a conta de migration no banco correto. O script adiciona dois campos aos
+aparelhos e a tabela de workflow, sem recriar os usuários ou aplicar
+`sequelize.sync()`.
 
-```bash
-npm run dev
-```
+A conta de servidor precisa de acesso à nova tabela; usuários de navegador
+Supabase não recebem acesso. A aplicação não executa migrations automaticamente.
+Os SQLs legados em `Database/tables/` são materiais históricos e não um instalador
+completo: compare-os com os models antes de provisionar um banco vazio.
 
-Acesse `http://localhost:3000`.
+## Configurações opcionais
 
-## Scripts
+| Variável | Uso |
+| --- | --- |
+| `APP_URL` | Origem pública da aplicação; HTTPS em produção. |
+| `ADMIN_USER_IDS` | IDs de contas previamente cadastradas, separados por vírgula. Vazio bloqueia o painel administrativo. |
+| `RESEND_API_KEY`, `MAIL_FROM` | Recuperação de senha e e-mail de credenciamento. O remetente precisa ser validado no provedor. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Login Google, com callback `${APP_URL}/api/auth/google/callback`. |
 
-```bash
-npm run dev
+Administradores acessam `/admin/parceiros` com sua sessão normal. O usuário
+vincula o Google pelo perfil ou dashboard de parceiro antes do primeiro login
+social. A recuperação de senha usa um link de uso único com validade de 15
+minutos e invalida as sessões anteriores. Sem provedor de e-mail configurado,
+a recuperação informa indisponibilidade; as notificações internas funcionam.
+
+## Rotas principais
+
+| Área | Rotas |
+| --- | --- |
+| Conta | `/cadastro`, `/login`, `/esqueci-senha`, `/redefinir-senha` |
+| Cliente | `/cliente/dashboard`, `/cliente/perfil`, `/cliente/enderecos`, `/cliente/dispositivos`, `/cliente/ordens`, `/cliente/notificacoes`, `/cliente/ajuda` |
+| Parceiro | `/parceiro/dashboard`, `/parceiro/ordens`, `/parceiro/servicos`, `/parceiro/notificacoes` |
+| Administração | `/admin/parceiros` |
+
+APIs novas: `/api/orders`, `/api/orders/:id`, `/api/services`, `/api/partners`,
+`/api/partners/:id/approval`, `/api/notifications`, `/api/notifications/:id`,
+`PATCH /api/clients/me` e endpoints de recuperação/Google em `/api/auth`.
+As APIs anteriores de autenticação, endereços e dispositivos continuam válidas.
+Respostas JSON usam `{ success: true, data }` ou `{ success: false, message }`.
+
+## Validação
+
+```powershell
 npm run lint
 npm test
+npx tsc --noEmit
 npm run build
-npm run start
+npm audit
 ```
 
-## Endpoints principais
+Os testes incluem persistência em pasta temporária, isolamento entre clientes,
+permissões administrativas, transições de ordens, orçamento, avaliações,
+notificações, recuperação de senha e revogação de sessões. Não usam o banco ou
+os provedores de produção.
 
-```text
-POST /api/auth/login
-POST /api/auth/register
-POST /api/auth/logout
-GET  /api/auth/session
+A integração mantém o histórico das contribuições de todas as branches. Veja
+[`docs/integracao-branches.md`](docs/integracao-branches.md) para o mapeamento dos
+protótipos, decisões de adaptação e configuração por ambiente.
 
-GET  /api/clients/me
-GET  /api/clients/addresses
-POST /api/clients/addresses
-PUT  /api/clients/addresses/:addressId
-DELETE /api/clients/addresses/:addressId
-PATCH /api/clients/addresses/:addressId/primary
-GET  /api/partners/me
-
-GET  /api/health/database
-```
-
-Respostas de sucesso usam `{ "success": true, "data": ... }`. Erros usam
-`{ "success": false, "message": ... }` e podem incluir `code` e `errors`.
-Erros internos e credenciais de infraestrutura não são devolvidos ao browser.
-
-## Autenticação
-
-1. O login procura primeiro um cliente e depois um parceiro quando o
-   identificador é um e-mail; CPF e CNPJ direcionam a busca correspondente.
-2. A senha é comparada no servidor com bcrypt.
-3. Senhas legadas em texto puro continuam compatíveis temporariamente e são
-   convertidas para bcrypt após o primeiro login válido.
-4. O cookie de sessão é assinado, `HttpOnly`, `SameSite=Lax`, `Secure` em
-   produção e contém apenas ID, papel e expiração.
-5. `/api/auth/session` confirma que o usuário ainda existe no banco.
-6. Os dashboards validam assinatura e papel no servidor antes de renderizar e
-   os endpoints `/me` repetem a autorização antes de consultar dados.
-
-## Banco de dados
-
-O projeto recebido descreve as tabelas `clients`, `client_addresses`,
-`client_devices` e `partners`. As associações configuradas são:
-
-```text
-Client hasMany ClientAddress
-ClientAddress belongsTo Client
-
-Client hasMany ClientDevice
-ClientDevice belongsTo Client
-```
-
-`ClientDevice` declara somente `id` e `client_id`, pois o DDL completo da tabela
-não estava disponível. Nenhum campo adicional foi inventado. O model de
-`partners` mantém os nomes em inglês existentes no projeto recebido.
-
-Não há `sequelize.sync()` nem alteração automática de schema. Nenhuma migration
-foi criada porque não foi possível comparar os models com o banco real sem
-`DATABASE_URL`; faça essa conferência antes de qualquer mudança de produção.
-
-## Segurança
-
-- Hash bcrypt com custo 12 e atualização de hashes antigos.
-- Comparação constante para a compatibilidade temporária de senha legada.
-- Sessão assinada e sem nome, e-mail ou senha no payload do cookie.
-- Validação server-side de CPF, CNPJ, telefone, CEP, UF e confirmação de senha.
-- Cadastro de cliente e endereço dentro da mesma transação.
-- Seleção explícita de campos nas respostas `/me`; senhas são omitidas.
-- Headers `nosniff`, `DENY`, política de referência, permissões e HSTS em produção.
-- Respostas autenticadas marcadas como `no-store`.
-- `.env`, `.env.local`, `node_modules`, `.next` e ZIPs locais ignorados.
-
-## Escopo atual
-
-Landing, cadastro, login, sessão, logout, identificação de papel, dashboards
-protegidos, central de ajuda e gestão de endereços estão estruturados. O
-dashboard exibe zeros e estados vazios, sem simular reparos reais. O chat da
-central de ajuda ainda é uma demonstração local claramente identificada.
-Dispositivos, solicitações, orçamentos, pagamentos, mensagens em tempo real,
-avaliações, notificações e recuperação automática de senha continuam como
-módulos futuros.
+Pagamentos, logística real e chat em tempo real continuam fora do escopo
+implementado. O acompanhamento de ordens atualiza por consulta a cada 30 segundos.

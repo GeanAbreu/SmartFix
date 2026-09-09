@@ -9,6 +9,7 @@ export type SessionPayload = {
   sub: string;
   role: SessionRole;
   exp: number;
+  iat?: number;
 };
 
 const globalForSession = globalThis as unknown as {
@@ -46,11 +47,12 @@ function sign(encodedPayload: string) {
 }
 
 export function createSessionToken(
-  payload: Omit<SessionPayload, "exp">
+  payload: Omit<SessionPayload, "exp" | "iat">
 ) {
   const completePayload: SessionPayload = {
     ...payload,
     exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
+    iat: Date.now(),
   };
 
   const encodedPayload = Buffer.from(
@@ -94,6 +96,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
       sub?: unknown;
       role?: unknown;
       exp?: unknown;
+      iat?: unknown;
     };
 
     if (
@@ -103,6 +106,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
       candidate.sub.length === 0 ||
       (candidate.role !== "client" && candidate.role !== "partner") ||
       typeof candidate.exp !== "number" ||
+      (candidate.iat !== undefined && (typeof candidate.iat !== "number" || !Number.isFinite(candidate.iat) || candidate.iat > Date.now() + 5000)) ||
       candidate.exp <= Math.floor(Date.now() / 1000)
     ) {
       return null;
@@ -112,6 +116,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
       sub: candidate.sub,
       role: candidate.role,
       exp: candidate.exp,
+      ...(typeof candidate.iat === "number" ? { iat: candidate.iat } : {}),
     };
   } catch {
     return null;

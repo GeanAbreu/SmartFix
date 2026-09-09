@@ -677,6 +677,7 @@ export default function LoginPage() {
                   NOVO CADASTRO
               ============================================= */}
 
+              <p><a href="/api/auth/google">Entrar com Google vinculado</a></p>
               <div className="login-register-box">
 
                 <span className="login-register-question">
