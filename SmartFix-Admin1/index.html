@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RF19 – Painel de Aprovação de Parceiros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-[#0b1320] text-gray-200 font-sans min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto bg-[#131d31] border border-slate-800 rounded-xl shadow-2xl overflow-hidden p-6">
+        
+        <!-- Cabeçalho -->
+        <div class="flex justify-between items-center pb-4 mb-6 border-b border-orange-500/40">
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <span class="w-2 h-6 bg-orange-500 rounded-full inline-block"></span>
+                RF19 – Painel de Aprovação de Parceiros
+            </h1>
+            <span class="border border-orange-500/60 text-orange-500 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                Módulo Admin
+            </span>
+        </div>
+
+        <!-- Filtros de Busca -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="relative">
+                <input type="text" id="searchInput" placeholder="Buscar por Razão Social, Nome Fantasia ou CNPJ/CPF..." 
+                       class="w-full bg-[#0b1320] border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-orange-500">
+            </div>
+            <div>
+                <select id="statusFilter" class="w-full bg-[#0b1320] border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-orange-500">
+                    <option value="ALL">Todos os Status</option>
+                    <option value="PENDENTE" selected>Pendente de Análise</option>
+                    <option value="APROVADO">Aprovado</option>
+                    <option value="RECUSADO">Rejeitado</option>
+                </select>
+            </div>
+            <div>
+                <select id="categoryFilter" class="w-full bg-[#0b1320] border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-orange-500">
+                    <option value="ALL">Todas as Categorias</option>
+                    <option value="Assistência Técnica">Assistência Técnica</option>
+                    <option value="Lojista / Peças">Lojista / Peças</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tabela -->
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-[#0b1320] text-orange-500 text-xs font-bold uppercase tracking-wider border-b border-slate-800">
+                        <th class="p-4">Parceiro / Solicitante</th>
+                        <th class="p-4">CPF / CNPJ</th>
+                        <th class="p-4">Data Registro</th>
+                        <th class="p-4">Categoria</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 text-center">Ações de Gestão</th>
+                    </tr>
+                </thead>
+                <tbody id="partnerTableBody" class="divide-y divide-slate-800/60 text-sm"></tbody>
+            </table>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="flex justify-between items-center mt-6 text-xs text-gray-500">
+            <span id="counter">Exibindo 0 solicitações</span>
+            <span>SmartFix Admin Platform</span>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="modalDetail" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-[#131d31] border border-slate-700 rounded-xl shadow-2xl max-w-2xl w-full p-6 text-gray-200">
+            <h3 class="text-xl font-bold text-white mb-4 border-b border-orange-500/30 pb-2">
+                Análise de Cadastro - <span id="modalPartnerName" class="text-orange-500"></span>
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+                <div>
+                    <p class="text-xs text-gray-400">CPF / CNPJ:</p>
+                    <p id="modalCnpj" class="font-medium text-white"></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400">Contato / E-mail:</p>
+                    <p id="modalContact" class="font-medium text-white"></p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-xs text-gray-400">Endereço:</p>
+                    <p id="modalAddress" class="font-medium text-white"></p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
+                <button id="btnCloseModal" class="px-4 py-2 border border-slate-700 text-gray-300 rounded-lg hover:bg-slate-800 text-sm">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
