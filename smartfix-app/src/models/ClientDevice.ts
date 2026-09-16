@@ -10,6 +10,8 @@ export class ClientDevice extends Model {
   declare foto_url: string;
   declare apelido: string;
   declare numero_serie: string;
+  declare issue_type: string;
+  declare issue_description: string;
 }
 
 ClientDevice.init(
@@ -20,6 +22,7 @@ ClientDevice.init(
       defaultValue: DataTypes.UUIDV4,
     },
     client_id: {
+      field: "user_id",
       type: DataTypes.UUID,
       allowNull: false,
       references: {
@@ -29,27 +32,33 @@ ClientDevice.init(
       onDelete: "CASCADE",
     },
     tipo: {
+      field: "device_type",
       type: DataTypes.STRING(50),
       allowNull: false,
     },
     marca: {
+      field: "brand",
       type: DataTypes.STRING(80),
       allowNull: false,
     },
     modelo: {
+      field: "model",
       type: DataTypes.STRING(120),
       allowNull: false,
     },
-    apelido: { type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
-    numero_serie: { type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
+    apelido: { field: "nickname", type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
+    numero_serie: { field: "serial_number", type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
+    issue_type: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
+    issue_description: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
     foto_url: {
+      field: "photo_url",
       type: DataTypes.TEXT,
       allowNull: false,
     },
   },
   {
     sequelize,
-    tableName: "client_devices",
+    tableName: "devices",
     modelName: "ClientDevice",
     timestamps: false,
   }

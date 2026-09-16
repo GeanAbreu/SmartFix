@@ -115,6 +115,7 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     );
     assert.equal(created.status, 201);
     const order = (await created.json()).data.order;
+    await assert.rejects(store.deleteLocalDevice(client.id, device.id), { code: "DEVICE_IN_USE" });
     assert.equal(
       (await (await controller.list(request(other, "/api/orders"))).json()).data
         .orders.length,

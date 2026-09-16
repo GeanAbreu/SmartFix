@@ -51,6 +51,8 @@ export type LocalClientDevice = {
   fotoUrl: string;
   apelido?: string;
   numeroSerie?: string;
+  issueType?: string;
+  issueDescription?: string;
 };
 
 type LocalAuthStore = {
@@ -434,6 +436,9 @@ export function deleteLocalDevice(clientId: string, deviceId: string) {
       throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
     }
 
+    if (store.workflow?.some((record) => record.kind === "order" && record.data.deviceId === deviceId)) {
+      throw new AppError("Este dispositivo possui ordens de reparo e não pode ser excluído.", 409, "DEVICE_IN_USE");
+    }
     devices.splice(index, 1);
   }, true);
 }

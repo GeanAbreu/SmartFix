@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { UniqueConstraintError } from "sequelize";
+import { ForeignKeyConstraintError, UniqueConstraintError } from "sequelize";
 import { ZodError } from "zod";
 import { AppError } from "@/src/errors/AppError";
 
@@ -49,6 +49,11 @@ export function controllerErrorResponse(error: unknown) {
       },
       { status: 409 }
     );
+  }
+
+  if (error instanceof ForeignKeyConstraintError) {
+    return NextResponse.json({ success: false, code: "RELATED_RECORD_CONFLICT",
+      message: "A operação conflita com registros vinculados. Atualize a página e confira os vínculos." }, { status: 409 });
   }
 
   console.error("Erro interno SmartFix:", error);

@@ -21,6 +21,7 @@ Client.init(
       defaultValue: DataTypes.UUIDV4,
     },
     nome: {
+      field: "full_name",
       type: DataTypes.STRING(150),
       allowNull: false,
     },
@@ -30,19 +31,23 @@ Client.init(
       unique: true,
     },
     senha: {
+      field: "password_hash",
       type: DataTypes.STRING(255),
       allowNull: false,
     },
     cpf: {
+      field: "tax_id",
       type: DataTypes.STRING(11),
       allowNull: false,
       unique: true,
     },
     telefone: {
+      field: "phone",
       type: DataTypes.STRING(20),
       allowNull: true,
     },
     data_nascimento: {
+      field: "birth_date",
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
@@ -51,7 +56,6 @@ Client.init(
       allowNull: true,
     },
     created_at: {
-      field: "criado_em",
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,

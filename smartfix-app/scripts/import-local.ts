@@ -20,6 +20,7 @@ const addressSchema = z.object({
 const deviceSchema = z.object({
   id: z.uuid(), clientId: z.uuid(), tipo: z.string(), marca: z.string(), modelo: z.string(),
   fotoUrl: z.string(), apelido: z.string().default(""), numeroSerie: z.string().default(""),
+  issueType: z.string().default(""), issueDescription: z.string().default(""),
 });
 const storeSchema = z.object({
   version: z.literal(1), users: z.array(userSchema),
@@ -34,7 +35,8 @@ async function main() {
   const filename = path.resolve(process.argv[2] ?? ".smartfix-data/auth.json");
   const store = storeSchema.parse(JSON.parse(await readFile(filename, "utf8")));
   const { default: sequelize, assertDatabaseConfigured } = await import("../src/config/database");
-  const { Client, ClientAddress, ClientDevice, Partner } = await import("../src/models");
+  const { Client, ClientAddress, ClientDevice, Partner, RepairOrderModel } = await import("../src/models");
+  const { saveRepairOrder } = await import("../src/services/repair-order.repository");
   const { Workflow } = await import("../src/models/Workflow");
   const { hashPassword } = await import("../src/services/password.service");
   const counts = { clients: 0, partners: 0, addresses: 0, devices: 0, workflow: 0 };
@@ -94,11 +96,22 @@ async function main() {
           if (existing.client_id !== device.clientId) throw new Error("LOCAL_ID_CONFLICT");
           continue;
         }
-        const { clientId, fotoUrl, numeroSerie, ...values } = device;
-        await ClientDevice.create({ ...values, client_id: clientId, foto_url: fotoUrl, numero_serie: numeroSerie }, { transaction });
+        const { clientId, fotoUrl, numeroSerie, issueType, issueDescription, ...values } = device;
+        await ClientDevice.create({ ...values, client_id: clientId, foto_url: fotoUrl, numero_serie: numeroSerie,
+          issue_type: issueType, issue_description: issueDescription }, { transaction });
         counts.devices++;
       }
       for (const record of store.workflow) {
+        if (record.kind === "order") {
+          const existing = await RepairOrderModel.findByPk(record.id, { transaction });
+          if (existing) {
+            if (existing.client_id !== record.ownerId) throw new Error("LOCAL_ID_CONFLICT");
+            continue;
+          }
+          await saveRepairOrder(record.data as unknown as import("../src/types/workflow").RepairOrder, transaction);
+          counts.workflow++;
+          continue;
+        }
         const existing = await Workflow.findByPk(record.id, { transaction });
         if (existing) {
           if (existing.ownerId !== record.ownerId || existing.kind !== record.kind) throw new Error("LOCAL_ID_CONFLICT");

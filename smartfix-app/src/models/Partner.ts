@@ -22,7 +22,6 @@ Partner.init(
       defaultValue: DataTypes.UUIDV4,
     },
     full_name: {
-      field: "nome",
       type: DataTypes.TEXT,
       allowNull: false,
     },
@@ -32,12 +31,10 @@ Partner.init(
       unique: true,
     },
     password_hash: {
-      field: "senha",
       type: DataTypes.TEXT,
       allowNull: false,
     },
     phone: {
-      field: "telefone",
       type: DataTypes.TEXT,
       allowNull: true,
     },
@@ -46,6 +43,7 @@ Partner.init(
       allowNull: true,
     },
     cnpj: {
+      field: "tax_id",
       type: DataTypes.TEXT,
       allowNull: true,
       unique: true,
@@ -57,7 +55,6 @@ Partner.init(
       defaultValue: false,
     },
     created_at: {
-      field: "criado_em",
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,

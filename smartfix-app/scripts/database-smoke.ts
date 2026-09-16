@@ -6,7 +6,8 @@ loadEnvConfig(process.cwd(), true);
 
 async function main() {
   const { default: sequelize, assertDatabaseConfigured } = await import("../src/config/database");
-  const { Client, ClientAddress, ClientDevice, Partner } = await import("../src/models");
+  const { Client, ClientAddress, ClientDevice, Partner, RepairOrderModel, Review } = await import("../src/models");
+  const { readRepairOrders, saveRepairOrder } = await import("../src/services/repair-order.repository");
   assertDatabaseConfigured();
   try {
     const transaction = await sequelize.transaction();
@@ -34,6 +35,43 @@ async function main() {
       assert.equal(partnerAddress.client_id, null);
       assert.equal((await ClientAddress.findByPk(partnerAddress.id, { transaction }))?.partner_id, partner.id);
       assert.equal(await ClientAddress.findOne({ where: { id: partnerAddress.id, client_id: client.id }, transaction }), null);
+      const order: import("../src/types/workflow").RepairOrder = {
+        id: randomUUID(), clientId: client.id, partnerId: partner.id, deviceId: device.id,
+        device: "Apple iPhone 13", problem: "Não liga nem carrega", status: "pending",
+        createdAt: new Date().toISOString(), quote: [], symptoms: [], checklist: [],
+        diagnosis: "", history: [], review: null,
+      };
+      await saveRepairOrder(order, transaction);
+      assert.equal((await RepairOrderModel.findByPk(order.id, { transaction }))?.estimated_budget, null);
+      const rejectWrite = async (run: (savepoint: import("sequelize").Transaction) => Promise<unknown>, code: string) => {
+        await assert.rejects(sequelize.transaction({ transaction }, run), (error: unknown) =>
+          (error as { original?: { code?: string } }).original?.code === code);
+      };
+      await rejectWrite((savepoint) => Review.create({ repair_order_id: order.id, client_id: client.id,
+        partner_id: partner.id, rating: 5, comment: "Cedo", review_date: "2026-09-16" }, { transaction: savepoint }), "23514");
+      await rejectWrite((savepoint) => device.destroy({ transaction: savepoint }), "23503");
+      const other = await Client.create({ nome: "Outro cliente", email: `other-${suffix}@example.invalid`,
+        cpf: randomUUID().replaceAll("-", "").slice(0, 11), senha: "test-only" }, { transaction });
+      await rejectWrite((savepoint) => saveRepairOrder({ ...order, id: randomUUID(), clientId: other.id }, savepoint), "23503");
+      order.status = "completed";
+      order.quote = [{ name: "Reparo", quantity: 2, unitPriceCents: 19990 }];
+      await saveRepairOrder(order, transaction);
+      assert.equal((await RepairOrderModel.findByPk(order.id, { transaction }))?.estimated_budget, "399.80");
+      await rejectWrite((savepoint) => Review.create({ repair_order_id: order.id, client_id: other.id,
+        partner_id: partner.id, rating: 5, comment: "Não pertence", review_date: "2026-09-16" }, { transaction: savepoint }), "23503");
+      order.review = { rating: 5, comment: "Resolvido" };
+      await saveRepairOrder(order, transaction);
+      assert.equal(await Review.count({ where: { repair_order_id: order.id }, transaction }), 1);
+      await saveRepairOrder(order, transaction);
+      assert.equal(await Review.count({ where: { repair_order_id: order.id }, transaction }), 1);
+      const loaded = (await readRepairOrders(transaction)).find((record) => record.id === order.id);
+      assert.deepEqual(loaded?.data.review, order.review);
+      await rejectWrite((savepoint) => Review.create({ repair_order_id: order.id, client_id: client.id,
+        partner_id: partner.id, rating: 4, comment: "Duplicada", review_date: "2026-09-16" }, { transaction: savepoint }), "23505");
+      await rejectWrite((savepoint) => sequelize.query("UPDATE reviews SET rating=6 WHERE repair_order_id=$1",
+        { bind: [order.id], transaction: savepoint }), "23514");
+      await RepairOrderModel.destroy({ where: { id: order.id }, transaction });
+      assert.equal(await Review.count({ where: { repair_order_id: order.id }, transaction }), 0);
       for (const owners of [
         { client_id: null, partner_id: null },
         { client_id: client.id, partner_id: partner.id },
@@ -49,7 +87,7 @@ async function main() {
       await client.destroy({ transaction });
       assert.equal(await ClientAddress.findByPk(address.id, { transaction }), null);
       assert.equal(await ClientDevice.findByPk(device.id, { transaction }), null);
-      console.log("CRUD, endereços de clientes/parceiros, proprietário exclusivo, isolamento e FKs: OK.");
+      console.log("DER: CRUD, endereços, ordens, orçamento, avaliação única, propriedade, FKs e cascatas: OK.");
     } finally {
       // No fixture or deletion survives this verification, including on failure.
       await transaction.rollback();
@@ -58,8 +96,10 @@ async function main() {
       const transaction = await sequelize.transaction();
       try {
         await sequelize.query(`SET LOCAL ROLE ${role}`, { transaction });
-        await assert.rejects(Client.findAll({ limit: 1, transaction }), (error: unknown) =>
-          (error as { original?: { code?: string } }).original?.code === "42501");
+        const [permissions] = await sequelize.query(`SELECT bool_and(NOT has_table_privilege(current_user, c.oid, 'SELECT')) AS denied
+          FROM pg_class c WHERE c.relnamespace='public'::regnamespace
+          AND c.relname IN ('clients','partner','devices','client_addresses','repair_orders','reviews','workflow_records')`, { transaction });
+        assert.equal((permissions[0] as { denied: boolean }).denied, true);
         console.log(`Acesso direto ${role}: bloqueado.`);
       } finally {
         await transaction.rollback();

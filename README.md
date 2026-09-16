@@ -347,15 +347,19 @@ npm run db:smoke
 
 O comando salva um backup local em `.smartfix-data/backups/` (ignorado pelo Git)
 e aplica, em ordem, `20260909_contributions.sql`,
-[`20260916_database_persistence.sql`](Database/migrations/20260916_database_persistence.sql) e
-[`20260917_normalize_addresses.sql`](Database/migrations/20260917_normalize_addresses.sql).
-Também é possível executar os três arquivos no SQL Editor como proprietário
-das tabelas. As migrations adicionam campos e workflow, removem somente a FK
-legada `clients.id → auth.users.id` e ativam RLS nas cinco tabelas da aplicação.
+[`20260916_database_persistence.sql`](Database/migrations/20260916_database_persistence.sql),
+[`20260917_normalize_addresses.sql`](Database/migrations/20260917_normalize_addresses.sql) e
+[`20260918_der.sql`](Database/migrations/20260918_der.sql).
+Cada migration é registrada em `smartfix_migrations` na mesma transação que suas
+alterações; execuções seguintes aplicam apenas migrations pendentes. Use o comando
+com o proprietário das tabelas. As migrations adicionam campos e workflow,
+removem a FK legada `clients.id → auth.users.id`, normalizam os endereços e
+aplicam o [DER atualizado](Database/DER.md), com RLS nas sete tabelas da aplicação.
 Nenhuma conta é removida. O SmartFix usa autenticação própria; seus UUIDs não
 dependem de um cadastro em Supabase Auth. As FKs de endereços/aparelhos continuam
-apontando para `clients`. Os models usam `clients.criado_em` e `public.partner`,
-com mapeamento explícito dos nomes portugueses das colunas.
+apontando para `clients`. Os campos físicos usam os nomes do DER, como
+`full_name`, `tax_id`, `phone`, `birth_date`, `device_type`, `brand` e `model`.
+Os models fazem o mapeamento para manter compatibilidade com as telas em português.
 
 RLS bloqueia acesso público; `PUBLIC`, `anon` e `authenticated` não recebem
 permissões nas tabelas. `DATABASE_URL` deve usar uma conta exclusiva do servidor
@@ -367,12 +371,15 @@ Veja [RLS no Supabase](https://supabase.com/docs/guides/database/postgres/row-le
 
 `db:check` verifica os models, RLS e acesso do servidor. `db:smoke` testa gravação,
 leitura, edição, filtros de proprietário e FKs, sempre revertendo as transações
-de teste; também verifica que `anon` e `authenticated` não conseguem ler clientes.
+de teste; também verifica avaliações únicas, orçamento decimal, propriedade do
+aparelho e que `anon` e `authenticated` não conseguem ler as tabelas da aplicação.
 O segundo exige permissão para `SET ROLE` dessas funções (execute como `postgres`).
 O aplicativo não aplica migrations automaticamente. Para um banco vazio, execute
-os scripts de `Database/tables/` na ordem `clients.sql`, `partners.sql`,
+os scripts de base histórica em `Database/tables/` na ordem `clients.sql`, `partners.sql`,
 `client_addresses.sql`, `client_devices.sql` e depois as migrations para criar
-workflow, índices e configurar RLS.
+`workflow_records`, renomear `client_devices` para `devices`, criar `repair_orders`
+e `reviews`, índices e configurar RLS. Não execute as migrations antigas novamente
+manualmente sobre o DER pronto; use o controle de versões de `db:migrate`.
 
 Os endereços ficam exclusivamente em `client_addresses`, com `client_id` **ou**
 `partner_id`. Uma constraint exige exatamente um proprietário, e as duas FKs
@@ -381,31 +388,34 @@ transação. A migration copia os endereços legados antes de remover `cep`,
 `logradouro`, `numero`, `complemento`, `bairro`, `municipio` e `uf` de `clients`
 e `partner`. Também remove de `partner` os campos sem uso no aplicativo:
 `data_nascimento`, `specialty`, `bio`, `latitude`, `longitude`,
-`profile_image_url`, `rating` e `total_reviews`. As avaliações usadas hoje ficam
-nas ordens de reparo; `company_name` continua porque é exibido nas telas.
+`profile_image_url`, `rating` e `total_reviews`. As avaliações ficam agora em
+`reviews`, ligadas à ordem, ao cliente e ao parceiro. `company_name` continua
+porque é exibido nas telas.
 
 ### Para que serve workflow_records
 
-`workflow_records` persiste os fluxos operacionais e auxiliares da aplicação.
+`workflow_records` persiste somente registros auxiliares da aplicação.
 Cada linha tem `id` (UUID), `kind` (tipo), `owner_id` (conta responsável) e `data`
 (objeto JSONB). O conteúdo de `data` varia conforme o tipo:
 
 | kind | Conteúdo |
 | --- | --- |
-| `order` | Ordem de reparo, aparelho, cliente/parceiro, triagem, diagnóstico, orçamento, status, histórico e avaliação. |
 | `notification` | Avisos de uma conta e estado de leitura. |
 | `service` | Serviços oferecidos pelo parceiro e seus preços. |
 | `reset` | Hash do token de recuperação, validade, consumo e revogação de sessões. |
 | `google` | Vínculo entre a conta SmartFix e o identificador da conta Google. |
 
-Ela não substitui `clients`, `partner`, `client_devices` ou `client_addresses`.
-Agrupar os dados de uma ordem em um JSONB permite atualizar orçamento, histórico
-e status juntos em uma transação. O serviço faz a autorização e validação desses
-documentos; RLS e permissões impedem acesso direto pelo navegador. `owner_id`
+As ordens antigas foram transferidas para `repair_orders` e suas avaliações para
+`reviews`. Novas ordens não são gravadas em `workflow_records`: a constraint de
+`kind` também bloqueia isso. A interface continua recebendo o mesmo formato JSON,
+montado a partir das tabelas relacionais. Orçamento detalhado, triagem e histórico
+ficam em campos complementares da ordem, preservando os recursos existentes.
+O serviço atualiza ordem, avaliação e notificações na mesma transação.
+RLS e permissões impedem acesso direto pelo navegador. `owner_id`
 pode representar cliente ou parceiro, por isso não possui FK para uma única
 tabela de contas. Esses documentos não têm a mesma validação de colunas/FKs de
 um esquema totalmente relacional. Excluir essa tabela interromperia os fluxos
-de ordens, serviços, notificações, recuperação de senha e vínculo Google.
+de serviços, notificações, recuperação de senha e vínculo Google.
 
 Para recuperar cadastros feitos no antigo modo local:
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
 import { requireSession } from "@/src/middlewares/auth.middleware";
-import { ClientDevice } from "@/src/models";
+import { ClientDevice, RepairOrderModel } from "@/src/models";
 import {
   createLocalDevice,
   deleteLocalDevice,
@@ -30,6 +30,8 @@ function serialize(device: ClientDevice) {
     fotoUrl: device.foto_url,
     apelido: device.apelido,
     numeroSerie: device.numero_serie,
+    issueType: device.issue_type,
+    issueDescription: device.issue_description,
   };
 }
 
@@ -71,6 +73,8 @@ export class DeviceController {
             foto_url: input.fotoUrl,
             apelido: input.apelido,
             numero_serie: input.numeroSerie,
+            issue_type: input.issueType ?? "",
+            issue_description: input.issueDescription ?? "",
           }));
 
       return noStoreResponse(NextResponse.json({
@@ -104,8 +108,10 @@ export class DeviceController {
           marca: input.marca,
           modelo: input.modelo,
           foto_url: input.fotoUrl,
-            apelido: input.apelido,
-            numero_serie: input.numeroSerie,
+          apelido: input.apelido,
+          numero_serie: input.numeroSerie,
+          ...(input.issueType !== undefined ? { issue_type: input.issueType } : {}),
+          ...(input.issueDescription !== undefined ? { issue_description: input.issueDescription } : {}),
         });
       }
 
@@ -132,6 +138,9 @@ export class DeviceController {
         });
         if (!device) {
           throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
+        }
+        if (await RepairOrderModel.count({ where: { device_id: deviceId } })) {
+          throw new AppError("Este dispositivo possui ordens de reparo e não pode ser excluído.", 409, "DEVICE_IN_USE");
         }
         await device.destroy();
       }
