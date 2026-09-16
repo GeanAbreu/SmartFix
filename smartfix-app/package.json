@@ -6,6 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:check": "node --conditions=react-server --import tsx scripts/database.ts check",
+    "db:migrate": "node --conditions=react-server --import tsx scripts/database.ts migrate",
+    "db:import-local": "node --conditions=react-server --import tsx scripts/import-local.ts",
+    "db:smoke": "node --conditions=react-server --import tsx scripts/database-smoke.ts",
     "lint": "eslint app src tests next.config.ts",
     "test": "node --conditions=react-server --import tsx --test tests/**/*.test.ts"
   },

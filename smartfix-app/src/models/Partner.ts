@@ -33,6 +33,7 @@ Partner.init(
       defaultValue: DataTypes.UUIDV4,
     },
     full_name: {
+      field: "nome",
       type: DataTypes.TEXT,
       allowNull: false,
     },
@@ -42,10 +43,12 @@ Partner.init(
       unique: true,
     },
     password_hash: {
+      field: "senha",
       type: DataTypes.TEXT,
       allowNull: false,
     },
     phone: {
+      field: "telefone",
       type: DataTypes.TEXT,
       allowNull: true,
     },
@@ -67,18 +70,22 @@ Partner.init(
       allowNull: true,
     },
     address: {
+      field: "logradouro",
       type: DataTypes.TEXT,
       allowNull: true,
     },
     city: {
+      field: "municipio",
       type: DataTypes.TEXT,
       allowNull: true,
     },
     state: {
+      field: "uf",
       type: DataTypes.TEXT,
       allowNull: true,
     },
     zip_code: {
+      field: "cep",
       type: DataTypes.TEXT,
       allowNull: true,
     },
@@ -105,11 +112,13 @@ Partner.init(
       defaultValue: 0,
     },
     is_verified: {
+      field: "is_approved",
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
     },
     created_at: {
+      field: "criado_em",
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
@@ -122,7 +131,7 @@ Partner.init(
   },
   {
     sequelize,
-    tableName: "partners",
+    tableName: "partner",
     modelName: "Partner",
     timestamps: true,
     createdAt: "created_at",

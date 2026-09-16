@@ -51,6 +51,7 @@ Client.init(
       allowNull: true,
     },
     created_at: {
+      field: "criado_em",
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,

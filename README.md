@@ -316,35 +316,72 @@ Essas variáveis permitem configurar recursos como:
 * login com Google;
 * diretório de dados locais em desenvolvimento.
 
-## Desenvolvimento local sem banco
+## Conexão e desenvolvimento local
 
-Durante o desenvolvimento, caso `DATABASE_URL` não esteja configurada, a aplicação pode utilizar armazenamento local em:
+O PostgreSQL é obrigatório por padrão, inclusive em desenvolvimento. Sem
+`DATABASE_URL`, as APIs retornam 503 com `DATABASE_NOT_CONFIGURED`, evitando
+informar sucesso enquanto os dados ficam fora do banco. Apenas para demonstração
+offline, configure `SMARTFIX_LOCAL_AUTH=true` e deixe `DATABASE_URL` vazia em
+development. Nesse caso os dados ficam em `.smartfix-data/auth.json`;
+`SMARTFIX_LOCAL_DATA_DIR` permite escolher outra pasta. Em produção esse modo
+é sempre desabilitado.
 
-```text
-.smartfix-data/auth.json
-```
-
-Esse modo utiliza hashes bcrypt e gravação serializada.
-
-Em produção, banco de dados e segredo de sessão são obrigatórios.
+No Supabase, copie a URI em **Connect → Direct → Session pooler** para redes
+IPv4. Substitua a senha, codificando caracteres especiais na URI (por exemplo,
+`@` vira `%40`). A URL do painel e a chave pública não substituem `DATABASE_URL`.
+Mantenha `DB_SSL=true` e `DB_SSL_REJECT_UNAUTHORIZED=true`. Para a CA do Supabase,
+use `DB_SSL_CA_FILE=certs/prod-ca-2021.crt`: o certificado público incluído veio do
+[link oficial do painel](https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt).
+Outros provedores devem usar sua própria CA. Reinicie `npm run dev` depois de
+alterar a conexão, pois o pool Sequelize é mantido em memória.
 
 ## Atualização do banco
 
-Para instalações existentes que utilizam PostgreSQL, pode ser necessário aplicar a migration:
+Com as tabelas legadas existentes e `.env.local` configurado, execute:
 
-```text
-Database/migrations/20260909_contributions.sql
+```powershell
+npm run db:migrate
+npm run db:check
+npm run db:smoke
 ```
 
-A aplicação não executa migrations automaticamente.
+O comando aplica, em ordem, `20260909_contributions.sql` e
+[`20260916_database_persistence.sql`](Database/migrations/20260916_database_persistence.sql).
+Também é possível executar os dois arquivos no SQL Editor como proprietário
+das tabelas. As migrations adicionam campos e workflow, removem somente a FK
+legada `clients.id → auth.users.id` e ativam RLS nas cinco tabelas da aplicação.
+Nenhuma conta é removida. O SmartFix usa autenticação própria; seus UUIDs não
+dependem de um cadastro em Supabase Auth. As FKs de endereços/aparelhos continuam
+apontando para `clients`. Os models usam `clients.criado_em` e `public.partner`,
+com mapeamento explícito dos nomes portugueses das colunas.
 
-Os arquivos existentes em:
+RLS bloqueia acesso público; `PUBLIC`, `anon` e `authenticated` não recebem
+permissões nas tabelas. `DATABASE_URL` deve usar uma conta exclusiva do servidor
+com acesso às tabelas e que seja proprietária delas ou tenha `BYPASSRLS`
+(a conexão `postgres` do painel atende a isso). **O isolamento entre usuários
+é aplicado nas APIs SmartFix, não por políticas com `auth.uid()`.** A sessão
+SmartFix não é uma sessão Supabase Auth. Não exponha essa conexão ao navegador.
+Veja [RLS no Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
-```text
-Database/tables/
+`db:check` verifica os models, RLS e acesso do servidor. `db:smoke` testa gravação,
+leitura, edição, filtros de proprietário e FKs, sempre revertendo as transações
+de teste; também verifica que `anon` e `authenticated` não conseguem ler clientes.
+O segundo exige permissão para `SET ROLE` dessas funções (execute como `postgres`).
+O aplicativo não aplica migrations automaticamente. Os scripts em
+`Database/tables/` são a base legada; não representam sozinhos o esquema atualizado.
+
+Para recuperar cadastros feitos no antigo modo local:
+
+```powershell
+npm run db:import-local
+# Ou informe explicitamente outro arquivo auth.json:
+npm run db:import-local -- C:/caminho/auth.json
 ```
 
-são materiais históricos do projeto e não devem ser considerados um instalador completo do banco.
+A importação preserva IDs, hashes e vínculos, incluindo workflow. Registros já
+importados pelo mesmo ID não são sobrescritos; conflitos de identidade ou de
+campos únicos revertem a transação inteira. O arquivo original fica intacto.
+Depois de mudar de armazenamento, entre novamente na aplicação.
 
 ## Validação
 

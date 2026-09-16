@@ -1,7 +1,8 @@
 import { Sequelize } from "sequelize";
+import { readFileSync } from "node:fs";
 import { AppError } from "@/src/errors/AppError";
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL?.trim();
 const useSsl = process.env.DB_SSL !== "false";
 const rejectUnauthorized =
   process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
@@ -17,9 +18,9 @@ function getPoolMax() {
 }
 
 export function assertDatabaseConfigured() {
-  if (!process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL?.trim()) {
     throw new AppError(
-      "O serviço de autenticação não está configurado neste ambiente.",
+      "Banco de dados não configurado. Defina DATABASE_URL no ambiente do servidor e reinicie a aplicação.",
       503,
       "DATABASE_NOT_CONFIGURED"
     );
@@ -39,6 +40,9 @@ function createSequelizeInstance() {
           ssl: {
             require: true,
             rejectUnauthorized,
+            ...(process.env.DB_SSL_CA_FILE
+              ? { ca: readFileSync(process.env.DB_SSL_CA_FILE, "utf8") }
+              : {}),
           },
         }
       : undefined,

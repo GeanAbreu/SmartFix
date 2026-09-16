@@ -12,6 +12,7 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
   const previousEnv = { ...process.env };
   Object.assign(process.env, {
     NODE_ENV: "development",
+    SMARTFIX_LOCAL_AUTH: "true",
     SESSION_SECRET: "integration-test-secret-of-at-least-32-characters",
     APP_URL: "http://localhost:3000",
   });
