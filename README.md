@@ -387,20 +387,6 @@ Mais informações sobre a integração das diferentes partes do projeto estão 
 docs/integracao-branches.md
 ```
 
-## Funcionalidades futuras
-
-Algumas funcionalidades ainda não fazem parte do escopo atual, mas podem ser adicionadas futuramente:
-
-* Pagamentos online.
-* Chat em tempo real.
-* Retirada e entrega de dispositivos.
-* Integração com serviços de logística.
-* Atualizações em tempo real por WebSocket.
-* Relatórios administrativos.
-* Métricas de desempenho das assistências.
-* Sistema de reputação de parceiros.
-* Aplicativo mobile.
-
 ## Objetivo do SmartFix
 
 O objetivo do SmartFix é tornar o processo de assistência técnica mais organizado, transparente e simples para todos os envolvidos.
