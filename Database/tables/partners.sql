@@ -6,30 +6,21 @@
 -- ============================================================
 
 CREATE TABLE public.partner (
-    id UUID PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
     -- Dados principais
     nome TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     telefone TEXT,
     cnpj TEXT UNIQUE NOT NULL,
-    data_nascimento DATE,
-
-    -- Endereço
-    cep TEXT,
-    logradouro TEXT,
-    numero TEXT,
-    complemento TEXT,
-    bairro TEXT,
-    municipio TEXT,
-    uf TEXT,
+    company_name TEXT,
 
     -- Controle da assistência
-    is_approved BOOLEAN,
-    rating NUMERIC,
+    is_approved BOOLEAN DEFAULT false,
 
     -- Auditoria
-    criado_em TIMESTAMPTZ,
+    criado_em TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     -- Senha
     senha TEXT

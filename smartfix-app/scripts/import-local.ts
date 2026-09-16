@@ -9,11 +9,11 @@ const userSchema = z.object({
   id: z.uuid(), role: z.enum(["client", "partner"]), name: z.string(), email: z.email(),
   passwordHash: z.string().min(1), document: z.string(), phone: z.string(),
   birthDate: z.string().nullable(), companyName: z.string().nullable(),
-  address: z.string(), city: z.string(), state: z.string(), zipCode: z.string(),
+  address: z.string().optional(), city: z.string().optional(), state: z.string().optional(), zipCode: z.string().optional(),
   isVerified: z.boolean(), createdAt: z.iso.datetime(),
 });
 const addressSchema = z.object({
-  id: z.uuid(), clientId: z.uuid(), apelido: z.string(), cep: z.string(),
+  id: z.uuid(), clientId: z.uuid().nullable(), partnerId: z.uuid().nullable().optional(), apelido: z.string(), cep: z.string(),
   logradouro: z.string(), numero: z.string(), complemento: z.string(),
   bairro: z.string(), cidade: z.string(), estado: z.string(), principal: z.boolean(),
 });
@@ -63,8 +63,7 @@ async function main() {
           }
           await Partner.create({ id: user.id, full_name: user.name, email: user.email,
             password_hash: password, cnpj: user.document, phone: user.phone,
-            company_name: user.companyName, address: user.address, city: user.city,
-            state: user.state, zip_code: user.zipCode, is_verified: user.isVerified,
+            company_name: user.companyName, is_verified: user.isVerified,
             created_at: new Date(user.createdAt) }, { transaction });
           counts.partners++;
         }
@@ -72,11 +71,21 @@ async function main() {
       for (const address of store.addresses) {
         const existing = await ClientAddress.findByPk(address.id, { transaction });
         if (existing) {
-          if (existing.client_id !== address.clientId) throw new Error("LOCAL_ID_CONFLICT");
+          if (existing.client_id !== address.clientId || existing.partner_id !== (address.partnerId ?? null)) throw new Error("LOCAL_ID_CONFLICT");
           continue;
         }
-        const { clientId, ...values } = address;
-        await ClientAddress.create({ ...values, client_id: clientId }, { transaction });
+        const { clientId, partnerId, ...values } = address;
+        await ClientAddress.create({ ...values, client_id: clientId, partner_id: partnerId ?? null }, { transaction });
+        counts.addresses++;
+      }
+      // Legacy offline partner profiles used one concatenated street field.
+      // Preserve it verbatim; do not guess a house number or neighborhood.
+      for (const user of store.users.filter((user) => user.role === "partner")) {
+        if (!user.address && !user.city && !user.state && !user.zipCode) continue;
+        if (await ClientAddress.count({ where: { partner_id: user.id }, transaction })) continue;
+        await ClientAddress.create({ partner_id: user.id, apelido: "Principal",
+          cep: user.zipCode ?? "", logradouro: user.address ?? "", numero: "", complemento: "",
+          bairro: "", cidade: user.city ?? "", estado: user.state ?? "", principal: true }, { transaction });
         counts.addresses++;
       }
       for (const device of store.devices) {

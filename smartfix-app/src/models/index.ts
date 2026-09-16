@@ -21,4 +21,7 @@ ClientDevice.belongsTo(Client, {
   as: "client",
 });
 
+Partner.hasMany(ClientAddress, { foreignKey: "partner_id", as: "addresses" });
+ClientAddress.belongsTo(Partner, { foreignKey: "partner_id", as: "partner" });
+
 export { Client, ClientAddress, ClientDevice, Partner };

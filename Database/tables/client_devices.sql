@@ -15,5 +15,7 @@ CREATE TABLE public.client_devices (
     tipo TEXT NOT NULL,
     marca TEXT NOT NULL,
     modelo TEXT NOT NULL,
-    foto_url TEXT NOT NULL
+    foto_url TEXT NOT NULL,
+    apelido VARCHAR(100) NOT NULL DEFAULT '',
+    numero_serie VARCHAR(100) NOT NULL DEFAULT ''
 );

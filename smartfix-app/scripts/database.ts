@@ -1,7 +1,7 @@
 import { loadEnvConfig } from "@next/env";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Model, ModelStatic } from "sequelize";
+import { Transaction, type Model, type ModelStatic } from "sequelize";
 
 loadEnvConfig(process.cwd(), true);
 
@@ -12,7 +12,20 @@ async function main() {
   try {
     assertDatabaseConfigured();
     if (process.argv[2] === "migrate") {
-      for (const name of ["20260909_contributions.sql", "20260916_database_persistence.sql"]) {
+      const backup: Record<string, unknown> = {};
+      // Snapshot under one repeatable-read transaction, before any schema changes.
+      await sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, async (transaction) => {
+        for (const table of ["clients", "partner", "client_addresses", "client_devices"]) {
+          const [rows] = await sequelize.query(`SELECT * FROM public.${table}`, { transaction });
+          backup[table] = rows;
+        }
+      });
+      const backupDirectory = path.resolve(".smartfix-data/backups");
+      await mkdir(backupDirectory, { recursive: true });
+      const backupFile = path.join(backupDirectory, `before-migration-${Date.now()}.json`);
+      await writeFile(backupFile, JSON.stringify(backup), { mode: 0o600, flag: "wx" });
+      console.log("Backup salvo em .smartfix-data/backups (não versionado).");
+      for (const name of ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql"]) {
         const sql = await readFile(path.resolve("../Database/migrations", name), "utf8");
         await sequelize.query(sql);
         console.log(`Migration aplicada: ${name}`);

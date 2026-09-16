@@ -3,7 +3,8 @@ import sequelize from "@/src/config/database";
 
 export class ClientAddress extends Model {
   declare id: string;
-  declare client_id: string;
+  declare client_id: string | null;
+  declare partner_id: string | null;
   declare apelido: string | null;
   declare cep: string;
   declare logradouro: string;
@@ -24,11 +25,17 @@ ClientAddress.init(
     },
     client_id: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "clients",
         key: "id",
       },
+      onDelete: "CASCADE",
+    },
+    partner_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: "partner", key: "id" },
       onDelete: "CASCADE",
     },
     apelido: {

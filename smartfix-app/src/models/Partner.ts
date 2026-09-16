@@ -9,17 +9,6 @@ export class Partner extends Model {
   declare phone: string | null;
   declare company_name: string | null;
   declare cnpj: string | null;
-  declare specialty: string | null;
-  declare bio: string | null;
-  declare address: string | null;
-  declare city: string | null;
-  declare state: string | null;
-  declare zip_code: string | null;
-  declare latitude: number | null;
-  declare longitude: number | null;
-  declare profile_image_url: string | null;
-  declare rating: string;
-  declare total_reviews: number;
   declare is_verified: boolean;
   declare created_at: Date;
   declare updated_at: Date;
@@ -60,56 +49,6 @@ Partner.init(
       type: DataTypes.TEXT,
       allowNull: true,
       unique: true,
-    },
-    specialty: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    bio: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    address: {
-      field: "logradouro",
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    city: {
-      field: "municipio",
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    state: {
-      field: "uf",
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    zip_code: {
-      field: "cep",
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    latitude: {
-      type: DataTypes.DOUBLE,
-      allowNull: true,
-    },
-    longitude: {
-      type: DataTypes.DOUBLE,
-      allowNull: true,
-    },
-    profile_image_url: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    rating: {
-      type: DataTypes.DECIMAL(3, 2),
-      allowNull: false,
-      defaultValue: 0,
-    },
-    total_reviews: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
     },
     is_verified: {
       field: "is_approved",

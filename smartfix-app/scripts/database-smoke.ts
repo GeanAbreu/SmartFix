@@ -28,10 +28,28 @@ async function main() {
       const partner = await Partner.create({ full_name: "Parceiro Teste", email: `partner-${suffix}@example.invalid`,
         cnpj: suffix.replaceAll("-", "").slice(0, 14), password_hash: "hash-test-only-never-committed" }, { transaction });
       assert.equal((await Partner.findByPk(partner.id, { transaction }))?.full_name, "Parceiro Teste");
+      const partnerAddress = await ClientAddress.create({ partner_id: partner.id, apelido: "Sede",
+        cep: "01001000", logradouro: "Rua Teste", numero: "2", bairro: "Centro",
+        cidade: "São Paulo", estado: "SP", principal: true }, { transaction });
+      assert.equal(partnerAddress.client_id, null);
+      assert.equal((await ClientAddress.findByPk(partnerAddress.id, { transaction }))?.partner_id, partner.id);
+      assert.equal(await ClientAddress.findOne({ where: { id: partnerAddress.id, client_id: client.id }, transaction }), null);
+      for (const owners of [
+        { client_id: null, partner_id: null },
+        { client_id: client.id, partner_id: partner.id },
+        { client_id: null, partner_id: randomUUID() },
+      ]) {
+        await assert.rejects(sequelize.transaction({ transaction }, async (savepoint) => {
+          await ClientAddress.create({ ...owners, apelido: "Inválido", cep: "01001000",
+            logradouro: "Rua Teste", numero: "1", bairro: "Centro", cidade: "São Paulo", estado: "SP" }, { transaction: savepoint });
+        }), (error: unknown) => ["23514", "23503"].includes((error as { original?: { code?: string } }).original?.code ?? ""));
+      }
+      await partner.destroy({ transaction });
+      assert.equal(await ClientAddress.findByPk(partnerAddress.id, { transaction }), null);
       await client.destroy({ transaction });
       assert.equal(await ClientAddress.findByPk(address.id, { transaction }), null);
       assert.equal(await ClientDevice.findByPk(device.id, { transaction }), null);
-      console.log("CRUD, mapeamento de colunas, filtros por proprietário e FKs: OK.");
+      console.log("CRUD, endereços de clientes/parceiros, proprietário exclusivo, isolamento e FKs: OK.");
     } finally {
       // No fixture or deletion survives this verification, including on failure.
       await transaction.rollback();

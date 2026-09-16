@@ -1,7 +1,7 @@
 -- ============================================================
 -- SmartFix
 -- Tabela: client_addresses
--- Descrição: Armazena os endereços cadastrados pelos clientes
+-- Descrição: Endereços de clientes e parceiros, com proprietário exclusivo
 -- Banco: PostgreSQL / Supabase
 -- ============================================================
 
@@ -10,6 +10,7 @@ CREATE TABLE public.client_addresses (
 
     -- Cliente proprietário do endereço
     client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+    partner_id UUID REFERENCES public.partner(id) ON DELETE CASCADE,
 
     -- Identificação do endereço
     apelido TEXT NOT NULL,
@@ -24,5 +25,7 @@ CREATE TABLE public.client_addresses (
     uf TEXT NOT NULL,
 
     -- Define se este é o endereço principal do cliente
-    is_principal BOOLEAN
+    is_principal BOOLEAN DEFAULT false,
+    CONSTRAINT client_addresses_exactly_one_owner
+      CHECK ((client_id IS NOT NULL)::int + (partner_id IS NOT NULL)::int = 1)
 );

@@ -169,14 +169,6 @@ export class AuthController {
           }
         }
 
-        const fullAddress = [
-          body.rua,
-          body.numero,
-          body.complemento,
-          body.bairro,
-        ]
-          .filter(Boolean)
-          .join(", ");
         const user = await createLocalUser(
           {
             role: body.tipoUsuario === "cliente" ? "client" : "partner",
@@ -189,23 +181,17 @@ export class AuthController {
               body.tipoUsuario === "cliente" ? body.dataNascimento : null,
             companyName:
               body.tipoUsuario === "parceiro" ? body.nomeCompleto : null,
-            address: fullAddress,
-            city: body.municipio,
-            state: body.uf.toUpperCase(),
-            zipCode: onlyDigits(body.cep),
           },
-          body.tipoUsuario === "cliente"
-            ? {
-                apelido: "Principal",
-                cep: onlyDigits(body.cep),
-                logradouro: body.rua,
-                numero: body.numero,
-                complemento: body.complemento || "",
-                bairro: body.bairro,
-                cidade: body.municipio,
-                estado: body.uf.toUpperCase(),
-              }
-            : undefined
+          {
+            apelido: "Principal",
+            cep: onlyDigits(body.cep),
+            logradouro: body.rua,
+            numero: body.numero,
+            complemento: body.complemento || "",
+            bairro: body.bairro,
+            cidade: body.municipio,
+            estado: body.uf.toUpperCase(),
+          }
         );
 
         return localRegistrationResponse(user);
@@ -310,26 +296,28 @@ export class AuthController {
       }
 
       const passwordHash = await hashPassword(body.senha);
-      const fullAddress = [
-        body.rua,
-        body.numero,
-        body.complemento,
-        body.bairro,
-      ]
-        .filter(Boolean)
-        .join(", ");
-
-      const partner = await Partner.create({
-        full_name: body.nomeCompleto,
-        company_name: body.nomeCompleto,
-        email,
-        password_hash: passwordHash,
-        phone: body.telefone,
-        cnpj: document,
-        address: fullAddress,
-        city: body.municipio,
-        state: body.uf.toUpperCase(),
-        zip_code: onlyDigits(body.cep),
+      const partner = await sequelize.transaction(async (transaction) => {
+        const createdPartner = await Partner.create({
+          full_name: body.nomeCompleto,
+          company_name: body.nomeCompleto,
+          email,
+          password_hash: passwordHash,
+          phone: body.telefone,
+          cnpj: document,
+        }, { transaction });
+        await ClientAddress.create({
+          partner_id: createdPartner.id,
+          apelido: "Principal",
+          cep: onlyDigits(body.cep),
+          logradouro: body.rua,
+          numero: body.numero,
+          complemento: body.complemento || null,
+          bairro: body.bairro,
+          cidade: body.municipio,
+          estado: body.uf.toUpperCase(),
+          principal: true,
+        }, { transaction });
+        return createdPartner;
       });
 
       return NextResponse.json(

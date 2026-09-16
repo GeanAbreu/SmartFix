@@ -18,17 +18,19 @@ export type LocalAuthUser = {
   phone: string;
   birthDate: string | null;
   companyName: string | null;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
+  // Read compatibility for legacy files; new users store addresses separately.
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   isVerified: boolean;
   createdAt: string;
 };
 
 export type LocalClientAddress = {
   id: string;
-  clientId: string;
+  clientId: string | null;
+  partnerId?: string | null;
   apelido: string;
   cep: string;
   logradouro: string;
@@ -60,7 +62,7 @@ type LocalAuthStore = {
 };
 
 type CreateLocalUserInput = Omit<LocalAuthUser, "id" | "createdAt" | "isVerified">;
-type CreateLocalAddressInput = Omit<LocalClientAddress, "id" | "clientId" | "principal">;
+type CreateLocalAddressInput = Omit<LocalClientAddress, "id" | "clientId" | "partnerId" | "principal">;
 
 const dataDirectory = process.env.NODE_ENV === "development" && process.env.SMARTFIX_LOCAL_DATA_DIR
   ? path.resolve(process.env.SMARTFIX_LOCAL_DATA_DIR)
@@ -199,8 +201,13 @@ export function createLocalUser(
       );
     }
 
+    const profile = { ...input };
+    delete profile.address;
+    delete profile.city;
+    delete profile.state;
+    delete profile.zipCode;
     const user: LocalAuthUser = {
-      ...input,
+      ...profile,
       id: randomUUID(),
       email: normalizedEmail,
       isVerified: false,
@@ -209,11 +216,12 @@ export function createLocalUser(
 
     store.users.push(user);
 
-    if (user.role === "client" && initialAddress) {
+    if (initialAddress) {
       localAddresses(store).push({
         ...initialAddress,
         id: randomUUID(),
-        clientId: user.id,
+        clientId: user.role === "client" ? user.id : null,
+        partnerId: user.role === "partner" ? user.id : null,
         principal: true,
       });
     }
