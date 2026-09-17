@@ -14,7 +14,7 @@ type DeviceListData = { devices: ClientDevice[] };
 
 const MAX_PHOTO_BYTES = 1_500_000;
 const SUPPORTED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const emptyForm: DeviceForm = { tipo: "", marca: "", modelo: "", fotoUrl: "" };
+const emptyForm: DeviceForm = { tipo: "", marca: "", modelo: "", fotoUrl: "", issueType: "" };
 
 async function readResponse<T>(response: Response): Promise<ApiResponse<T>> {
   const payload: unknown = await response.json();
@@ -34,16 +34,13 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
   const [form, setForm] = useState<DeviceForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ClientDevice | null>(null);
+  const [photoDevice, setPhotoDevice] = useState<ClientDevice | null>(null);
   const [open, setOpen] = useState(Boolean(returnPartnerId));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
-  const filtered = devices.filter((device) => (!category || device.tipo === category) && [device.marca, device.modelo, device.apelido, device.numeroSerie].join(" ").toLowerCase().includes(query.toLowerCase()));
-
   const brands = getDeviceBrands(form.tipo);
   const models = getDeviceModels(form.tipo, form.marca);
 
@@ -78,7 +75,7 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
 
   function openEdit(device: ClientDevice) {
     setEditingId(device.id);
-    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl, apelido: device.apelido || "", numeroSerie: device.numeroSerie || "" });
+    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl, apelido: device.apelido || "", numeroSerie: device.numeroSerie || "", issueType: device.issueType || "", issueDescription: device.issueDescription || "" });
     setError("");
     setOpen(true);
   }
@@ -192,24 +189,26 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && !open && <p className={styles.error} role="alert">{error}</p>}
 
-        <div className={styles.formGrid}><label>Buscar por aparelho, apelido ou série<input value={query} onChange={(event) => setQuery(event.target.value)} /></label><label>Categoria<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Todas</option>{DEVICE_TYPES.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label></div>
-        {!loading && devices.length > 0 && !filtered.length && <p>Nenhum dispositivo corresponde à busca.</p>}
         {loading ? <div className={styles.empty}>Carregando dispositivos...</div> : devices.length === 0 ? (
           <div className={styles.empty}><span>⌁</span><strong>Nenhum dispositivo cadastrado</strong><p>Adicione seu primeiro aparelho para começar.</p><button type="button" onClick={openNew}>Cadastrar dispositivo</button></div>
         ) : (
-          <div className={styles.grid}>{filtered.map((device) => (
+          <div className={styles.grid}>{devices.map((device) => (
             <article key={device.id} className={styles.card}>
-              <div className={styles.photo}>
-                <Image src={device.fotoUrl} alt={`${device.marca} ${device.modelo}`} fill sizes="(max-width: 700px) 100vw, 360px" unoptimized />
-                <small>{device.tipo}</small>
-              </div>
-              <div className={styles.cardBody}>
-                <p>{device.marca}</p>
-                <h3>{device.apelido || device.modelo}</h3><p>{device.numeroSerie}</p><Link href="/cliente/ordens">Solicitar reparo</Link>
-                <div className={styles.actions}>
-                  <button type="button" onClick={() => openEdit(device)}>Editar</button>
-                  <button type="button" className={styles.delete} onClick={() => setPendingDelete(device)}>Excluir</button>
+              <div className={styles.cardTitle}>
+                <span className={styles.deviceIcon} aria-hidden="true">▣</span>
+                <div>
+                  <h3>{device.apelido || device.modelo}</h3>
+                  <small>{device.tipo}</small>
                 </div>
+              </div>
+              <p><strong>{device.marca} {device.modelo}</strong></p>
+              {device.numeroSerie && <p>Número de série / IMEI: {device.numeroSerie}</p>}
+              {device.issueType && <p><strong>Problema:</strong> {device.issueType}</p>}
+              <div className={styles.actions}>
+                <Link href={`/cliente/solicitar-reparo?deviceId=${encodeURIComponent(device.id)}`} className={styles.repair}>Solicitar reparo</Link>
+                <button type="button" onClick={() => setPhotoDevice(device)}>Ver foto</button>
+                <button type="button" onClick={() => openEdit(device)}>Editar</button>
+                <button type="button" className={styles.delete} onClick={() => setPendingDelete(device)}>Excluir</button>
               </div>
             </article>
           ))}</div>
@@ -225,6 +224,7 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
             <label>Tipo de dispositivo *<select value={form.tipo} onChange={(event) => selectType(event.target.value)} required><option value="">Selecione o tipo</option>{DEVICE_TYPES.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}</select></label>
             <label>Marca *<select value={form.marca} onChange={(event) => selectBrand(event.target.value)} disabled={!form.tipo} required><option value="">Selecione a marca</option>{brands.map((marca) => <option key={marca} value={marca}>{marca}</option>)}</select></label>
             <label className={styles.wide}>Modelo *<select value={form.modelo} onChange={(event) => setForm((current) => ({ ...current, modelo: event.target.value }))} disabled={!form.marca} required><option value="">Selecione o modelo</option>{models.map((modelo) => <option key={modelo} value={modelo}>{modelo}</option>)}</select></label>
+            <label className={styles.wide}>Tipo de problema<input maxLength={150} value={form.issueType || ""} onChange={(event) => setForm((current) => ({ ...current, issueType: event.target.value }))} placeholder="Ex.: não liga, tela quebrada, bateria" /></label>
           </div>
           <label className={styles.photoPicker}>
             <span>{form.fotoUrl ? "Trocar foto" : "Adicionar foto"}</span>
@@ -235,6 +235,14 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
           {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.formActions}><button type="button" onClick={closeModal}>Cancelar</button><button type="submit" disabled={saving || !form.fotoUrl}>{saving ? "Salvando..." : "Salvar dispositivo"}</button></div>
         </form>
+      </div>}
+
+      {photoDevice && <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="photo-title">
+        <button className={styles.overlay} type="button" aria-label="Fechar foto" onClick={() => setPhotoDevice(null)} />
+        <div className={styles.photoDialog}>
+          <div className={styles.formHeader}><h2 id="photo-title">Foto de {photoDevice.apelido || photoDevice.modelo}</h2><button type="button" onClick={() => setPhotoDevice(null)} aria-label="Fechar foto">×</button></div>
+          <div className={styles.photoView}><Image src={photoDevice.fotoUrl} alt={`${photoDevice.marca} ${photoDevice.modelo}`} fill sizes="(max-width: 700px) 90vw, 600px" unoptimized /></div>
+        </div>
       </div>}
 
       <ConfirmDialog

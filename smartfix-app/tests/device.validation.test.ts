@@ -29,3 +29,13 @@ test("rejeita formatos de foto não permitidos", () => {
   });
   assert.equal(result.success, false);
 });
+
+test("aceita o tipo de problema informado no cadastro", () => {
+  const result = deviceInputSchema.parse({ ...validDevice, issueType: "Tela quebrada" });
+  assert.equal(result.issueType, "Tela quebrada");
+});
+
+test("limita o tipo de problema ao tamanho aceito pelo cadastro", () => {
+  const result = deviceInputSchema.safeParse({ ...validDevice, issueType: "x".repeat(151) });
+  assert.equal(result.success, false);
+});

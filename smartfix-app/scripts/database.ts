@@ -21,7 +21,7 @@ async function main() {
             EXECUTE format('REVOKE ALL ON public.smartfix_migrations FROM %I',r);
           END IF; END LOOP; END $$;`);
       const applied = await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT });
-      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql"]
+      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql"]
         .filter((name) => !applied.some((entry) => entry.name === name));
       if (pending.length) {
       const backup: Record<string, unknown> = {};
