@@ -107,13 +107,10 @@ export default function AccountWorkspace({
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
-        <nav className={styles.nav}>
+        {root !== "/cliente" && <nav className={styles.nav}>
           <Link href={`${root}/dashboard`}>SmartFix / Início</Link>
           <Link href={`${root}/ordens`}>Reparos</Link>
-          {root === "/cliente" && (
-            <Link href="/cliente/enderecos">Endereços</Link>
-          )}
-        </nav>
+        </nav>}
         <h1>{title}</h1>
         {message && (
           <p role="status" className={styles.message}>

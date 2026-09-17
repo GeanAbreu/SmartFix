@@ -1,7 +1,7 @@
 import { requirePageRole } from "@/src/services/page-authorization.service";
-import AccountWorkspace from "@/app/components/AccountWorkspace";
+import ClientProfilePage from "./ClientProfilePage";
 export const dynamic = "force-dynamic";
 export default async function Page() {
   await requirePageRole("client");
-  return <AccountWorkspace mode="profile" root="/cliente" />;
+  return <ClientProfilePage />;
 }

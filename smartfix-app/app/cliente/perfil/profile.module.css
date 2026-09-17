@@ -1,0 +1,46 @@
+.page { min-height: 100vh; background: #07111f; color: #e8edf5; }
+.page * { box-sizing: border-box; }
+.mainArea { width: min(100%, 1280px); min-width: 0; padding: 38px clamp(20px, 3vw, 52px) 70px; }
+.topLine { display: flex; align-items: center; gap: 16px; margin-bottom: 29px; }
+.topLine a { color: #91bce0; font-size: 13px; text-decoration: none; }
+.topLine a:hover { color: #fff; }
+.pageHeader { margin-bottom: 26px; }
+.eyebrow { color: #ff8a40; font-size: 11px; font-weight: 800; letter-spacing: .11em; }
+.pageHeader h1 { margin: 8px 0; font-size: clamp(28px, 3vw, 38px); }
+.pageHeader p { margin: 0; color: #aab7c7; }
+.identityBanner { display: flex; align-items: center; gap: 20px; min-height: 144px; margin-bottom: 24px; padding: 24px 28px; border: 1px solid rgba(60,130,190,.3); border-radius: 16px; background: linear-gradient(115deg, #102c48, #0d1b2d 72%); }
+.heroAvatar { flex: 0 0 70px; width: 70px; height: 70px; display: grid; place-items: center; border: 1px solid rgba(130,196,243,.28); border-radius: 18px; background: #194366; color: #fff; font-size: 24px; font-weight: 800; }
+.identityBanner h2 { margin: 5px 0 2px; font-size: 24px; }
+.identityBanner p { margin: 0; color: #aab7c7; overflow-wrap: anywhere; }
+.contentGrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(275px, .9fr); align-items: start; gap: 20px; }
+.card { min-width: 0; padding: 25px; border: 1px solid rgba(60,130,190,.25); border-radius: 16px; background: #0d1b2d; }
+.card h2 { margin: 6px 0 0; font-size: 20px; }
+.cardHeading { padding-bottom: 22px; border-bottom: 1px solid rgba(60,130,190,.2); }
+.cardHeading p, .sideDescription { margin: 9px 0 0; color: #9eafbf; font-size: 13px; line-height: 1.5; }
+.form { display: grid; gap: 21px; padding-top: 22px; }
+.form label { display: grid; gap: 8px; color: #dce8f3; font-size: 13px; font-weight: 700; }
+.form input { width: 100%; min-width: 0; height: 45px; padding: 10px 13px; border: 1px solid rgba(90,146,190,.38); border-radius: 9px; outline: none; background: #071524; color: #fff; font: inherit; font-size: 15px; font-weight: 400; }
+.form input:focus { border-color: #72b9ed; box-shadow: 0 0 0 3px rgba(114,185,237,.15); }
+.form label small { color: #91a5b7; font-size: 12px; font-weight: 400; }
+.formActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 3px; }
+.primaryButton, .secondaryButton { min-height: 43px; padding: 10px 17px; border: 0; border-radius: 9px; background: #ff6b1a; color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.primaryButton:hover, .secondaryButton:hover { background: #e65b0c; }
+.primaryButton:disabled { opacity: .55; cursor: not-allowed; }
+.textButton { padding: 9px 5px; border: 0; background: transparent; color: #9bcaf0; font: inherit; font-size: 13px; cursor: pointer; }
+.textButton:hover { color: #fff; }
+.sideCards { display: grid; gap: 20px; }
+.details { margin: 20px 0 0; }
+.details div { padding: 13px 0; border-top: 1px solid rgba(60,130,190,.2); }
+.details dt { margin-bottom: 5px; color: #91a5b7; font-size: 12px; }
+.details dd { margin: 0; color: #e8edf5; font-size: 14px; overflow-wrap: anywhere; }
+.securityLinks { display: grid; margin-top: 18px; border-top: 1px solid rgba(60,130,190,.2); }
+.securityLinks a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 0; border-bottom: 1px solid rgba(60,130,190,.2); color: #8bc6f0; font-size: 13px; font-weight: 700; text-decoration: none; }
+.securityLinks a:last-child { border-bottom: 0; padding-bottom: 0; }
+.securityLinks a:hover { color: #fff; }
+.stateMessage { margin: 0 0 14px; color: #b8c8d7; }
+.error, .success { margin: 20px 0 0; padding: 12px 14px; border-radius: 9px; font-size: 13px; }
+.error { background: rgba(239,68,68,.12); color: #ffaaaa; }
+.success { background: rgba(34,197,94,.12); color: #8ae5ac; }
+@media (max-width: 1100px) { .contentGrid { grid-template-columns: 1fr; } .sideCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 980px) { .mainArea { width: 100%; } }
+@media (max-width: 650px) { .mainArea { padding: 24px 16px 55px; } .topLine { margin-bottom: 22px; } .identityBanner { gap: 14px; padding: 20px; } .heroAvatar { flex-basis: 56px; width: 56px; height: 56px; border-radius: 14px; font-size: 19px; } .identityBanner h2 { font-size: 20px; } .sideCards { grid-template-columns: 1fr; } .card { padding: 20px; } }
