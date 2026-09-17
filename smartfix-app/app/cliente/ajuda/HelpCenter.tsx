@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import styles from "./help.module.css";
 
@@ -51,11 +50,6 @@ export default function HelpCenter() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <Link href="/cliente/dashboard" className={styles.brand}>🔧 <strong>SMART<span>FIX</span></strong></Link>
-        <nav aria-label="Navegação do cliente"><Link href="/cliente/dashboard">Início</Link><span>Central de Ajuda</span><Link href="/cliente/enderecos">Endereços</Link></nav>
-      </header>
-
       <section className={styles.intro}>
         <div><p>Suporte SmartFix</p><h1>Central de Ajuda e Chat</h1><span>Encontre respostas rápidas ou fale com a assistência designada.</span></div>
         <aside><b>👥</b><div><small>Assistência designada</small><strong>TechFix Soluções</strong><span>● Atendimento disponível</span></div></aside>

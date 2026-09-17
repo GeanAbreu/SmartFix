@@ -1,0 +1,22 @@
+.shell { min-height: 100vh; background: #07111f; color: #e8edf5; }
+.shell * { box-sizing: border-box; }
+.sidebar { position: fixed; z-index: 40; inset: 0 auto 0 0; width: 240px; display: flex; flex-direction: column; overflow-y: auto; padding: 25px 16px 20px; border-right: 1px solid rgba(60,130,190,.24); background: #091a2d; }
+.logo { display: flex; align-items: center; gap: 10px; padding: 0 12px 24px; color: #e8edf5; font-size: 18px; text-decoration: none; }
+.logo span, .mobileBar span { color: #ff6b1a; }
+.profile { display: flex; align-items: center; gap: 11px; margin-bottom: 27px; padding: 14px 12px; border: 1px solid rgba(60,130,190,.24); border-radius: 12px; background: #0d2238; }
+.avatar { flex: 0 0 36px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: #16446b; color: #fff; font-size: 13px; font-weight: 800; }
+.profile div { min-width: 0; display: grid; gap: 3px; }
+.profile strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+.profile small { color: #94aabd; }
+.navigation { display: grid; gap: 4px; }
+.navigation a { padding: 11px 13px; border-radius: 9px; color: #b8c8d7; font-size: 14px; text-decoration: none; }
+.navigation a:hover, .navigation a:focus-visible { background: #142f49; color: #fff; }
+.navigation .active { background: #173c5d; color: #fff; font-weight: 700; }
+.footer { display: grid; gap: 13px; margin-top: auto; padding: 20px 12px 0; border-top: 1px solid rgba(60,130,190,.24); }
+.footer a { color: #7db7e8; text-decoration: none; }
+.footer button { padding: 0; border: 0; background: transparent; color: #b8c8d7; font: inherit; text-align: left; cursor: pointer; }
+.footer button:hover { color: #fff; }
+.footer p { margin: 0; color: #ff9a9a; font-size: 13px; }
+.workspace { min-width: 0; min-height: 100vh; margin-left: 240px; container-type: inline-size; }
+.mobileBar, .overlay { display: none; }
+@media (max-width: 980px) { .sidebar { width: min(280px, 85vw); transform: translateX(-105%); transition: transform .2s ease; box-shadow: 20px 0 60px rgba(0,0,0,.4); } .sidebarOpen { transform: translateX(0); } .workspace { margin-left: 0; } .overlay { position: fixed; z-index: 35; inset: 0; display: block; width: 100%; border: 0; background: rgba(0,5,12,.7); } .mobileBar { position: sticky; z-index: 30; top: 0; display: flex; align-items: center; gap: 16px; height: 58px; padding: 0 18px; border-bottom: 1px solid rgba(60,130,190,.24); background: #091a2d; } .mobileBar button { padding: 4px; border: 0; background: transparent; color: #fff; font-size: 23px; cursor: pointer; } .mobileBar a { color: #e8edf5; font-size: 16px; font-weight: 800; text-decoration: none; } }

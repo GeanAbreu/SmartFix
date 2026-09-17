@@ -169,16 +169,6 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <Link href="/cliente/dashboard" className={styles.brand}>🔧 <strong>SMART<span>FIX</span></strong></Link>
-        <nav aria-label="Navegação do cliente">
-          <Link href="/cliente/dashboard">Início</Link>
-          <span>Dispositivos</span>
-          <Link href="/cliente/enderecos">Endereços</Link>
-          <Link href="/cliente/ajuda">Central de Ajuda</Link>
-        </nav>
-      </header>
-
       <section className={styles.hero}>
         <div><p>Meu Perfil / Dispositivos</p><h1>Meus Dispositivos</h1><span>Cadastre os aparelhos que você deseja manter ou reparar.</span></div>
         <button type="button" onClick={openNew}>+ Novo dispositivo</button>

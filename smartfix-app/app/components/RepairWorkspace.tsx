@@ -94,19 +94,11 @@ export default function RepairWorkspace({
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
-        <nav className={styles.nav}>
+        {role !== "client" && <nav className={styles.nav}>
           <Link href={`${root}/dashboard`}>SmartFix / Início</Link>
           <Link href={`${root}/notificacoes`}>Notificações</Link>
-          {role === "client" ? (
-            <>
-              <Link href="/cliente/dispositivos">Dispositivos</Link>
-              <Link href="/cliente/assistencias">Assistências</Link>
-              <Link href="/cliente/perfil">Meu perfil</Link>
-            </>
-          ) : (
-            <Link href="/parceiro/servicos">Catálogo de serviços</Link>
-          )}
-        </nav>
+          <Link href="/parceiro/servicos">Catálogo de serviços</Link>
+        </nav>}
         <h1>{role === "client" ? "Meus reparos" : "Ordens de serviço"}</h1>
         <p className={styles.muted}>
           Triagem, orçamento e acompanhamento. Atualização automática a cada 30

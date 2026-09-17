@@ -99,8 +99,6 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
     { timeout: 12000, maximumAge: 60000, enableHighAccuracy: false });
   }
   return <main className={styles.page}>
-    <header className={styles.header}><Link className={styles.brand} href="/cliente/dashboard">SMART<span>FIX</span></Link>
-      <nav aria-label="Navegação do cliente"><Link href="/cliente/dashboard">Início</Link><Link href="/cliente/ordens">Meus reparos</Link><Link aria-current="page" href="/cliente/assistencias">Assistências</Link></nav></header>
     <section className={styles.hero}><div><p className={styles.eyebrow}>PERTO DE VOCÊ</p><h1>O cuidado certo.<br /><span>Mais perto do que imagina.</span></h1>
       <p>Encontre uma assistência aprovada e dê o próximo passo no reparo do seu aparelho.</p></div><div className={styles.heroSeal} aria-hidden="true">⌖</div></section>
     <div className={styles.content}>

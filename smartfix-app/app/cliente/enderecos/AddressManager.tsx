@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { ApiResponse, ClientAddress } from "@/src/types/api";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
@@ -193,16 +192,6 @@ export default function AddressManager() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <Link href="/cliente/dashboard" className={styles.brand}>🔧 <strong>SMART<span>FIX</span></strong></Link>
-        <nav aria-label="Navegação do cliente">
-          <Link href="/cliente/dashboard">Início</Link>
-          <Link href="/cliente/dispositivos">Dispositivos</Link>
-          <Link href="/cliente/ajuda">Central de Ajuda</Link>
-          <span>Endereços</span>
-        </nav>
-      </header>
-
       <section className={styles.hero}>
         <div><p>Meu Perfil / Endereços</p><h1>Meus Endereços</h1><span>Gerencie locais de coleta e entrega dos seus aparelhos.</span></div>
         <button type="button" onClick={openNew}>+ Novo endereço</button>

@@ -103,10 +103,6 @@ export default function RepairRequest({ accountId, initialDeviceId, initialPartn
   const selectedPartner = partners.find((partner) => partner.id === draft.partnerId);
 
   return <main className={styles.page}>
-    <header className={styles.header}>
-      <Link href="/cliente/dashboard" className={styles.brand}>🔧 <strong>SMART<span>FIX</span></strong></Link>
-      <nav aria-label="Navegação do cliente"><Link href="/cliente/dashboard">Início</Link><Link href="/cliente/dispositivos">Dispositivos</Link><Link href="/cliente/assistencias">Assistências</Link><Link href="/cliente/ordens">Meus reparos</Link><span aria-current="page">Solicitar reparo</span></nav>
-    </header>
     <section className={styles.hero}><div><p>REPARO / NOVA SOLICITAÇÃO</p><h1>Solicitar reparo</h1><span>Conte o que aconteceu com seu aparelho e escolha uma assistência.</span></div></section>
     <div className={styles.content}>
       {createdId ? <section className={styles.success} role="status">
