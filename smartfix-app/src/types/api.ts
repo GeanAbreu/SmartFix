@@ -36,6 +36,8 @@ export type ClientDevice = {
   fotoUrl: string;
   apelido?: string;
   numeroSerie?: string;
+  issueType?: string;
+  issueDescription?: string;
 };
 
 export type PartnerProfile = {

@@ -98,7 +98,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       fotoUrl: "https://example.test/photo.png",
       apelido: "Pessoal",
       numeroSerie: "SER123",
+      issueType: "Não liga",
     });
+    assert.equal((await store.listLocalDevices(client.id))[0]?.issueType, "Não liga");
     const input = {
       deviceId: device.id,
       partnerId: partner.id,

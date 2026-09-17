@@ -1,1378 +1,171 @@
 "use client";
 
-import {
-  ReactNode,
-  useEffect,
-  useState,
-} from "react";
-
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  ApiResponse,
-  ClientProfile,
-} from "@/src/types/api";
+import type { ApiResponse, ClientProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
-
-import styles from "./dashboard.module.css";
+import { summarizeClientOrders } from "@/src/services/client-dashboard.service";
 import { ORDER_LABELS, type RepairOrder } from "@/src/types/workflow";
+import styles from "./dashboard.module.css";
 
-/* =========================================================
-   TIPOS
-========================================================= */
+type ClientData = { client: ClientProfile };
 
-type NavItemProps = {
-  icon: ReactNode;
-  label: string;
-  active?: boolean;
-  badge?: number;
-  onClick?: () => void;
-  disabled?: boolean;
-};
+type OrdersData = { orders: RepairOrder[] };
 
-type ClientData = {
-  client: ClientProfile;
-};
-
-/* =========================================================
-   ÍCONES
-========================================================= */
-
-function DashboardIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M4 11 12 4l8 7v9H4Z" />
-      <path d="M9 20v-6h6v6" />
-    </svg>
-  );
+function orderAction(order: RepairOrder) {
+  if (order.status === "quoted") return "Revisar orçamento";
+  if (order.status === "ready") return "Ver retirada";
+  if (order.status === "completed" && !order.review) return "Avaliar reparo";
+  return "Ver detalhes";
 }
 
-function RepairsIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M4 6h3M11 6h9M4 12h9M17 12h3M4 18h5M13 18h7" />
-
-      <circle
-        cx="9"
-        cy="6"
-        r="2"
-      />
-
-      <circle
-        cx="15"
-        cy="12"
-        r="2"
-      />
-
-      <circle
-        cx="11"
-        cy="18"
-        r="2"
-      />
-    </svg>
-  );
+function statusStyle(order: RepairOrder) {
+  if (order.status === "completed") return styles.statusComplete;
+  if (order.status === "cancelled") return styles.statusCancelled;
+  if (order.status === "quoted" || order.status === "ready") return styles.statusAttention;
+  return styles.statusActive;
 }
 
-function PlusOrderIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M12 5v14M5 12h14" />
-
-      <path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3Z" />
-    </svg>
-  );
+function OrderRow({ order }: { order: RepairOrder }) {
+  return <li className={styles.orderRow}>
+    <div className={styles.orderDetails}>
+      <span className={styles.orderIcon} aria-hidden="true">▣</span>
+      <div>
+        <h3>{order.device}</h3>
+        <p>O.S. {order.id.slice(0, 8)} · {new Date(order.createdAt).toLocaleDateString("pt-BR")}</p>
+      </div>
+    </div>
+    <span className={`${styles.statusBadge} ${statusStyle(order)}`}>{ORDER_LABELS[order.status]}</span>
+    <Link href={`/cliente/ordens?q=${encodeURIComponent(order.id)}`}>{orderAction(order)} →</Link>
+  </li>;
 }
-
-function DocumentIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M6 3h9l4 4v14H6Z" />
-
-      <path d="M15 3v5h5M9 12h6M9 16h6" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-      />
-
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="m12 3 2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.9-5.4 2.9 1-6-4.3-4.2 6-.9Z" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-
-      <circle
-        cx="12"
-        cy="10"
-        r="2.5"
-      />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
-
-      <path d="M10 21h4" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <circle
-        cx="12"
-        cy="12"
-        r="3"
-      />
-
-      <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.5 1A7 7 0 0 0 14 5.5L13.5 3h-4L9 5.5A7 7 0 0 0 6.6 7L4 6 2 9.5 4.1 11a7 7 0 0 0 0 2L2 14.5 4 18l2.6-1a7 7 0 0 0 2.4 1.5l.5 2.5h4l.5-2.5a7 7 0 0 0 2.4-1.5l2.6 1 2-3.5-2.1-1.5a7 7 0 0 0 .1-1Z" />
-    </svg>
-  );
-}
-
-function LogoutIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M10 4H5v16h5" />
-
-      <path d="M14 8l4 4-4 4M18 12H9" />
-    </svg>
-  );
-}
-
-function ClipboardIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <rect
-        x="6"
-        y="5"
-        width="12"
-        height="16"
-        rx="2"
-      />
-
-      <path d="M9 5V3h6v2M9 10h6M9 14h6" />
-    </svg>
-  );
-}
-
-function CheckCircleIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-      />
-
-      <path d="m8 12 2.5 2.5L16 9" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <circle
-        cx="10"
-        cy="10"
-        r="6"
-      />
-
-      <path d="m15 15 5 5" />
-    </svg>
-  );
-}
-
-function HeadsetIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
-
-      <path d="M4 14h3v6H5a1 1 0 0 1-1-1ZM20 14h-3v6h2a1 1 0 0 0 1-1Z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z" />
-
-      <path d="m9 12 2 2 4-5" />
-    </svg>
-  );
-}
-
-function CardIcon() {
-  return (
-    <svg viewBox="0 0 24 24">
-      <rect
-        x="3"
-        y="5"
-        width="18"
-        height="14"
-        rx="2"
-      />
-
-      <path d="M3 10h18" />
-    </svg>
-  );
-}
-
-/* =========================================================
-   USER ICON
-
-   Este é o componente que estava faltando.
-========================================================= */
-
-function UserIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle
-        cx="12"
-        cy="7"
-        r="4"
-      />
-
-      <path d="M4 21v-2c0-4 3.6-6 8-6s8 2 8 6v2" />
-    </svg>
-  );
-}
-
-/* =========================================================
-   NAV ITEM
-========================================================= */
-
-function NavItem({
-  icon,
-  label,
-  active = false,
-  badge,
-  onClick,
-  disabled = false,
-}: NavItemProps) {
-  return (
-    <button
-      type="button"
-      className={`${styles.navItem} ${
-        active
-          ? styles.navItemActive
-          : ""
-      }`}
-      onClick={onClick}
-      disabled={disabled}
-      title={disabled ? "Funcionalidade em desenvolvimento" : undefined}
-    >
-      <span className={styles.navIcon}>
-        {icon}
-      </span>
-
-      <span className={styles.navLabel}>
-        {label}
-      </span>
-
-      {badge !== undefined &&
-        badge > 0 && (
-          <span className={styles.navBadge}>
-            {badge}
-          </span>
-        )}
-    </button>
-  );
-}
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
 
 export default function ClientDashboard() {
   const router = useRouter();
-
-  const [
-    cliente,
-    setCliente,
-  ] =
-    useState<ClientProfile | null>(
-      null
-    );
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
-
-  const [
-    sidebarOpen,
-    setSidebarOpen,
-  ] =
-    useState(false);
-
-  const [currentDate, setCurrentDate] =
-    useState<Date | null>(null);
-
+  const [client, setClient] = useState<ClientProfile | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [orders, setOrders] = useState<RepairOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [orders, setOrders] = useState<RepairOrder[]>([]);
-  const [ordersError, setOrdersError] = useState("");
-  const [ordersLoaded, setOrdersLoaded] = useState(false);
-  const [tracking, setTracking] = useState("");
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/orders", { cache: "no-store" }).then(async (response) => {
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os reparos.");
-      if (active) { setOrders(result.data.orders); setOrdersLoaded(true); }
-    }).catch((error: Error) => { if (active) setOrdersError(error.message); });
-    return () => { active = false; };
-  }, []);
-  const ratings = orders.flatMap((order) => order.review ? [order.review.rating] : []);
-  const averageRating = ratings.length ? (ratings.reduce((a,b) => a+b, 0) / ratings.length).toFixed(1).replace(".", ",") : "—";
-
-  useEffect(() => {
-    const updateClock = () => setCurrentDate(new Date());
-    updateClock();
-
-    const intervalId = window.setInterval(updateClock, 60_000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  /* =========================================================
-     VALIDA A SESSÃO E CARREGA O CLIENTE
-  ========================================================= */
 
   useEffect(() => {
     let active = true;
-
-    const loadClient = async () => {
-      try {
-        const response = await fetch("/api/clients/me", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        const data = (await response.json()) as ApiResponse<ClientData>;
-
-        if (!response.ok || !data.success) {
-          router.replace(!data.success && data.redirectTo ? data.redirectTo : "/login");
+    void fetch("/api/clients/me", { credentials: "include", cache: "no-store" })
+      .then(async (response) => {
+        const result = await readApiResponse<ClientData>(response) as ApiResponse<ClientData>;
+        if (!response.ok || !result.success) {
+          router.replace(!result.success && result.redirectTo ? result.redirectTo : "/login");
           return;
         }
-
-        if (active) {
-          setCliente(data.data.client);
-          setLoading(false);
-        }
-      } catch {
-        router.replace("/login");
-      }
-    };
-
-    loadClient();
-
-    return () => {
-      active = false;
-    };
+        if (active) { setClient(result.data.client); setSessionLoading(false); }
+      })
+      .catch(() => { if (active) router.replace("/login"); });
+    return () => { active = false; };
   }, [router]);
 
-  /* =========================================================
-     LOGOUT
-  ========================================================= */
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/orders", { credentials: "include", cache: "no-store" })
+      .then(async (response) => {
+        const result = await readApiResponse<OrdersData>(response);
+        if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os reparos.");
+        if (active) { setOrders(result.data.orders); setOrdersError(""); }
+      })
+      .catch((error: unknown) => { if (active) setOrdersError(error instanceof Error ? error.message : "Não foi possível carregar os reparos."); })
+      .finally(() => { if (active) setOrdersLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  const handleLogout = async () => {
-    if (isLoggingOut) {
-      return;
+  async function retryOrders() {
+    setOrdersLoading(true);
+    setOrdersError("");
+    try {
+      const response = await fetch("/api/orders", { credentials: "include", cache: "no-store" });
+      const result = await readApiResponse<OrdersData>(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os reparos.");
+      setOrders(result.data.orders);
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : "Não foi possível carregar os reparos.");
+    } finally {
+      setOrdersLoading(false);
     }
+  }
 
+  async function logout() {
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
     setLogoutError("");
-
     try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      const data = await readApiResponse(response);
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Não foi possível sair da conta.");
-      }
-
+      const response = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      const result = await readApiResponse(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível sair da conta.");
       router.replace("/login");
       router.refresh();
     } catch (error) {
-      setLogoutError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível sair da conta. Tente novamente."
-      );
+      setLogoutError(error instanceof Error ? error.message : "Não foi possível sair da conta.");
       setIsLoggingOut(false);
     }
-  };
-
-  /* =========================================================
-     LOADING
-  ========================================================= */
-
-  if (loading) {
-    return (
-      <main
-        className={
-          styles.loadingPage
-        }
-      >
-        <div
-          className={
-            styles.loadingBox
-          }
-        >
-          <div
-            className={
-              styles.loadingLogo
-            }
-          >
-            <span>
-              SMART
-            </span>
-
-            <strong>
-              FIX
-            </strong>
-          </div>
-
-          <div
-            className={
-              styles.loadingSpinner
-            }
-          />
-
-          <p>
-            Validando seu
-            acesso...
-          </p>
-        </div>
-      </main>
-    );
   }
 
-  /* =========================================================
-     DADOS DO CLIENTE
-  ========================================================= */
+  if (sessionLoading) return <main className={styles.loadingPage}><div className={styles.loadingBox}><strong>SMART<span>FIX</span></strong><p>Validando seu acesso...</p></div></main>;
 
-  const nomeCompleto =
-    cliente?.nome?.trim() ||
-    "Cliente SmartFix";
+  const name = client?.nome?.trim() || "Cliente SmartFix";
+  const firstName = name.split(" ").filter(Boolean)[0] || "Cliente";
+  const initials = name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const summary = summarizeClientOrders(orders);
 
-  const primeiroNome =
-    nomeCompleto
-      .split(" ")
-      .filter(Boolean)[0] ||
-    "Cliente";
+  return <main className={styles.dashboardPage}>
+    {sidebarOpen && <button type="button" className={styles.mobileOverlay} aria-label="Fechar menu" onClick={() => setSidebarOpen(false)} />}
+    <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ""}`}>
+      <Link href="/cliente/dashboard" className={styles.logo}>🔧 <strong>SMART<span>FIX</span></strong></Link>
+      <div className={styles.profile}><span className={styles.avatar}>{initials}</span><div><strong>{name}</strong><small>Cliente</small></div></div>
+      <nav className={styles.navigation} aria-label="Navegação do cliente">
+        <Link href="/cliente/dashboard" className={styles.navActive} aria-current="page">Início</Link>
+        <Link href="/cliente/ordens">Meus reparos</Link>
+        <Link href="/cliente/dispositivos">Meus dispositivos</Link>
+        <Link href="/cliente/solicitar-reparo">Solicitar reparo</Link>
+        <Link href="/cliente/assistencias">Assistências</Link>
+        <Link href="/cliente/enderecos">Meus endereços</Link>
+        <Link href="/cliente/notificacoes">Notificações</Link>
+        <Link href="/cliente/ajuda">Ajuda</Link>
+        <Link href="/cliente/perfil">Meu perfil</Link>
+      </nav>
+      <div className={styles.sidebarFooter}><Link href="/cliente/ajuda">Precisa de ajuda?</Link><button type="button" onClick={() => void logout()} disabled={isLoggingOut} aria-busy={isLoggingOut}>{isLoggingOut ? "Saindo..." : "Sair da conta"}</button>{logoutError && <p role="alert">{logoutError}</p>}</div>
+    </aside>
 
-  const iniciais =
-    nomeCompleto
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(
-        (nome) =>
-          nome.charAt(0)
-      )
-      .join("")
-      .toUpperCase();
-
-  const formattedDate = currentDate
-    ? new Intl.DateTimeFormat("pt-BR", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }).format(currentDate)
-    : "Data atual";
-
-  const formattedTime = currentDate
-    ? new Intl.DateTimeFormat("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(currentDate)
-    : "--:--";
-
-  /* =========================================================
-     JSX
-  ========================================================= */
-
-  return (
-    <main
-      className={
-        styles.dashboardPage
-      }
-    >
-      {/* =====================================================
-          OVERLAY MOBILE
-      ===================================================== */}
-
-      {sidebarOpen && (
-        <button
-          type="button"
-          className={
-            styles.mobileOverlay
-          }
-          aria-label="Fechar menu"
-          onClick={() =>
-            setSidebarOpen(
-              false
-            )
-          }
-        />
-      )}
-
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
-
-      <aside
-        className={`
-          ${styles.sidebar}
-          ${
-            sidebarOpen
-              ? styles.sidebarOpen
-              : ""
-          }
-        `}
-      >
-        {/* LOGO */}
-
-        <Link
-          href="/"
-          className={
-            styles.logo
-          }
-        >
-          <div
-            className={
-              styles.logoIcon
-            }
-          >
-            🔧
-          </div>
-
-          <div>
-            <span>
-              SMART
-            </span>
-
-            <strong>
-              FIX
-            </strong>
-          </div>
-        </Link>
-
-        {/* PERFIL */}
-
-        <div
-          className={
-            styles.profile
-          }
-        >
-          <div
-            className={
-              styles.avatar
-            }
-          >
-            {iniciais}
-          </div>
-
-          <div
-            className={
-              styles.profileText
-            }
-          >
-            <strong>
-              {nomeCompleto}
-            </strong>
-
-            <span>
-              Cliente
-            </span>
-          </div>
-
-          <span
-            className={
-              styles.profileArrow
-            }
-          >
-            ⌄
-          </span>
+    <section className={styles.mainArea}>
+      <header className={styles.topbar}>
+        <button type="button" className={styles.menuButton} onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">☰</button>
+        <div><span className={styles.eyebrow}>ÁREA DO CLIENTE</span><h1>Olá, {firstName}</h1><p>Acompanhe seus reparos e veja o que precisa da sua atenção.</p></div>
+        <div className={styles.topbarActions}>
+          <Link href="/cliente/notificacoes" className={styles.notificationLink} aria-label="Notificações" title="Notificações"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" /><path d="M10 21h4" /></svg></Link>
+          <Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>+ Solicitar reparo</Link>
         </div>
-
-        {/* NAVEGAÇÃO */}
-
-        <nav
-          className={
-            styles.navigation
-          }
-        >
-          <NavItem
-            icon={
-              <DashboardIcon />
-            }
-            label="Início"
-            active
-          />
-
-          <NavItem
-            icon={
-              <RepairsIcon />
-            }
-            label="Meus Reparos"
-            onClick={() => router.push("/cliente/ordens")}
-          />
-
-          <NavItem
-            icon={
-              <DocumentIcon />
-            }
-            label="Meus Dispositivos"
-            onClick={() => router.push("/cliente/dispositivos")}
-          />
-
-          <NavItem
-            icon={
-              <PlusOrderIcon />
-            }
-            label="Solicitar Reparo"
-            onClick={() => router.push("/cliente/ordens")}
-          />
-
-          <NavItem
-            icon={
-              <PinIcon />
-            }
-            label="Assistências"
-            onClick={() => router.push("/cliente/assistencias")}
-          />
-
-          <NavItem
-            icon={
-              <BellIcon />
-            }
-            label="Ajuda e Mensagens"
-            onClick={() => router.push("/cliente/ajuda")}
-          />
-
-          <NavItem
-            icon={
-              <UserIcon />
-            }
-            label="Meus Endereços"
-            onClick={() => router.push("/cliente/enderecos")}
-          />
-
-          <NavItem
-            icon={
-              <SettingsIcon />
-            }
-            label="Meu Perfil"
-            onClick={() => router.push("/cliente/perfil")}
-          />
-        </nav>
-
-        {/* SUPORTE */}
-
-        <div
-          className={
-            styles.helpCard
-          }
-        >
-          <div
-            className={
-              styles.helpHeader
-            }
-          >
-            <span>
-              <HeadsetIcon />
-            </span>
-
-            <div>
-              <strong>
-                Precisa de ajuda?
-              </strong>
-
-              <p>
-                Nossa equipe está
-                pronta para te
-                atender.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => router.push("/cliente/ajuda")}
-          >
-            Falar com suporte
-          </button>
-        </div>
-
-        {/* LOGOUT */}
-
-        <button
-          type="button"
-          className={
-            styles.logout
-          }
-          onClick={
-            handleLogout
-          }
-          disabled={isLoggingOut}
-          aria-busy={isLoggingOut}
-        >
-          <LogoutIcon />
-
-          <span>
-            {isLoggingOut ? "Saindo..." : "Sair da conta"}
-          </span>
-        </button>
-
-        {logoutError && (
-          <p className={styles.logoutError} role="alert">
-            {logoutError}
-          </p>
-        )}
-      </aside>
-
-      {/* =====================================================
-          ÁREA PRINCIPAL
-      ===================================================== */}
-
-      <section
-        className={
-          styles.mainArea
-        }
-      >
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
-        <header
-          className={
-            styles.topbar
-          }
-        >
-          <div
-            className={
-              styles.topbarLeft
-            }
-          >
-            <button
-              type="button"
-              className={
-                styles.menuButton
-              }
-              onClick={() =>
-                setSidebarOpen(
-                  true
-                )
-              }
-              aria-label="Abrir menu"
-            >
-              ☰
-            </button>
-
-            <div>
-              <h1>
-                Dashboard
-              </h1>
-
-              <p>
-                Bem-vindo de
-                volta,{" "}
-                {primeiroNome}! 👋
-              </p>
-            </div>
-          </div>
-
-          <div
-            className={
-              styles.topbarRight
-            }
-          >
-            <button
-              type="button"
-              className={
-                styles.notificationButton
-              }
-              aria-label="Notificações"
-              title="Abrir notificações"
-              onClick={() => router.push("/cliente/notificacoes")}
-            >
-              <BellIcon />
-            </button>
-
-            <div
-              className={
-                styles.date
-              }
-            >
-              {formattedDate}
-            </div>
-
-            <div
-              className={
-                styles.time
-              }
-            >
-              <ClockIcon />
-
-              {formattedTime}
-            </div>
-          </div>
-        </header>
-
-        {/* =================================================
-            CARDS DE RESUMO
-        ================================================= */}
-
-        <section
-          className={
-            styles.statsGrid
-          }
-        >
-          {/* TOTAL */}
-
-          <article
-            className={
-              styles.statCard
-            }
-          >
-            <div
-              className={`
-                ${styles.statIcon}
-                ${styles.blue}
-              `}
-            >
-              <ClipboardIcon />
-            </div>
-
-            <div
-              className={
-                styles.statContent
-              }
-            >
-              <span>
-                Total de Reparos
-              </span>
-
-              <strong>
-                {ordersLoaded ? orders.length : "—"}
-              </strong>
-
-              <p>
-                Pedidos realizados
-              </p>
-            </div>
-
-            <div
-              className={`
-                ${styles.chart}
-                ${styles.chartBlue}
-              `}
-            >
-              {Array.from({
-                length: 8,
-              }).map(
-                (_, index) => (
-                  <span
-                    key={index}
-                  />
-                )
-              )}
-            </div>
-          </article>
-
-          {/* EM ANDAMENTO */}
-
-          <article
-            className={
-              styles.statCard
-            }
-          >
-            <div
-              className={`
-                ${styles.statIcon}
-                ${styles.orange}
-              `}
-            >
-              <ClockIcon />
-            </div>
-
-            <div
-              className={
-                styles.statContent
-              }
-            >
-              <span>
-                Em Andamento
-              </span>
-
-              <strong>
-                {ordersLoaded ? orders.filter((order) => !["completed", "cancelled"].includes(order.status)).length : "—"}
-              </strong>
-
-              <p>
-                Aguardando técnico
-              </p>
-            </div>
-
-            <div
-              className={`
-                ${styles.chart}
-                ${styles.chartOrange}
-              `}
-            >
-              {Array.from({
-                length: 8,
-              }).map(
-                (_, index) => (
-                  <span
-                    key={index}
-                  />
-                )
-              )}
-            </div>
-          </article>
-
-          {/* CONCLUÍDOS */}
-
-          <article
-            className={
-              styles.statCard
-            }
-          >
-            <div
-              className={`
-                ${styles.statIcon}
-                ${styles.green}
-              `}
-            >
-              <CheckCircleIcon />
-            </div>
-
-            <div
-              className={
-                styles.statContent
-              }
-            >
-              <span>
-                Concluídos
-              </span>
-
-              <strong>
-                {ordersLoaded ? orders.filter((order) => order.status === "completed").length : "—"}
-              </strong>
-
-              <p>
-                Serviços finalizados
-              </p>
-            </div>
-
-            <div
-              className={`
-                ${styles.chart}
-                ${styles.chartGreen}
-              `}
-            >
-              {Array.from({
-                length: 8,
-              }).map(
-                (_, index) => (
-                  <span
-                    key={index}
-                  />
-                )
-              )}
-            </div>
-          </article>
-
-          {/* AVALIAÇÃO */}
-
-          <article
-            className={
-              styles.statCard
-            }
-          >
-            <div
-              className={`
-                ${styles.statIcon}
-                ${styles.purple}
-              `}
-            >
-              <StarIcon />
-            </div>
-
-            <div
-              className={
-                styles.statContent
-              }
-            >
-              <span>
-                Avaliação Média
-              </span>
-
-              <strong>
-                {averageRating}
-              </strong>
-
-              <p>
-                {ratings.length ? "Avaliações dos seus reparos" : "Nenhuma avaliação"}
-              </p>
-            </div>
-
-            <div
-              className={`
-                ${styles.chart}
-                ${styles.chartPurple}
-              `}
-            >
-              {Array.from({
-                length: 8,
-              }).map(
-                (_, index) => (
-                  <span
-                    key={index}
-                  />
-                )
-              )}
-            </div>
-          </article>
-        </section>
-
-        {/* =================================================
-            CONTEÚDO
-        ================================================= */}
-
-        <section
-          className={
-            styles.contentGrid
-          }
-        >
-          {/* ===============================================
-              COLUNA ESQUERDA
-          =============================================== */}
-
-          <div
-            className={
-              styles.leftColumn
-            }
-          >
-            {/* REPAROS */}
-
-            <article
-              className={
-                styles.panel
-              }
-            >
-              <div
-                className={
-                  styles.panelHeader
-                }
-              >
-                <h2>
-                  Meus Reparos
-                  Recentes
-                </h2>
-
-                <button
-                  type="button"
-                  onClick={() => router.push("/cliente/ordens")}
-                >
-                  Ver todos
-                </button>
-              </div>
-
-              <div
-                className={
-                  styles.repairsList
-                }
-              >
-                <div className={styles.emptyState}>
-                  <span><ClipboardIcon /></span>
-                  <strong>{ordersError || (ordersLoaded ? (orders.length ? `${orders.length} reparo(s) cadastrado(s)` : "Nenhum reparo cadastrado") : "Carregando reparos...")}</strong>
-                  <p>Acompanhe suas solicitações na página Meus Reparos.</p>
-                </div>
-              </div>
-
-              {/* NOVO PEDIDO */}
-
-              <button
-                type="button"
-                className={
-                  styles.newOrder
-                }
-                onClick={() => router.push("/cliente/ordens")}
-              >
-                <span>
-                  +
-                </span>
-
-                Novo pedido de
-                reparo
-              </button>
-            </article>
-
-            {/* =================================================
-                BENEFÍCIOS
-            ================================================= */}
-
-            <div
-              className={
-                styles.benefitsBar
-              }
-            >
-              <div>
-                <span
-                  className={
-                    styles.benefitIcon
-                  }
-                >
-                  <ShieldIcon />
-                </span>
-
-                <div>
-                  <strong>
-                    Acesso
-                    Protegido
-                  </strong>
-
-                  <p>
-                    Sessão validada
-                    pelo servidor.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <span
-                  className={
-                    styles.benefitIcon
-                  }
-                >
-                  <ClockIcon />
-                </span>
-
-                <div>
-                  <strong>
-                    Dados
-                    Centralizados
-                  </strong>
-
-                  <p>
-                    Perfil salvo no
-                    ambiente da SmartFix.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <span
-                  className={
-                    styles.benefitIcon
-                  }
-                >
-                  <CardIcon />
-                </span>
-
-                <div>
-                  <strong>
-                    Privacidade
-                  </strong>
-
-                  <p>
-                    Senhas nunca vão
-                    para o navegador.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <span
-                  className={
-                    styles.benefitIcon
-                  }
-                >
-                  <HeadsetIcon />
-                </span>
-
-                <div>
-                  <strong>
-                    Suporte
-                    SmartFix
-                  </strong>
-
-                  <p>
-                    Canal de contato
-                    na página inicial.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ===============================================
-              COLUNA DIREITA
-          =============================================== */}
-
-          <div
-            className={
-              styles.rightColumn
-            }
-          >
-            {/* =============================================
-                ACOMPANHAR PEDIDO
-            ============================================= */}
-
-            <article
-              className={
-                styles.panel
-              }
-            >
-              <div
-                className={
-                  styles.trackContent
-                }
-              >
-                <div>
-                  <h2>
-                    Acompanhe seu
-                    pedido
-                  </h2>
-
-                  <p>
-                    Consulte o histórico, o orçamento e o andamento de suas ordens.
-                  </p>
-
-                  <div
-                    className={
-                      styles.trackForm
-                    }
-                  >
-                    <input
-                      type="text"
-                      value={tracking}
-                      onChange={(event) => setTracking(event.target.value)}
-                      placeholder="Código da ordem"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/cliente/ordens?q=${encodeURIComponent(tracking)}`)}
-                    >
-                      Acompanhar
-                    </button>
-                  </div>
-                </div>
-
-                <span
-                  className={
-                    styles.trackIcon
-                  }
-                >
-                  <SearchIcon />
-                </span>
-              </div>
-            </article>
-
-            {/* =============================================
-                STATUS PEDIDO
-            ============================================= */}
-
-            <article
-              className={
-                styles.panel
-              }
-            >
-              <div
-                className={
-                  styles.panelHeader
-                }
-              >
-                <h2>
-                  Status do Pedido
-                </h2>
-              </div>
-
-              <div
-                className={styles.emptyState}
-              >
-                <span><ClockIcon /></span>
-                <strong>{orders[0] ? orders[0].device : "Nenhum pedido selecionado"}</strong>
-                <p>{orders[0] ? ORDER_LABELS[orders[0].status] : "Consulte seus reparos para acompanhar uma ordem."}</p>
-              </div>
-            </article>
-
-            {/* =============================================
-                AVALIAÇÃO
-            ============================================= */}
-
-            <article
-              className={`
-                ${styles.panel}
-                ${styles.ratingPanel}
-              `}
-            >
-              <div
-                className={
-                  styles.ratingHeader
-                }
-              >
-                <div>
-                  <h2>
-                    Avaliações
-                  </h2>
-
-                  <p>
-                    Nenhum serviço concluído
-                    disponível para avaliação.
-                  </p>
-                </div>
-
-                <span>
-                  <StarIcon />
-                </span>
-              </div>
-
-            </article>
-          </div>
-        </section>
+      </header>
+
+      <section className={styles.statsGrid} aria-label="Resumo dos reparos">
+        <article className={styles.statCard}><span>Em andamento</span><strong>{ordersLoading || ordersError ? "—" : summary.active}</strong><p>Pedidos ativos</p></article>
+        <article className={styles.statCard}><span>Aguardando aprovação</span><strong>{ordersLoading || ordersError ? "—" : summary.awaitingApproval}</strong><p>Orçamentos para revisar</p></article>
+        <article className={styles.statCard}><span>Concluídos</span><strong>{ordersLoading || ordersError ? "—" : summary.completed}</strong><p>Reparos finalizados</p></article>
       </section>
-    </main>
-  );
+
+      {ordersLoading ? <section className={styles.panel} role="status"><p className={styles.message}>Carregando reparos...</p></section>
+      : ordersError ? <section className={styles.panel} role="alert"><p className={styles.message}>{ordersError}</p><button type="button" className={styles.retryButton} onClick={() => void retryOrders()}>Tentar novamente</button></section>
+      : orders.length === 0 ? <section className={styles.panel}><div className={styles.emptyState}><span aria-hidden="true">▣</span><h2>Seu primeiro reparo começa aqui</h2><p>Cadastre um aparelho e envie uma solicitação para uma assistência parceira.</p><Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>Solicitar reparo</Link></div></section>
+      : <>
+        {summary.attentionCount > 0 && <section className={styles.panel} aria-labelledby="attention-title">
+          <div className={styles.panelHeader}><div><span className={styles.eyebrow}>PRÓXIMOS PASSOS</span><h2 id="attention-title">Precisa da sua atenção</h2></div><Link href="/cliente/ordens">Ver todos</Link></div>
+          <ul className={styles.orderList}>{summary.attention.map((order) => <OrderRow key={order.id} order={order} />)}</ul>
+        </section>}
+        {summary.recent.length > 0 && <section className={styles.panel} aria-labelledby="recent-title">
+          <div className={styles.panelHeader}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2 id="recent-title">Reparos recentes</h2></div><Link href="/cliente/ordens">Ver todos</Link></div>
+          <ul className={styles.orderList}>{summary.recent.map((order) => <OrderRow key={order.id} order={order} />)}</ul>
+        </section>}
+      </>}
+    </section>
+  </main>;
 }
