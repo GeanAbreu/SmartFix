@@ -38,10 +38,18 @@ type Order = RepairOrder & { totalCents: number };
 export default function RepairWorkspace({
   role,
   initialQuery = "",
+  initialPartnerId = "",
+  initialDeviceId = "",
+  accountId = "",
 }: {
   role: "client" | "partner";
   initialQuery?: string;
+  initialPartnerId?: string;
+  initialDeviceId?: string;
+  accountId?: string;
 }) {
+  const draftKey = `smartfix-repair-draft:${accountId}`;
+  const [draft, setDraft] = useState({ deviceId: initialDeviceId, partnerId: initialPartnerId, problem: "", symptoms: [] as string[], checklist: [] as string[] });
   const [orders, setOrders] = useState<Order[]>([]);
   const [devices, setDevices] = useState<ClientDevice[]>([]);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
@@ -66,6 +74,13 @@ export default function RepairWorkspace({
         if (active) {
           setDevices(deviceData.devices);
           setPartners(partnerData.partners);
+          let saved: Partial<typeof draft> = {};
+          try { saved = JSON.parse(sessionStorage.getItem(draftKey) || "{}"); } catch { /* Optional storage. */ }
+          const wantedDevice = initialDeviceId || saved.deviceId;
+          const wantedPartner = initialPartnerId || saved.partnerId;
+          setDraft({ deviceId: deviceData.devices.some((d) => d.id === wantedDevice) ? wantedDevice! : deviceData.devices[0]?.id || "",
+            partnerId: partnerData.partners.some((p) => p.id === wantedPartner) ? wantedPartner! : "", problem: typeof saved.problem === "string" ? saved.problem : "",
+            symptoms: Array.isArray(saved.symptoms) ? saved.symptoms : [], checklist: Array.isArray(saved.checklist) ? saved.checklist : [] });
         }
       }
     }
@@ -87,7 +102,11 @@ export default function RepairWorkspace({
       active = false;
       clearInterval(timer);
     };
-  }, [role]);
+  }, [role, initialDeviceId, initialPartnerId, draftKey]);
+  function updateDraft(patch: Partial<typeof draft>) {
+    const next = { ...draft, ...patch }; setDraft(next);
+    try { sessionStorage.setItem(draftKey, JSON.stringify(next)); } catch { /* Optional storage. */ }
+  }
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -103,6 +122,8 @@ export default function RepairWorkspace({
         checklist: data.getAll("checklist"),
       });
       form.reset();
+      setDraft({ deviceId: devices[0]?.id || "", partnerId: "", problem: "", symptoms: [], checklist: [] });
+      try { sessionStorage.removeItem(draftKey); } catch { /* Optional storage. */ }
       await reload();
       setMessage("Solicitação e triagem salvas. A assistência foi notificada.");
     } catch (error) {
@@ -138,6 +159,7 @@ export default function RepairWorkspace({
           {role === "client" ? (
             <>
               <Link href="/cliente/dispositivos">Dispositivos</Link>
+              <Link href="/cliente/assistencias">Assistências</Link>
               <Link href="/cliente/perfil">Meu perfil</Link>
             </>
           ) : (
@@ -155,19 +177,19 @@ export default function RepairWorkspace({
           </p>
         )}
         {role === "client" && (
-          <details className={styles.card}>
+          <details className={styles.card} open={Boolean(initialPartnerId)}>
             <summary>+ Solicitar reparo e preencher triagem</summary>
-            {!devices.length || !partners.length ? (
+            {loading ? <p role="status">Carregando aparelhos e assistências…</p> : !devices.length || !partners.length ? (
               <p>
-                Cadastre um dispositivo e aguarde uma assistência aprovada para
-                solicitar um reparo.
+                {!devices.length ? <Link href={initialPartnerId ? `/cliente/dispositivos?partnerId=${encodeURIComponent(initialPartnerId)}` : "/cliente/dispositivos"}>Cadastre um dispositivo para solicitar um reparo.</Link> : "Nenhuma assistência aprovada disponível no momento."}
+                {" "}<Link href="/cliente/assistencias">Buscar assistências próximas →</Link>
               </p>
             ) : (
               <form onSubmit={create} className={styles.form}>
                 <div className={styles.grid}>
                   <label>
                     Dispositivo
-                    <select name="deviceId" required>
+                    <select name="deviceId" required value={draft.deviceId} onChange={(e) => updateDraft({ deviceId: e.target.value })}>
                       {devices.map((device) => (
                         <option key={device.id} value={device.id}>
                           {device.marca} {device.modelo}
@@ -177,19 +199,23 @@ export default function RepairWorkspace({
                   </label>
                   <label>
                     Assistência
-                    <select name="partnerId" required>
+                    <select name="partnerId" required value={draft.partnerId} onChange={(e) => updateDraft({ partnerId: e.target.value })}>
+                      <option value="">Selecione uma assistência</option>
                       {partners.map((partner) => (
                         <option key={partner.id} value={partner.id}>
                           {partner.name}
                         </option>
                       ))}
                     </select>
+                    <Link href={`/cliente/assistencias?deviceId=${encodeURIComponent(draft.deviceId)}`}>Ver assistências próximas no mapa →</Link>
                   </label>
                 </div>
                 <label>
                   Descreva o problema
                   <textarea
                     name="problem"
+                    value={draft.problem}
+                    onChange={(e) => updateDraft({ problem: e.target.value })}
                     minLength={10}
                     maxLength={3000}
                     required
@@ -200,7 +226,7 @@ export default function RepairWorkspace({
                     <legend>Sintomas</legend>
                     {SYMPTOMS.map((item) => (
                       <label className={styles.check} key={item}>
-                        <input type="checkbox" name="symptoms" value={item} />
+                        <input type="checkbox" name="symptoms" value={item} checked={draft.symptoms.includes(item)} onChange={(e) => updateDraft({ symptoms: e.target.checked ? [...draft.symptoms, item] : draft.symptoms.filter((v) => v !== item) })} />
                         {item}
                       </label>
                     ))}
@@ -209,7 +235,7 @@ export default function RepairWorkspace({
                     <legend>Estado e acessórios</legend>
                     {CHECKLIST.map((item) => (
                       <label className={styles.check} key={item}>
-                        <input type="checkbox" name="checklist" value={item} />
+                        <input type="checkbox" name="checklist" value={item} checked={draft.checklist.includes(item)} onChange={(e) => updateDraft({ checklist: e.target.checked ? [...draft.checklist, item] : draft.checklist.filter((v) => v !== item) })} />
                         {item}
                       </label>
                     ))}

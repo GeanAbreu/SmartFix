@@ -677,7 +677,7 @@ export default function ClientDashboard() {
               <PinIcon />
             }
             label="Assistências"
-            disabled
+            onClick={() => router.push("/cliente/assistencias")}
           />
 
           <NavItem

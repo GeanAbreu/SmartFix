@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import { DEVICE_TYPES, getDeviceBrands, getDeviceModels } from "@/src/constants/device-catalog";
@@ -27,12 +28,13 @@ async function fetchDevices() {
   return result.data.devices;
 }
 
-export default function DeviceManager() {
+export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerId?: string }) {
+  const router = useRouter();
   const [devices, setDevices] = useState<ClientDevice[]>([]);
   const [form, setForm] = useState<DeviceForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ClientDevice | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(returnPartnerId));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -135,6 +137,10 @@ export default function DeviceManager() {
       );
       const result = await readResponse<{ device: ClientDevice }>(response);
       if (!result.success) throw new Error(result.message);
+      if (!editingId && returnPartnerId) {
+        router.push(`/cliente/assistencias?partnerId=${encodeURIComponent(returnPartnerId)}&deviceId=${result.data.device.id}`);
+        return;
+      }
       setOpen(false);
       setMessage(result.message ?? "Dispositivo salvo com sucesso.");
       await loadDevices();

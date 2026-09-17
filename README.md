@@ -495,6 +495,10 @@ Acompanhamento pelo cliente
 
 ## Status
 
+A busca de assistências em `/cliente/assistencias` oferece lista e mapa, raio inicial
+de 10 km, avaliações reais e seleção do parceiro para solicitar reparos.
+Consulte [configuração, precisão das distâncias e integrações](Database/ASSISTENCIAS.md).
+
 **Projeto em desenvolvimento.**
 
 As principais funcionalidades relacionadas a autenticação, clientes, parceiros, dispositivos, ordens de reparo, orçamento, acompanhamento, notificações e administração já fazem parte da estrutura atual do SmartFix.
