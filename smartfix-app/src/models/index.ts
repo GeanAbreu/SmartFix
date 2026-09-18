@@ -2,6 +2,7 @@ import { Client } from "./Client";
 import { ClientAddress } from "./ClientAddress";
 import { ClientDevice } from "./ClientDevice";
 import { Partner } from "./Partner";
+import { PartnerService } from "./PartnerService";
 import { RepairOrderModel } from "./RepairOrder";
 import { Review } from "./Review";
 
@@ -36,5 +37,7 @@ RepairOrderModel.hasOne(Review, { foreignKey: "repair_order_id", as: "review" })
 Review.belongsTo(RepairOrderModel, { foreignKey: "repair_order_id", as: "order" });
 Client.hasMany(Review, { foreignKey: "client_id", as: "reviews" });
 Partner.hasMany(Review, { foreignKey: "partner_id", as: "reviews" });
+Partner.hasMany(PartnerService, { foreignKey: "partner_id", as: "services" });
+PartnerService.belongsTo(Partner, { foreignKey: "partner_id", as: "partner" });
 
-export { Client, ClientAddress, ClientDevice, Partner, RepairOrderModel, Review };
+export { Client, ClientAddress, ClientDevice, Partner, PartnerService, RepairOrderModel, Review };

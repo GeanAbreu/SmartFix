@@ -11,6 +11,7 @@ const AssistanceMap = dynamic(() => import("./AssistanceMap"), { ssr: false, loa
 const SEARCH_KEY = "smartfix-assistance-search";
 type Origin = { addressId: string } | { origin: GeoPoint };
 type PublicReview = { id: string; rating: number; comment: string; review_date: string };
+type OfferedService = { id: string; name: string; description: string; unitPriceCents: number; estimatedDays: number };
 const distance = (km: number) => km < .1 ? "Menos de 100 m" : `${km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
 function Rating({ partner }: { partner: NearbyPartner }) {
   return <span className={styles.rating}>{partner.rating === null ? "Sem avaliações" : <>★ {partner.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <small>({partner.reviewCount} {partner.reviewCount === 1 ? "avaliação" : "avaliações"})</small></>}</span>;
@@ -34,6 +35,9 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [reviewError, setReviewError] = useState("");
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [services, setServices] = useState<OfferedService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(Boolean(partnerId));
+  const [servicesError, setServicesError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const generation = useRef(0);
   const selected = result?.partners.find((p) => p.id === selectedId);
@@ -79,7 +83,16 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
       .finally(() => { if (active) setReviewsLoading(false); });
     return () => { active = false; };
   }, [selectedId]);
-  const openProfile = useCallback((id: string) => { setReviews([]); setReviewError(""); setReviewsLoading(true); setSelectedId(id); }, []);
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    void api<{ services: OfferedService[] }>(`/api/partners/${encodeURIComponent(selectedId)}/services`)
+      .then((data) => { if (active) setServices(data.services); })
+      .catch((caught: Error) => { if (active) setServicesError(caught.message); })
+      .finally(() => { if (active) setServicesLoading(false); });
+    return () => { active = false; };
+  }, [selectedId]);
+  const openProfile = useCallback((id: string) => { setReviews([]); setReviewError(""); setReviewsLoading(true); setServices([]); setServicesError(""); setServicesLoading(true); setSelectedId(id); }, []);
   async function lookup(event: FormEvent) {
     event.preventDefault(); setLocating(true); setError(""); setLocations([]);
     try {
@@ -130,6 +143,10 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
     <dialog ref={dialog} className={styles.dialog} onCancel={() => setSelectedId("")} onClose={() => setSelectedId("")} aria-labelledby="partner-title">
       {selected && <><div className={styles.dialogTop}><span className={styles.approved}>✓ Parceiro aprovado</span><button className={styles.secondary} onClick={() => setSelectedId("")} aria-label="Fechar perfil">✕</button></div>
         <h2 id="partner-title">{selected.name}</h2><Rating partner={selected} /><p className={styles.address}>{selected.address}</p><p>⌖ {distance(selected.distanceKm)} · distância aproximada pelo CEP</p>
+        <section className={styles.offeredServices}><h3>Serviços oferecidos</h3>
+          {servicesLoading ? <p role="status">Carregando serviços…</p> : servicesError ? <p role="alert">{servicesError}</p> : services.length === 0 ? <p>Esta assistência ainda não informou serviços.</p> :
+            <ul>{services.map((service) => <li key={service.id}><div><strong>{service.name}</strong>{service.description && <p>{service.description}</p>}<small>Prazo estimado: {service.estimatedDays} {service.estimatedDays === 1 ? "dia" : "dias"}</small></div><span>A partir de {(service.unitPriceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></li>)}</ul>}
+        </section>
         <section className={styles.requestBox}><h3>Vamos cuidar do seu aparelho?</h3>{devices.length ? <><label>Aparelho para reparo<select value={selectedDevice} onChange={(e) => setSelectedDevice(e.target.value)}>{devices.map((d) => <option key={d.id} value={d.id}>{d.apelido || `${d.marca} ${d.modelo}`}</option>)}</select></label>
           <button className={styles.primary} disabled={!selectedDevice} onClick={() => router.push(`/cliente/solicitar-reparo?partnerId=${selected.id}&deviceId=${encodeURIComponent(selectedDevice)}`)}>Solicitar reparo →</button></> : <><p>Cadastre um aparelho para solicitar um reparo. Depois, você volta para esta assistência.</p><Link className={styles.primary} href={`/cliente/dispositivos?partnerId=${selected.id}`}>Cadastrar novo dispositivo →</Link></>}</section>
         <h3>Avaliações de clientes</h3><p className={styles.hint}>Até 10 avaliações mais recentes de reparos concluídos.</p>

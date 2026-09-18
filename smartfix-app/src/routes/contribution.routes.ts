@@ -15,8 +15,6 @@ export const contributionRoutes = {
     WorkflowController.notifications(request),
   readNotification: async (request: NextRequest, context: Context) =>
     WorkflowController.readNotification(request, (await context.params).id),
-  listServices: (request: NextRequest) => WorkflowController.services(request),
-  createService: (request: NextRequest) => WorkflowController.services(request),
   requestPasswordReset: (request: NextRequest) =>
     RecoveryController.request(request),
   resetPassword: (request: NextRequest) => RecoveryController.reset(request),
