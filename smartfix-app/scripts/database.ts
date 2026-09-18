@@ -21,13 +21,13 @@ async function main() {
             EXECUTE format('REVOKE ALL ON public.smartfix_migrations FROM %I',r);
           END IF; END LOOP; END $$;`);
       const applied = await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT });
-      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql", "20260920_partner_services.sql"]
+      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql", "20260920_partner_services.sql", "20260921_support_chat.sql"]
         .filter((name) => !applied.some((entry) => entry.name === name));
       if (pending.length) {
       const backup: Record<string, unknown> = {};
       // Snapshot under one repeatable-read transaction, before any schema changes.
       await sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, async (transaction) => {
-        for (const table of ["clients", "partner", "client_addresses", "client_devices", "devices", "workflow_records", "repair_orders", "reviews", "partner_services"]) {
+        for (const table of ["clients", "partner", "client_addresses", "client_devices", "devices", "workflow_records", "repair_orders", "reviews", "partner_services", "support_messages"]) {
           const [exists] = await sequelize.query<{ present: string | null }>("SELECT to_regclass($1)::text AS present",
             { bind: [`public.${table}`], type: QueryTypes.SELECT, transaction });
           if (!exists.present) continue;
@@ -64,11 +64,11 @@ async function main() {
           (pg_has_role(current_user, c.relowner, 'USAGE') AND NOT c.relforcerowsecurity)) AS acesso_servidor
       FROM pg_class c JOIN pg_roles r ON r.rolname = current_user
       WHERE c.relnamespace = 'public'::regnamespace
-        AND c.relname IN ('clients','client_addresses','devices','partner','partner_services','repair_orders','reviews','workflow_records')
+        AND c.relname IN ('clients','client_addresses','devices','partner','partner_services','repair_orders','reviews','workflow_records','support_messages')
       ORDER BY c.relname
     `);
     console.table(rows);
-    if (rows.length !== 8 || rows.some((row) => {
+    if (rows.length !== 9 || rows.some((row) => {
       const value = row as { rls: boolean; acesso_servidor: boolean };
       return !value.rls || !value.acesso_servidor;
     })) throw new Error("Confira RLS e a função PostgreSQL usada pelo servidor conforme README.");

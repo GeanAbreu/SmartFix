@@ -1,5 +1,5 @@
 import { requirePageRole } from "@/src/services/page-authorization.service";
-import RepairWorkspace from "@/app/components/RepairWorkspace";
+import ClientOrders from "./ClientOrders";
 import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 export default async function Page({
@@ -16,10 +16,5 @@ export default async function Page({
     redirect(`/cliente/solicitar-reparo?${query.toString()}`);
   }
   const query = params.q;
-  return (
-    <RepairWorkspace
-      role="client"
-      initialQuery={typeof query === "string" ? query : ""}
-    />
-  );
+  return <ClientOrders initialQuery={typeof query === "string" ? query : ""} />;
 }
