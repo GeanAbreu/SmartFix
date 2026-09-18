@@ -44,7 +44,6 @@ export default function RepairWorkspace({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState(initialQuery);
-  const root = role === "client" ? "/cliente" : "/parceiro";
   async function reload() {
     setOrders((await api<{ orders: Order[] }>("/api/orders")).orders);
   }
@@ -94,11 +93,6 @@ export default function RepairWorkspace({
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
-        {role !== "client" && <nav className={styles.nav}>
-          <Link href={`${root}/dashboard`}>SmartFix / Início</Link>
-          <Link href={`${root}/notificacoes`}>Notificações</Link>
-          <Link href="/parceiro/servicos">Catálogo de serviços</Link>
-        </nav>}
         <h1>{role === "client" ? "Meus reparos" : "Ordens de serviço"}</h1>
         <p className={styles.muted}>
           Triagem, orçamento e acompanhamento. Atualização automática a cada 30

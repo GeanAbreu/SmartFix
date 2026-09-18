@@ -15,20 +15,10 @@ type Notification = {
   id: string;
   data: { message: string; href: string; read: boolean; createdAt: string };
 };
-type Service = {
-  id: string;
-  data: {
-    name: string;
-    unitPriceCents: number;
-    description: string;
-    estimatedDays: number;
-  };
-};
 export default function AccountWorkspace({
   mode,
-  root = "/cliente",
 }: {
-  mode: "profile" | "admin" | "notifications" | "services";
+  mode: "profile" | "admin" | "notifications";
   root?: string;
 }) {
   const [message, setMessage] = useState("");
@@ -42,12 +32,10 @@ export default function AccountWorkspace({
   });
   const [partners, setPartners] = useState<Partner[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const title = {
     profile: "Meu perfil",
     admin: "Aprovação de parceiros",
     notifications: "Notificações",
-    services: "Catálogo de serviços",
   }[mode];
   useEffect(() => {
     let active = true;
@@ -68,10 +56,6 @@ export default function AccountWorkspace({
           "/api/notifications",
         );
         if (active) setNotifications(data.notifications);
-      }
-      if (mode === "services") {
-        const data = await api<{ services: Service[] }>("/api/services");
-        if (active) setServices(data.services);
       }
       if (active) setLoaded(true);
     };
@@ -107,10 +91,6 @@ export default function AccountWorkspace({
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
-        {root !== "/cliente" && <nav className={styles.nav}>
-          <Link href={`${root}/dashboard`}>SmartFix / Início</Link>
-          <Link href={`${root}/ordens`}>Reparos</Link>
-        </nav>}
         <h1>{title}</h1>
         {message && (
           <p role="status" className={styles.message}>
@@ -238,71 +218,6 @@ export default function AccountWorkspace({
               </div>
             </article>
           ))}
-        {mode === "services" && (
-          <>
-            <form
-              className={`${styles.card} ${styles.form}`}
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                void run(async () => {
-                  const result = await api<{ services: Service[] }>(
-                    "/api/services",
-                    {
-                      name: data.get("name"),
-                      description: data.get("description"),
-                      unitPriceCents: Math.round(
-                        Number(data.get("price")) * 100,
-                      ),
-                      estimatedDays: Number(data.get("days")),
-                    },
-                  );
-                  setServices(result.services);
-                  form.reset();
-                });
-              }}
-            >
-              <h2>Adicionar serviço</h2>
-              <label>
-                Nome
-                <input name="name" maxLength={150} required />
-              </label>
-              <label>
-                Descrição
-                <textarea name="description" maxLength={2000} />
-              </label>
-              <div className={styles.grid}>
-                <label>
-                  Preço base (R$)
-                  <input
-                    type="number"
-                    name="price"
-                    min={0}
-                    max={100000}
-                    step="0.01"
-                    required
-                  />
-                </label>
-                <label>
-                  Prazo estimado (dias)
-                  <input type="number" name="days" min={0} max={365} required />
-                </label>
-              </div>
-              <button disabled={busy}>Salvar serviço</button>
-            </form>
-            {services.map((service) => (
-              <article key={service.id} className={styles.card}>
-                <h2>{service.data.name}</h2>
-                <p>{service.data.description}</p>
-                <p>
-                  R$ {(service.data.unitPriceCents / 100).toFixed(2)} ·{" "}
-                  {service.data.estimatedDays} dias
-                </p>
-              </article>
-            ))}
-          </>
-        )}
         {loaded &&
           ((mode === "notifications" && !notifications.length) ||
             (mode === "admin" && !partners.length)) && (

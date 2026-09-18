@@ -12,7 +12,6 @@ import {
   applyOrderAction,
   orderAction,
   orderInput,
-  quoteItemInput,
   quoteTotal,
 } from "@/src/services/order-policy.service";
 import { withWorkflow } from "@/src/services/workflow.service";
@@ -313,40 +312,6 @@ export class WorkflowController {
         record.data.read = true;
       }, true);
       return ok({});
-    } catch (error) {
-      return failure(error);
-    }
-  }
-  static async services(request: NextRequest) {
-    try {
-      const actor = await actorFrom(request);
-      if (actor.role !== "partner")
-        throw new AppError("Área exclusiva de parceiros.", 403, "FORBIDDEN");
-      if (request.method === "POST") {
-        const input = quoteItemInput
-          .omit({ quantity: true })
-          .extend({
-            description: z.string().trim().max(2000).default(""),
-            estimatedDays: z.number().int().min(0).max(365),
-          })
-          .parse(await request.json());
-        await withWorkflow((records) => {
-          records.push({
-            id: randomUUID(),
-            kind: "service",
-            ownerId: actor.sub,
-            data: input,
-          });
-        }, true);
-      }
-      return ok({
-        services: await withWorkflow((records) =>
-          records.filter(
-            (record) =>
-              record.kind === "service" && record.ownerId === actor.sub,
-          ),
-        ),
-      });
     } catch (error) {
       return failure(error);
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiResponse, PartnerProfile } from "@/src/types/api";
 import type { RepairOrder } from "@/src/types/workflow";
@@ -35,8 +35,8 @@ export default function PartnerDashboard() {
   const [orders, setOrders] = useState<LoadState<RepairOrder[]>>({ data: [], error: "" });
   const [notifications, setNotifications] = useState<LoadState<DashboardNotification[]>>({ data: [], error: "" });
   const [loading, setLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationAreaRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -75,21 +75,16 @@ export default function PartnerDashboard() {
     return () => { active = false; };
   }, [router, refresh]);
 
-  async function logout() {
-    if (isLoggingOut) return;
-    setIsLoggingOut(true);
-    setLogoutError("");
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      const result = await readApiResponse(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível sair da conta.");
-      router.replace("/login");
-      router.refresh();
-    } catch (error) {
-      setLogoutError(error instanceof Error ? error.message : "Não foi possível sair da conta.");
-      setIsLoggingOut(false);
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    function dismiss(event: PointerEvent) {
+      if (event.target instanceof Node && !notificationAreaRef.current?.contains(event.target)) setNotificationsOpen(false);
     }
-  }
+    function dismissOnEscape(event: KeyboardEvent) { if (event.key === "Escape") setNotificationsOpen(false); }
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", dismissOnEscape); };
+  }, [notificationsOpen]);
 
   if (sessionLoading) return <main className={styles.page}><p>Carregando painel...</p></main>;
 
@@ -103,16 +98,24 @@ export default function PartnerDashboard() {
             <h1>Olá, {name}</h1>
             <p>Acompanhe solicitações, orçamentos e reparos da sua assistência.</p>
           </div>
-          <button type="button" onClick={() => void refresh()} disabled={loading}> {loading ? "Atualizando..." : "Atualizar dados"}</button>
+          <div className={styles.headerActions}>
+            <div className={styles.notificationArea} ref={notificationAreaRef}>
+              <button type="button" className={styles.notificationButton} aria-label={summary.unread > 0 ? `Notificações, ${summary.unread} não lidas` : "Notificações"} aria-expanded={notificationsOpen} aria-controls="partner-notifications" title="Notificações" onClick={() => { setNotificationsOpen((open) => !open); if (!notificationsOpen && !loading) void refresh(); }}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" /><path d="M10 21h4" /></svg>
+                {summary.unread > 0 && <span className={styles.notificationCount}>{summary.unread > 9 ? "9+" : summary.unread}</span>}
+              </button>
+              {notificationsOpen && <section id="partner-notifications" className={styles.notificationPopover} aria-label="Notificações">
+                <div className={styles.notificationHeader}><div><strong>Notificações</strong><span>{summary.unread > 0 ? `${summary.unread} não lida${summary.unread === 1 ? "" : "s"}` : "Tudo em dia"}</span></div><button type="button" aria-label="Fechar notificações" onClick={() => setNotificationsOpen(false)}>×</button></div>
+                {loading ? <p className={styles.notificationMessage} role="status">Carregando notificações...</p>
+                  : notifications.error ? <p className={styles.notificationMessage} role="alert">{notifications.error}</p>
+                  : notifications.data.length === 0 ? <p className={styles.notificationMessage}>Você ainda não tem notificações.</p>
+                  : <ul className={styles.notificationList}>{notifications.data.slice(0, 5).map((notification) => <li key={notification.id} className={notification.data.read ? styles.notificationRead : styles.notificationUnread}><p>{notification.data.message}</p><time dateTime={notification.data.createdAt}>{new Date(notification.data.createdAt).toLocaleString("pt-BR")}</time></li>)}</ul>}
+                <Link className={styles.allNotifications} href="/parceiro/notificacoes" onClick={() => setNotificationsOpen(false)}>Ver todas as notificações →</Link>
+              </section>}
+            </div>
+            <button type="button" onClick={() => void refresh()} disabled={loading}>{loading ? "Atualizando..." : "Atualizar dados"}</button>
+          </div>
         </header>
-        <nav className={styles.nav} aria-label="Área do parceiro">
-          <Link href="/parceiro/ordens">Ordens de serviço</Link>
-          <Link href="/parceiro/servicos">Serviços</Link>
-          <Link href="/parceiro/notificacoes">Notificações{!notifications.error && summary.unread > 0 ? ` (${summary.unread})` : ""}</Link>
-          <a href="/api/auth/google?link=true">Vincular Google</a>
-          <button type="button" onClick={() => void logout()} disabled={isLoggingOut}>{isLoggingOut ? "Saindo..." : "Sair da conta"}</button>
-        </nav>
-        {logoutError && <p className={styles.error} role="alert">{logoutError}</p>}
         <section aria-label="Indicadores" className={styles.metrics}>
           <div><strong>{loading ? "…" : orders.error ? "—" : summary.pending}</strong><span>Aguardando orçamento</span></div>
           <div><strong>{loading ? "…" : orders.error ? "—" : summary.awaitingApproval}</strong><span>Aguardando cliente</span></div>
