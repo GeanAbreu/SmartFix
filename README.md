@@ -90,6 +90,25 @@ As validações, regras de negócio e permissões são processadas no servidor.
 
 O projeto também foi planejado para funcionar como uma única aplicação, sem a necessidade de manter um servidor Express separado ou diferentes aplicações frontend concorrentes.
 
+## Dados de demonstração
+
+A [planilha pública de dados de demonstração](docs/smartfix-dados-demo-publico.xlsx)
+contém os cadastros, endereços, dispositivos, serviços, ordens e avaliações fictícias.
+As senhas das contas de teste não estão no repositório público. A planilha local
+com os acessos fica em `smartfix-app/.smartfix-data/outputs/` (ignorado pelo Git).
+
+Para conferir ou criar os dados de demonstração no banco configurado em
+`smartfix-app/.env.local`, execute dentro de `smartfix-app/`:
+
+```powershell
+node scripts/seed-demo.cjs --check
+node scripts/seed-demo.cjs --seed
+```
+
+Em bancos que já contêm as tabelas do DER, mas não têm as tabelas auxiliares,
+`node scripts/repair-auxiliary-schema.cjs --apply` restaura `workflow_records` e
+`support_messages` com RLS. Use `--inspect` para verificar antes de aplicar.
+
 ## Funcionalidades atuais
 
 Atualmente, o SmartFix conta com funcionalidades como:
