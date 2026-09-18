@@ -161,6 +161,10 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       (await action(partner, { action: "status", status: "completed" })).status,
       200,
     );
+    const completedOrders = (await (await controller.list(request(client, "/api/orders"))).json()).data.orders;
+    assert.equal(completedOrders[0].partnerName, partner.name);
+    assert.equal(completedOrders[0].status, "completed");
+    assert.equal(completedOrders[0].review, null);
     assert.equal(
       (
         await action(client, {
@@ -171,6 +175,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       ).status,
       200,
     );
+    const reviewedOrders = (await (await controller.list(request(client, "/api/orders"))).json()).data.orders;
+    assert.deepEqual(reviewedOrders[0].review, { rating: 5, comment: "Resolvido" });
+    assert.equal((await action(client, { action: "review", rating: 4, comment: "Novamente" })).status, 409);
     const notices = (
       await (
         await controller.notifications(request(client, "/api/notifications"))

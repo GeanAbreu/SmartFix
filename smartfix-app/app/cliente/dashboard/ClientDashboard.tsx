@@ -39,7 +39,7 @@ function OrderRow({ order }: { order: RepairOrder }) {
       </div>
     </div>
     <span className={`${styles.statusBadge} ${statusStyle(order)}`}>{ORDER_LABELS[order.status]}</span>
-    <Link href={`/cliente/ordens?q=${encodeURIComponent(order.id)}`}>{orderAction(order)} →</Link>
+    <Link href={order.status === "completed" && !order.review ? `/cliente/avaliacoes?order=${encodeURIComponent(order.id)}` : `/cliente/ordens?q=${encodeURIComponent(order.id)}`}>{orderAction(order)} →</Link>
   </li>;
 }
 

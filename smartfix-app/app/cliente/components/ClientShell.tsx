@@ -9,13 +9,14 @@ import styles from "./client-shell.module.css";
 
 const links = [
   { href: "/cliente/dashboard", label: "Início" },
+  { href: "/cliente/solicitar-reparo", label: "Solicitar reparo" },
   { href: "/cliente/ordens", label: "Meus reparos" },
   { href: "/cliente/dispositivos", label: "Meus dispositivos" },
-  { href: "/cliente/solicitar-reparo", label: "Solicitar reparo" },
   { href: "/cliente/assistencias", label: "Assistências" },
+  { href: "/cliente/avaliacoes", label: "Minhas avaliações" },
   { href: "/cliente/enderecos", label: "Meus endereços" },
-  { href: "/cliente/ajuda", label: "Ajuda" },
   { href: "/cliente/perfil", label: "Meu perfil" },
+  { href: "/cliente/ajuda", label: "Ajuda" },
 ];
 
 function initialsFor(name: string) {

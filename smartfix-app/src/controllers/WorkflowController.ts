@@ -90,10 +90,14 @@ export class WorkflowController {
           )
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       );
+      const partnerNames = actor.role === "client"
+        ? new Map((await partners()).map((partner) => [partner.id, partner.name]))
+        : null;
       return ok({
         orders: orders.map((order) => ({
           ...order,
           totalCents: quoteTotal(order.quote),
+          ...(partnerNames ? { partnerName: partnerNames.get(order.partnerId) || "Assistência parceira" } : {}),
         })),
       });
     } catch (error) {
