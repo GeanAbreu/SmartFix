@@ -1,0 +1,1 @@
+https://jrgelocbixpgttrxzawv.supabase.co
