@@ -1,7 +1,7 @@
-# DER implementado — SmartFix
+# DER SmartFix — visão geral
 
-O banco usa o DER fornecido com duas adaptações confirmadas: os endereços permanecem
-exclusivamente em `client_addresses`, e a autenticação continua sendo a do SmartFix.
+Este documento apresenta a estrutura completa do banco relacional do SmartFix,
+executado em PostgreSQL/Supabase e consumido pela aplicação Next.js.
 
 ## Relações e campos principais
 
@@ -148,13 +148,12 @@ Os nomes físicos são minúsculos: `clients`, `partner`, `devices`,
 - **Datas:** `review_date` é uma data. Em ordens, `created_at` é a fonte canônica
   e mantém data, horário e fuso para ordenar e exibir os registros.
 
-## Campos complementares preservados
+## Resumo da modelagem
 
-O DER apresenta os campos de negócio centrais. O aplicativo também usa hashes
-de senha, timestamps e aprovação de parceiros. Em `devices` permanecem
-`photo_url`, `nickname` e `serial_number`. Na ordem permanecem o nome do aparelho
-na ocasião (`device_label`), diagnóstico e os arrays JSONB `symptoms`, `checklist`,
-`quote` e `history`. Esses campos evitam perda de recursos e dados da versão anterior.
+O aplicativo usa hashes de senha, timestamps e aprovação de parceiros. Os aparelhos
+armazenam foto, apelido, número de série e informações iniciais do defeito. Cada ordem
+mantém o nome do aparelho na ocasião (`device_label`), diagnóstico, sintomas,
+checklist, orçamento detalhado e histórico de status.
 
 Os campos `issue_type` e `issue_description` são opcionais na API de aparelhos,
 expostos como `issueType` e `issueDescription`; cada reparo conserva sua própria
@@ -175,23 +174,8 @@ assistência. `sender_id` identifica o autor para auditoria; `recipient_role` e
 cópia local dos dados em `.smartfix-data/backups/` antes de mudar o esquema e
 confirma cada migration junto com seu registro de versão, na mesma transação.
 
-## Migração e segurança
-
-A migration `20260918_der.sql` renomeia colunas e a tabela de aparelhos sem
-recriar contas nem alterar UUIDs. Converte ordens e avaliações antigas de
-`workflow_records`, conservando triagem, itens de orçamento e histórico.
-A data exata das avaliações antigas não existia no documento legado; para esses
-casos usa a data da última mudança de status, ou da solicitação se não houver histórico.
-Qualquer vínculo inválido aborta a migração inteira.
+## Segurança
 
 RLS fica ativado em todas as tabelas da aplicação e na tabela de migrations.
 Os papéis `anon` e `authenticated` não têm acesso direto; as APIs Next.js validam
 a sessão e o proprietário. A conexão PostgreSQL fica somente no servidor.
-
-Execute em `smartfix-app/`:
-
-```powershell
-npm run db:migrate
-npm run db:check
-npm run db:smoke
-```
