@@ -30,7 +30,7 @@ export async function saveRepairOrder(order: RepairOrder, transaction: Transacti
   await RepairOrderModel.upsert({
     id: order.id, client_id: order.clientId, partner_id: order.partnerId, device_id: order.deviceId,
     problem_description: order.problem, status: order.status,
-    request_date: order.createdAt.slice(0, 10), created_at: new Date(order.createdAt),
+    created_at: new Date(order.createdAt),
     estimated_budget: budget, device_label: order.device, symptoms: order.symptoms,
     checklist: order.checklist, quote: order.quote, diagnosis: order.diagnosis, history: order.history,
   }, { transaction });

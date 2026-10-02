@@ -16,8 +16,6 @@ CREATE TABLE public.clients (
     cpf TEXT UNIQUE NOT NULL,
     data_nascimento DATE,
 
-    avatar_url TEXT,
-
     -- Data de criação
     criado_em TIMESTAMPTZ DEFAULT now(),
 

@@ -6,12 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:check": "node --conditions=react-server --import tsx scripts/database.ts check",
-    "db:migrate": "node --conditions=react-server --import tsx scripts/database.ts migrate",
-    "db:import-local": "node --conditions=react-server --import tsx scripts/import-local.ts",
-    "db:smoke": "node --conditions=react-server --import tsx scripts/database-smoke.ts",
+    "db:check": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts check",
+    "db:migrate": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts migrate",
+    "db:import-local": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/import-local.ts",
+    "db:smoke": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database-smoke.ts",
     "lint": "eslint app src tests next.config.ts",
-    "test": "node --require ./scripts/node-test-user-shim.cjs --conditions=react-server --import tsx --test tests/**/*.test.ts"
+    "test": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -9,7 +9,6 @@ export class Client extends Model {
   declare cpf: string;
   declare telefone: string | null;
   declare data_nascimento: string | null;
-  declare avatar_url: string | null;
   declare created_at: Date;
 }
 
@@ -49,10 +48,6 @@ Client.init(
     data_nascimento: {
       field: "birth_date",
       type: DataTypes.DATEONLY,
-      allowNull: true,
-    },
-    avatar_url: {
-      type: DataTypes.TEXT,
       allowNull: true,
     },
     created_at: {

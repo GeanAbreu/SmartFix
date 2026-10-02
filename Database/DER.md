@@ -16,6 +16,9 @@ erDiagram
     REPAIR_ORDERS ||--o| REVIEWS : yields
     CLIENTS o|--o{ CLIENT_ADDRESSES : client_owner
     PARTNER o|--o{ CLIENT_ADDRESSES : partner_owner
+    PARTNER ||--o{ PARTNER_SERVICES : offers
+    CLIENTS ||--o{ SUPPORT_MESSAGES : participates
+    PARTNER o|--o{ SUPPORT_MESSAGES : receives
 
     CLIENTS {
         uuid id PK
@@ -24,34 +27,48 @@ erDiagram
         text phone
         text tax_id UK
         date birth_date
+        timestamptz created_at
+        text password_hash
     }
     PARTNER {
         uuid id PK
         text full_name
-        text company_name
-        text tax_id UK
         text email UK
         text phone
+        text tax_id UK
         boolean is_approved
+        timestamptz created_at
+        text password_hash
+        text company_name
+        timestamptz updated_at
     }
     DEVICES {
         uuid id PK
+        uuid user_id FK
         text device_type
         text brand
         text model
+        text photo_url
+        varchar nickname
+        varchar serial_number
         text issue_type
         text issue_description
-        uuid user_id FK
     }
     REPAIR_ORDERS {
         uuid id PK
         text problem_description
         text status
-        date request_date
         decimal estimated_budget
         uuid client_id FK
         uuid partner_id FK
         uuid device_id FK
+        timestamptz created_at
+        text device_label
+        text diagnosis
+        jsonb symptoms
+        jsonb checklist
+        jsonb quote
+        jsonb history
     }
     REVIEWS {
         uuid id PK
@@ -76,10 +93,42 @@ erDiagram
         text uf
         boolean is_principal
     }
+    PARTNER_SERVICES {
+        uuid id PK
+        uuid partner_id FK
+        varchar name
+        text description
+        int unit_price_cents
+        int estimated_days
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    WORKFLOW_RECORDS {
+        uuid id PK
+        varchar kind
+        uuid owner_id
+        jsonb data
+    }
+    SUPPORT_MESSAGES {
+        uuid id PK
+        uuid client_id FK
+        varchar recipient_role
+        uuid partner_id FK
+        varchar sender_role
+        uuid sender_id
+        varchar body
+        timestamptz created_at
+    }
+    SMARTFIX_MIGRATIONS {
+        text name PK
+        timestamptz applied_at
+    }
 ```
 
 Os nomes físicos são minúsculos: `clients`, `partner`, `devices`,
-`repair_orders`, `reviews` e `client_addresses`.
+`repair_orders`, `reviews`, `client_addresses`, `partner_services`,
+`workflow_records`, `support_messages` e `smartfix_migrations`.
 
 - **Autenticação:** `clients.id` e `partner.id` identificam as próprias contas.
   Não foram criados campos `user_id` nessas duas tabelas apontando para uma
@@ -96,13 +145,13 @@ Os nomes físicos são minúsculos: `clients`, `partner`, `devices`,
   a avaliação somente quando a ordem estiver concluída.
 - **Orçamento:** `estimated_budget` é `numeric(12,2)`, em reais, calculado a partir
   dos itens em centavos; antes de um orçamento, seu valor é nulo.
-- **Datas:** `request_date` e `review_date` são datas. `created_at` mantém também
-  horário e fuso para ordenar e exibir os registros existentes.
+- **Datas:** `review_date` é uma data. Em ordens, `created_at` é a fonte canônica
+  e mantém data, horário e fuso para ordenar e exibir os registros.
 
 ## Campos complementares preservados
 
 O DER apresenta os campos de negócio centrais. O aplicativo também usa hashes
-de senha, timestamps, aprovação de parceiros e avatar. Em `devices` permanecem
+de senha, timestamps e aprovação de parceiros. Em `devices` permanecem
 `photo_url`, `nickname` e `serial_number`. Na ordem permanecem o nome do aparelho
 na ocasião (`device_label`), diagnóstico e os arrays JSONB `symptoms`, `checklist`,
 `quote` e `history`. Esses campos evitam perda de recursos e dados da versão anterior.
@@ -116,6 +165,11 @@ descrição em `repair_orders.problem_description`.
 `workflow_records` mantém apenas `notification`, `service`, `reset` e `google`.
 Ordens e avaliações são persistidas exclusivamente nas novas tabelas; o adaptador
 do servidor conserva o contrato da API sem duplicá-las no JSONB auxiliar.
+
+`partner_services` guarda o catálogo e o preço em centavos de cada assistência.
+`support_messages` registra as conversas do cliente com a SmartFix ou com uma
+assistência. `sender_id` identifica o autor para auditoria; `recipient_role` e
+`partner_id` determinam o destino da conversa.
 
 `smartfix_migrations` registra as migrations aplicadas. O migrador salva uma
 cópia local dos dados em `.smartfix-data/backups/` antes de mudar o esquema e
