@@ -11,7 +11,7 @@
     "db:import-local": "node --conditions=react-server --import tsx scripts/import-local.ts",
     "db:smoke": "node --conditions=react-server --import tsx scripts/database-smoke.ts",
     "lint": "eslint app src tests next.config.ts",
-    "test": "node --conditions=react-server --import tsx --test tests/**/*.test.ts"
+    "test": "node --require ./scripts/node-test-user-shim.cjs --conditions=react-server --import tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
