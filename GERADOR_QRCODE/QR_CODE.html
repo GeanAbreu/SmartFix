@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartFix - QR Code de Rastreio da OS</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Biblioteca JS para geração do QR Code -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            darkBg: '#0B0E14',
+            darkCard: '#131822',
+            darkBorder: '#20293A',
+            brandOrange: '#FF6B00',
+            brandOrangeHover: '#E05D00',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Estilos específicos para impressão da etiqueta */
+    @media print {
+      body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-card {
+        border: 2px solid #000000 !important;
+        box-shadow: none !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        max-width: 100% !important;
+      }
+      .print-card * {
+        color: #000000 !important;
+        border-color: #cccccc !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-darkBg text-white font-sans min-h-screen p-4 md:p-8 flex justify-center items-center">
+
+  <!-- Card Principal do Componente de QR Code -->
+  <div class="print-card w-full max-w-md bg-darkCard border border-darkBorder rounded-xl shadow-2xl p-6 text-center relative overflow-hidden">
+    
+    <!-- Barra decorativa Laranja no topo -->
+    <div class="no-print absolute top-0 left-0 right-0 h-1 bg-brandOrange"></div>
+
+    <!-- Cabeçalho -->
+    <div class="mb-5">
+      <span class="no-print inline-block px-3 py-1 bg-[#FF6B00]/10 border border-brandOrange/40 text-brandOrange text-[11px] font-semibold rounded-full uppercase tracking-wider mb-2">
+        Rastreio Digital
+      </span>
+      <h2 class="text-xl font-bold text-white">QR Code de Acompanhamento</h2>
+      <p class="text-xs text-gray-400 mt-1">
+        Aponte a câmera do celular para acompanhar o status em tempo real.
+      </p>
+    </div>
+
+    <!-- Container do QR Code -->
+    <div class="flex justify-center my-6">
+      <div class="p-4 bg-white rounded-2xl shadow-inner border-4 border-[#1E2638] flex justify-center items-center">
+        <div id="qrcode"></div>
+      </div>
+    </div>
+
+    <!-- Informações da O.S. e Link -->
+    <div class="bg-darkBg border border-darkBorder p-3 rounded-lg text-left space-y-2 mb-6">
+      <div class="flex justify-between items-center text-xs">
+        <span class="text-gray-400">Ordem de Serviço:</span>
+        <span id="os-number-display" class="font-mono font-bold text-brandOrange">#OS-2026-8942</span>
+      </div>
+      <div class="flex justify-between items-center text-xs">
+        <span class="text-gray-400">Dispositivo:</span>
+        <span id="device-display" class="text-gray-200 truncate max-w-[200px]">iPhone 13 Pro</span>
+      </div>
+      <div class="pt-2 border-t border-darkBorder/60">
+        <p class="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Link de Acesso:</p>
+        <p id="tracking-url" class="text-xs font-mono text-gray-300 truncate select-all bg-darkCard p-1.5 rounded border border-darkBorder">
+          https://smartfix.com.br/rastreio/OS-2026-8942
+        </p>
+      </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="no-print grid grid-cols-2 gap-3">
+      <button id="btn-copy" class="px-3 py-2.5 bg-darkBg border border-darkBorder hover:border-[#FF6B00]/50 text-gray-300 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+        <span>📋</span> <span id="btn-copy-text">Copiar Link</span>
+      </button>
+      
+      <button id="btn-print" class="px-3 py-2.5 bg-brandOrange hover:bg-brandOrangeHover text-white text-xs font-semibold rounded-lg transition shadow-lg flex items-center justify-center gap-1.5">
+        <span>🖨️️</span> Imprimir Etiqueta
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Script TypeScript do Vite -->
+  <script type="module" src="/src/qrcode.ts"></script>
+</body>
+</html>
