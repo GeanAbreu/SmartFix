@@ -1,5 +1,5 @@
-import { clientRoutes } from "@/src/routes";
+import { ClientController } from "@/src/controllers/ClientController";
 
 export const runtime = "nodejs";
-export const GET = clientRoutes.me;
-export const PATCH = clientRoutes.update;
+export const GET = ClientController.me;
+export const PATCH = ClientController.update;

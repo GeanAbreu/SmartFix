@@ -1,4 +1,4 @@
-import { contributionRoutes } from "@/src/routes/contribution.routes";
+import { WorkflowController } from "@/src/controllers/WorkflowController";
 export const runtime = "nodejs";
-export const GET = contributionRoutes.listOrders;
-export const POST = contributionRoutes.createOrder;
+export const GET = WorkflowController.list;
+export const POST = WorkflowController.create;

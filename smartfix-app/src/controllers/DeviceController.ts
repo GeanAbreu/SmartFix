@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
 import { requireSession } from "@/src/middlewares/auth.middleware";
-import { ClientDevice, RepairOrderModel } from "@/src/models";
 import {
-  createLocalDevice,
-  deleteLocalDevice,
-  listLocalDevices,
-  updateLocalDevice,
-  usesLocalAuthStore,
-} from "@/src/services/local-auth.service";
+  createDevice,
+  deleteDevice,
+  listDevices,
+  updateDevice,
+} from "@/src/services/device.service";
 import { deviceInputSchema } from "@/src/validations/device.validation";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
@@ -21,37 +18,16 @@ async function clientIdFrom(request: NextRequest) {
   return session.sub;
 }
 
-function serialize(device: ClientDevice) {
-  return {
-    id: device.id,
-    tipo: device.tipo,
-    marca: device.marca,
-    modelo: device.modelo,
-    fotoUrl: device.foto_url,
-    apelido: device.apelido,
-    numeroSerie: device.numero_serie,
-    issueType: device.issue_type,
-    issueDescription: device.issue_description,
-  };
-}
-
 export class DeviceController {
   static async list(request: NextRequest) {
     try {
       const clientId = await clientIdFrom(request);
-      const devices = usesLocalAuthStore()
-        ? await listLocalDevices(clientId)
-        : (assertDatabaseConfigured(), await ClientDevice.findAll({
-            where: { client_id: clientId },
-            order: [["tipo", "ASC"], ["marca", "ASC"], ["modelo", "ASC"]],
-          }));
+      const devices = await listDevices(clientId);
 
       return noStoreResponse(NextResponse.json({
         success: true,
         data: {
-          devices: devices.map((device) =>
-            device instanceof ClientDevice ? serialize(device) : device
-          ),
+          devices,
         },
       }));
     } catch (error) {
@@ -63,24 +39,12 @@ export class DeviceController {
     try {
       const clientId = await clientIdFrom(request);
       const input = deviceInputSchema.parse(await request.json());
-      const device = usesLocalAuthStore()
-        ? await createLocalDevice(clientId, input)
-        : (assertDatabaseConfigured(), await ClientDevice.create({
-            client_id: clientId,
-            tipo: input.tipo,
-            marca: input.marca,
-            modelo: input.modelo,
-            foto_url: input.fotoUrl,
-            apelido: input.apelido,
-            numero_serie: input.numeroSerie,
-            issue_type: input.issueType ?? "",
-            issue_description: input.issueDescription ?? "",
-          }));
+      const device = await createDevice(clientId, input);
 
       return noStoreResponse(NextResponse.json({
         success: true,
         message: "Dispositivo cadastrado com sucesso.",
-        data: { device: device instanceof ClientDevice ? serialize(device) : device },
+        data: { device },
       }, { status: 201 }));
     } catch (error) {
       return noStoreResponse(controllerErrorResponse(error));
@@ -91,34 +55,12 @@ export class DeviceController {
     try {
       const clientId = await clientIdFrom(request);
       const input = deviceInputSchema.parse(await request.json());
-      let device;
-
-      if (usesLocalAuthStore()) {
-        device = await updateLocalDevice(clientId, deviceId, input);
-      } else {
-        assertDatabaseConfigured();
-        const existing = await ClientDevice.findOne({
-          where: { id: deviceId, client_id: clientId },
-        });
-        if (!existing) {
-          throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
-        }
-        device = await existing.update({
-          tipo: input.tipo,
-          marca: input.marca,
-          modelo: input.modelo,
-          foto_url: input.fotoUrl,
-          apelido: input.apelido,
-          numero_serie: input.numeroSerie,
-          ...(input.issueType !== undefined ? { issue_type: input.issueType } : {}),
-          ...(input.issueDescription !== undefined ? { issue_description: input.issueDescription } : {}),
-        });
-      }
+      const device = await updateDevice(clientId, deviceId, input);
 
       return noStoreResponse(NextResponse.json({
         success: true,
         message: "Dispositivo atualizado com sucesso.",
-        data: { device: device instanceof ClientDevice ? serialize(device) : device },
+        data: { device },
       }));
     } catch (error) {
       return noStoreResponse(controllerErrorResponse(error));
@@ -129,21 +71,7 @@ export class DeviceController {
     try {
       const clientId = await clientIdFrom(request);
 
-      if (usesLocalAuthStore()) {
-        await deleteLocalDevice(clientId, deviceId);
-      } else {
-        assertDatabaseConfigured();
-        const device = await ClientDevice.findOne({
-          where: { id: deviceId, client_id: clientId },
-        });
-        if (!device) {
-          throw new AppError("Dispositivo não encontrado.", 404, "DEVICE_NOT_FOUND");
-        }
-        if (await RepairOrderModel.count({ where: { device_id: deviceId } })) {
-          throw new AppError("Este dispositivo possui ordens de reparo e não pode ser excluído.", 409, "DEVICE_IN_USE");
-        }
-        await device.destroy();
-      }
+      await deleteDevice(clientId, deviceId);
 
       return noStoreResponse(NextResponse.json({
         success: true,

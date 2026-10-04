@@ -7,7 +7,7 @@ loadEnvConfig(process.cwd(), true);
 async function main() {
   const { default: sequelize, assertDatabaseConfigured } = await import("../src/config/database");
   const { Client, ClientAddress, ClientDevice, Partner, RepairOrderModel, Review } = await import("../src/models");
-  const { readRepairOrders, saveRepairOrder } = await import("../src/services/repair-order.repository");
+  const { readRepairOrders, saveRepairOrder } = await import("../src/repositories/repair-order.repository");
   assertDatabaseConfigured();
   try {
     const transaction = await sequelize.transaction();

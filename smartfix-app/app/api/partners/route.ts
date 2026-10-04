@@ -1,3 +1,3 @@
-import { contributionRoutes } from "@/src/routes/contribution.routes";
+import { WorkflowController } from "@/src/controllers/WorkflowController";
 export const runtime = "nodejs";
-export const GET = contributionRoutes.listPartners;
+export const GET = WorkflowController.partners;

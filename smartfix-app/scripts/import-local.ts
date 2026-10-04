@@ -36,7 +36,7 @@ async function main() {
   const store = storeSchema.parse(JSON.parse(await readFile(filename, "utf8")));
   const { default: sequelize, assertDatabaseConfigured } = await import("../src/config/database");
   const { Client, ClientAddress, ClientDevice, Partner, RepairOrderModel } = await import("../src/models");
-  const { saveRepairOrder } = await import("../src/services/repair-order.repository");
+  const { saveRepairOrder } = await import("../src/repositories/repair-order.repository");
   const { Workflow } = await import("../src/models/Workflow");
   const { hashPassword } = await import("../src/services/password.service");
   const counts = { clients: 0, partners: 0, addresses: 0, devices: 0, workflow: 0 };

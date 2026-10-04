@@ -1,4 +1,4 @@
-import { deviceRoutes } from "@/src/routes/device.routes";
+import { DeviceController } from "@/src/controllers/DeviceController";
 
-export const GET = deviceRoutes.list;
-export const POST = deviceRoutes.create;
+export const GET = DeviceController.list;
+export const POST = DeviceController.create;

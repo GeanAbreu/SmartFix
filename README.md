@@ -90,6 +90,10 @@ SmartFix/
 └── README.md
 ```
 
+A aplicação segue um MVC adaptado ao App Router. Consulte
+[`smartfix-app/ARCHITECTURE.md`](smartfix-app/ARCHITECTURE.md) para conhecer as
+responsabilidades de views, controllers, services, repositories e models.
+
 O modelo relacional completo está documentado em
 [Database/DER.md](Database/DER.md).
 
