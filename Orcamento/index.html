@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartFix - Orçamento Técnico</title>
+  <link rel="icon" href="data:;">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: #0b1523;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .form-card {
+      background-color: #1a2636;
+      border: 1px solid #ff5500;
+      border-radius: 8px;
+      padding: 24px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .form-header {
+      margin-bottom: 20px;
+    }
+
+    .form-header h2 {
+      color: #ff5500;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .form-header p {
+      color: #94a3b8;
+      font-size: 0.875rem;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #ffffff;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background-color: #0b1523;
+      border: 1px solid #2d3f55;
+      border-radius: 6px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus {
+      border-color: #ff5500;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .row .form-group {
+      flex: 1;
+    }
+
+    .total-box {
+      background-color: #0b1523;
+      border-left: 3px solid #ff5500;
+      padding: 12px;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      margin-bottom: 20px;
+    }
+
+    .total-box span {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .total-price {
+      color: #ff5500 !important;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-submit {
+      flex: 1;
+      padding: 10px 16px;
+      background-color: #ff5500;
+      color: #ffffff;
+      border: 1px solid #ff5500;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .btn-submit:hover {
+      opacity: 0.9;
+    }
+
+    .btn-cancel {
+      padding: 10px 16px;
+      background-color: transparent;
+      color: #ffffff;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+    }
+
+    .btn-cancel:hover {
+      border-color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-card">
+    <div class="form-header">
+      <h2>Envio de Orçamento</h2>
+      <p>Insira a discriminação de valores e prazo do serviço</p>
+    </div>
+
+    <form id="formOrcamento">
+      <div class="form-group">
+        <label for="prazo">Prazo Estimado</label>
+        <input type="text" id="prazo" placeholder="Ex: 2 dias úteis" required>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label for="maoDeObra">Mão de Obra (R$)</label>
+          <input type="number" id="maoDeObra" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+
+        <div class="form-group">
+          <label for="pecas">Peças (R$)</label>
+          <input type="number" id="pecas" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="descricao">Discriminação das Peças / Serviço</label>
+        <textarea id="descricao" rows="3" placeholder="Ex: Troca de tela frontal e conector de carga"></textarea>
+      </div>
+
+      <div class="total-box">
+        <span>Valor Total:</span>
+        <span class="total-price" id="valorTotal">R$ 0,00</span>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" class="btn-submit">Enviar Orçamento</button>
+        <button type="button" id="btnCancel" class="btn-cancel">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
