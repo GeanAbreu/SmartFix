@@ -1,6 +1,0 @@
-# Dependências e artefatos gerados pelos protótipos
-prototypes/**/node_modules/
-prototypes/**/dist/
-
-# Arquivos temporários locais
-*.log
