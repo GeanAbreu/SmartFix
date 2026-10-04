@@ -1,4 +1,4 @@
-import { authRoutes } from "@/src/routes";
+import { AuthController } from "@/src/controllers/AuthController";
 
 export const runtime = "nodejs";
-export const POST = authRoutes.register;
+export const POST = AuthController.register;

@@ -1,3 +1,3 @@
-import { contributionRoutes } from "@/src/routes/contribution.routes";
+import { GoogleController } from "@/src/controllers/GoogleController";
 export const runtime = "nodejs";
-export const GET = contributionRoutes.startGoogleLogin;
+export const GET = GoogleController.start;

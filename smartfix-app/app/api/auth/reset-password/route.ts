@@ -1,3 +1,3 @@
-import { contributionRoutes } from "@/src/routes/contribution.routes";
+import { RecoveryController } from "@/src/controllers/RecoveryController";
 export const runtime = "nodejs";
-export const POST = contributionRoutes.resetPassword;
+export const POST = RecoveryController.reset;

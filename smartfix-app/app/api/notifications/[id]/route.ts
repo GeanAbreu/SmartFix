@@ -1,3 +1,10 @@
-import { contributionRoutes } from "@/src/routes/contribution.routes";
+import type { NextRequest } from "next/server";
+import { WorkflowController } from "@/src/controllers/WorkflowController";
+
 export const runtime = "nodejs";
-export const PATCH = contributionRoutes.readNotification;
+
+type Context = { params: Promise<{ id: string }> };
+
+export async function PATCH(request: NextRequest, context: Context) {
+  return WorkflowController.readNotification(request, (await context.params).id);
+}

@@ -2,7 +2,7 @@ import "server-only";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { Workflow } from "@/src/models/Workflow";
 import { RepairOrderModel } from "@/src/models/RepairOrder";
-import { readRepairOrders, saveRepairOrder } from "./repair-order.repository";
+import { readRepairOrders, saveRepairOrder } from "@/src/repositories/repair-order.repository";
 import { localWorkflow, usesLocalAuthStore } from "./local-auth.service";
 import type { RepairOrder, WorkflowRecord } from "@/src/types/workflow";
 import type { Transaction } from "sequelize";

@@ -1,4 +1,4 @@
-import { databaseRoutes } from "@/src/routes";
+import { DatabaseController } from "@/src/controllers/DatabaseController";
 
 export const runtime = "nodejs";
-export const GET = databaseRoutes.health;
+export const GET = DatabaseController.health;

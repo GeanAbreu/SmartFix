@@ -2,7 +2,7 @@ import "server-only";
 import type { Transaction } from "sequelize";
 import { RepairOrderModel, Review } from "@/src/models";
 import { AppError } from "@/src/errors/AppError";
-import { quoteTotal } from "./order-policy.service";
+import { quoteTotal } from "@/src/services/order-policy.service";
 import type { RepairOrder, WorkflowRecord } from "@/src/types/workflow";
 
 export async function readRepairOrders(transaction: Transaction): Promise<WorkflowRecord[]> {

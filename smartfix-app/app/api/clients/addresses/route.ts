@@ -1,4 +1,4 @@
-import { addressRoutes } from "@/src/routes/address.routes";
+import { AddressController } from "@/src/controllers/AddressController";
 
-export const GET = addressRoutes.list;
-export const POST = addressRoutes.create;
+export const GET = AddressController.list;
+export const POST = AddressController.create;

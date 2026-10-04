@@ -1,4 +1,4 @@
-import { authRoutes } from "@/src/routes";
+import { AuthController } from "@/src/controllers/AuthController";
 
 export const runtime = "nodejs";
-export const POST = authRoutes.login;
+export const POST = AuthController.login;

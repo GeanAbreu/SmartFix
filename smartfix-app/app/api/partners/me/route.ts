@@ -1,4 +1,4 @@
-import { partnerRoutes } from "@/src/routes";
+import { PartnerController } from "@/src/controllers/PartnerController";
 
 export const runtime = "nodejs";
-export const GET = partnerRoutes.me;
+export const GET = PartnerController.me;
