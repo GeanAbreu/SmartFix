@@ -41,7 +41,7 @@ async function main() {
       await writeFile(backupFile, JSON.stringify(backup), { mode: 0o600, flag: "wx" });
       console.log("Backup salvo em .smartfix-data/backups (não versionado).");
       for (const name of pending) {
-        const sql = await readFile(path.resolve("../Database/migrations", name), "utf8");
+        const sql = await readFile(path.resolve("../database/migrations", name), "utf8");
         // Record each migration in the same transaction as its schema changes.
         const body = sql.replace(/^BEGIN;\s*$/m, "").replace(/^COMMIT;\s*$/m, "");
         await sequelize.transaction(async (transaction) => {
