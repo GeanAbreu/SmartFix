@@ -2,7 +2,7 @@
 
 Aplicação Next.js principal do repositório. Consulte o [README da raiz](../README.md)
 para o escopo e as instruções de execução. As opções de ambiente estão em
-[`.env.example`](.env.example) e o modelo de dados em [Database/DER.md](../Database/DER.md).
+[`.env.example`](.env.example) e o modelo de dados em [database/DER.md](../database/DER.md).
 
 ```powershell
 npm ci
