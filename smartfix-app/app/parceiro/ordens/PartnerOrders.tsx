@@ -42,18 +42,28 @@ function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean
     const data = new FormData(event.currentTarget);
     const items = Array.from({ length: count }, (_, index) => ({
       name: String(data.get(`name-${index}`) || "").trim(),
+      category: String(data.get(`category-${index}`)),
+      details: String(data.get(`details-${index}`) || "").trim(),
       quantity: Number(data.get(`quantity-${index}`)),
       unitPriceCents: Math.round(Number(data.get(`price-${index}`)) * 100),
     }));
-    void onSubmit({ action: "quote", diagnosis: String(data.get("diagnosis") || "").trim(), items });
+    void onSubmit({ action: "quote", diagnosis: String(data.get("diagnosis") || "").trim(),
+      estimatedDays: Number(data.get("estimatedDays")), warrantyDays: Number(data.get("warrantyDays")),
+      deliveryFeeCents: Math.round(Number(data.get("deliveryFee")) * 100), items });
   }
 
   return <form key={orderId} className={styles.quoteForm} onSubmit={submit}>
     <h3>{"Preparar orçamento"}</h3>
     <p>Informe o diagnóstico e os serviços ou peças necessários.</p>
     <label>Diagnóstico<textarea name="diagnosis" minLength={3} maxLength={3000} required placeholder="Descreva o problema identificado" /></label>
+    <div className={styles.quoteRow}>
+      <label>Prazo estimado (dias)<input name="estimatedDays" type="number" min={1} max={365} defaultValue={3} required /></label>
+      <label>Garantia (dias)<input name="warrantyDays" type="number" min={0} max={3650} defaultValue={90} required /></label>
+      <label>Coleta e entrega (R$)<input name="deliveryFee" type="number" min={0} max={100000} step="0.01" defaultValue="0.00" required /></label>
+    </div>
     {Array.from({ length: count }, (_, index) => <div className={styles.quoteRow} key={index}>
-      <label>Serviço ou peça<input name={`name-${index}`} maxLength={150} required placeholder="Ex.: Troca de tela" /></label>
+      <label>Serviço ou peça<input name={`name-${index}`} maxLength={150} required placeholder="Ex.: Tela OLED" /><input name={`details-${index}`} maxLength={500} placeholder="Detalhes opcionais" /></label>
+      <label>Categoria<select name={`category-${index}`} defaultValue="labor"><option value="labor">Mão de obra</option><option value="part">Peça/material</option></select></label>
       <label>Quantidade<input name={`quantity-${index}`} type="number" min={1} max={100} defaultValue={1} required /></label>
       <label>Preço unitário (R$)<input name={`price-${index}`} type="number" min={0} max={100000} step="0.01" required placeholder="0,00" /></label>
     </div>)}

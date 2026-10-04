@@ -38,7 +38,13 @@ function failure(error: unknown) {
   return noStoreResponse(controllerErrorResponse(error));
 }
 function orderOf(record: WorkflowRecord) {
-  return record.data as unknown as RepairOrder;
+  const order = record.data as unknown as RepairOrder;
+  order.serviceDetails = Object.assign({ estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0,
+    couponCode: "", discountCents: 0, scheduledDate: "", schedulePeriod: "" as const,
+    serviceAddress: "", paymentMethod: "" as const, paymentStatus: "pending" as const, paidAt: "" },
+  order.serviceDetails || {});
+  order.quote = order.quote.map((item) => Object.assign({ category: "labor" as const, details: "" }, item));
+  return order;
 }
 function notify(
   records: WorkflowRecord[],
@@ -96,7 +102,7 @@ export class WorkflowController {
       return ok({
         orders: orders.map((order) => ({
           ...order,
-          totalCents: quoteTotal(order.quote),
+          totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents),
           ...(partnerNames ? { partnerName: partnerNames.get(order.partnerId) || "Assistência parceira" } : {}),
         })),
       });
@@ -141,6 +147,9 @@ export class WorkflowController {
         status: "pending",
         quote: [],
         diagnosis: "",
+        serviceDetails: { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0, couponCode: "", discountCents: 0,
+          scheduledDate: "", schedulePeriod: "", serviceAddress: "", paymentMethod: "",
+          paymentStatus: "pending", paidAt: "" },
         history: [{ status: "pending", at: now }],
         review: null,
         createdAt: now,
@@ -187,7 +196,7 @@ export class WorkflowController {
         );
         return updated;
       }, true);
-      return ok({ order: { ...order, totalCents: quoteTotal(order.quote) } });
+      return ok({ order: { ...order, totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents) } });
     } catch (error) {
       return failure(error);
     }

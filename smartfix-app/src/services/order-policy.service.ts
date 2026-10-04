@@ -23,6 +23,8 @@ export const orderInput = z.object({
 });
 export const quoteItemInput = z.object({
   name: z.string().trim().min(1).max(150),
+  category: z.enum(["part", "labor"]).default("labor"),
+  details: z.string().trim().max(500).default(""),
   quantity: z.number().int().min(1).max(100),
   unitPriceCents: z.number().int().min(0).max(10_000_000),
 });
@@ -30,9 +32,19 @@ export const orderAction = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("quote"),
     diagnosis: z.string().trim().min(3).max(3000),
+    estimatedDays: z.number().int().min(1).max(365),
+    warrantyDays: z.number().int().min(0).max(3650),
+    deliveryFeeCents: z.number().int().min(0).max(10_000_000).default(0),
     items: z.array(quoteItemInput).min(1).max(30),
   }),
-  z.object({ action: z.literal("approve") }),
+  z.object({
+    action: z.literal("approve"),
+    scheduledDate: z.iso.date(),
+    schedulePeriod: z.enum(["morning", "afternoon"]),
+    serviceAddress: z.string().trim().min(8).max(500),
+    paymentMethod: z.enum(["pix", "card"]),
+    couponCode: z.string().trim().max(30).default(""),
+  }),
   z.object({ action: z.literal("cancel") }),
   z.object({
     action: z.literal("status"),
@@ -44,11 +56,11 @@ export const orderAction = z.discriminatedUnion("action", [
     comment: z.string().trim().max(2000).default(""),
   }),
 ]);
-export function quoteTotal(items: QuoteItem[]) {
+export function quoteTotal(items: QuoteItem[], deliveryFeeCents = 0, discountCents = 0) {
   return items.reduce(
     (total, item) => total + item.quantity * item.unitPriceCents,
-    0,
-  );
+    deliveryFeeCents,
+  ) - discountCents;
 }
 export function applyOrderAction(
   order: RepairOrder,
@@ -71,9 +83,26 @@ export function applyOrderAction(
     if (!partner || !["pending", "quoted"].includes(status)) invalid();
     order.quote = input.items;
     order.diagnosis = input.diagnosis;
+    order.serviceDetails.estimatedDays = input.estimatedDays;
+    order.serviceDetails.warrantyDays = input.warrantyDays;
+    order.serviceDetails.deliveryFeeCents = input.deliveryFeeCents;
     status = "quoted";
   } else if (input.action === "approve") {
     if (!client || status !== "quoted") invalid();
+    const scheduled = new Date(`${input.scheduledDate}T12:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(scheduled.getTime()) || scheduled < today)
+      throw new AppError("Escolha uma data de agendamento válida.", 422, "INVALID_SCHEDULE");
+    order.serviceDetails.scheduledDate = input.scheduledDate;
+    order.serviceDetails.schedulePeriod = input.schedulePeriod;
+    order.serviceDetails.serviceAddress = input.serviceAddress;
+    order.serviceDetails.paymentMethod = input.paymentMethod;
+    order.serviceDetails.couponCode = input.couponCode.toUpperCase();
+    order.serviceDetails.discountCents = order.serviceDetails.couponCode === "SMART10"
+      ? Math.round(quoteTotal(order.quote) * 0.1) : 0;
+    order.serviceDetails.paymentStatus = "confirmed";
+    order.serviceDetails.paidAt = new Date().toISOString();
     status = "approved";
   } else if (input.action === "cancel") {
     if (!client || !["pending", "quoted"].includes(status)) invalid();

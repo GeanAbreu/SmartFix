@@ -22,6 +22,8 @@ function order(): RepairOrder {
     checklist: [],
     quote: [],
     diagnosis: "",
+    serviceDetails: { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0, couponCode: "", discountCents: 0, scheduledDate: "",
+      schedulePeriod: "", serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" },
     status: "pending",
     history: [],
     review: null,
@@ -36,7 +38,8 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
     applyOrderAction(
       current,
       { sub: "other", role: "client" },
-      { action: "approve" },
+      { action: "approve", scheduledDate: "2099-01-01", schedulePeriod: "morning",
+        serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" },
     ),
   );
   assert.throws(() =>
@@ -48,14 +51,17 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   const quote = orderAction.parse({
     action: "quote",
     diagnosis: "Troca de bateria",
-    items: [{ name: "Bateria", quantity: 2, unitPriceCents: 1001 }],
+    estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0,
+    items: [{ name: "Bateria", category: "part", details: "", quantity: 2, unitPriceCents: 1001 }],
   });
   applyOrderAction(current, partner, quote);
   assert.equal(quoteTotal(current.quote), 2002);
   assert.throws(() =>
-    applyOrderAction(current, partner, { action: "approve" }),
+    applyOrderAction(current, partner, { action: "approve", scheduledDate: "2099-01-01",
+      schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" }),
   );
-  applyOrderAction(current, client, { action: "approve" });
+  applyOrderAction(current, client, { action: "approve", scheduledDate: "2099-01-01",
+    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" });
   assert.throws(() => applyOrderAction(current, partner, quote));
   assert.throws(() => applyOrderAction(current, client, { action: "cancel" }));
   applyOrderAction(current, partner, {

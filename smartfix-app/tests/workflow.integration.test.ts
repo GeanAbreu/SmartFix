@@ -139,12 +139,16 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
         await action(partner, {
           action: "quote",
           diagnosis: "Trocar bateria",
+          estimatedDays: 3,
+          warrantyDays: 90,
+          deliveryFeeCents: 0,
           items: [{ name: "Bateria", quantity: 1, unitPriceCents: 19990 }],
         })
       ).status,
       200,
     );
-    assert.equal((await action(client, { action: "approve" })).status, 200);
+    assert.equal((await action(client, { action: "approve", scheduledDate: "2099-01-01",
+      schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "SMART10" })).status, 200);
     const attempts = await Promise.all([
       action(partner, { action: "status", status: "in_progress" }),
       action(partner, { action: "status", status: "in_progress" }),
@@ -164,6 +168,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     const completedOrders = (await (await controller.list(request(client, "/api/orders"))).json()).data.orders;
     assert.equal(completedOrders[0].partnerName, partner.name);
     assert.equal(completedOrders[0].status, "completed");
+    assert.equal(completedOrders[0].totalCents, 17991);
+    assert.equal(completedOrders[0].serviceDetails.paymentStatus, "confirmed");
+    assert.equal(completedOrders[0].serviceDetails.scheduledDate, "2099-01-01");
     assert.equal(completedOrders[0].review, null);
     assert.equal(
       (

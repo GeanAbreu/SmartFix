@@ -6,7 +6,9 @@ import type { OrderStatus, RepairOrder } from "../src/types/workflow";
 function order(id: string, status: OrderStatus, createdAt: string, reviewed = false): RepairOrder {
   return { id, status, createdAt, clientId: "client", partnerId: "partner", deviceId: "device",
     device: "Aparelho", problem: "Defeito", symptoms: [], checklist: [], quote: [], diagnosis: "",
-    history: [], review: reviewed ? { rating: 5, comment: "" } : null };
+    history: [], review: reviewed ? { rating: 5, comment: "" } : null,
+    serviceDetails: { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0, couponCode: "", discountCents: 0,
+      scheduledDate: "", schedulePeriod: "", serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" } };
 }
 
 test("destaca orçamento, retirada e avaliação antes dos reparos recentes", () => {

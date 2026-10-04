@@ -17,6 +17,7 @@ export class RepairOrderModel extends Model {
   declare checklist: string[];
   declare quote: QuoteItem[];
   declare history: RepairOrder["history"];
+  declare service_details: RepairOrder["serviceDetails"];
 }
 
 RepairOrderModel.init({
@@ -35,4 +36,5 @@ RepairOrderModel.init({
   checklist: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
   quote: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
   history: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
+  service_details: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
 }, { sequelize, tableName: "repair_orders", timestamps: false });

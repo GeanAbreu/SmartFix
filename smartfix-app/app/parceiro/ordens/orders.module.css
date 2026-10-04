@@ -15,7 +15,7 @@
 .workspace { display: grid; grid-template-columns: minmax(290px, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
 .orderList, .details { min-width: 0; border: 1px solid rgba(60,130,190,.25); border-radius: 16px; background: #0d1b2d; overflow: hidden; }
 .searchLabel { display: grid; gap: 8px; padding: 17px; border-bottom: 1px solid rgba(60,130,190,.2); color: #aab7c7; font-size: 12px; font-weight: 700; }
-.searchLabel input, .quoteForm input, .quoteForm textarea { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #33536e; border-radius: 9px; outline: none; background: #0a1929; color: #fff; font: inherit; }
+.searchLabel input, .quoteForm input, .quoteForm textarea, .quoteForm select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #33536e; border-radius: 9px; outline: none; background: #0a1929; color: #fff; font: inherit; }
 .searchLabel input:focus, .quoteForm input:focus, .quoteForm textarea:focus { border-color: #65b8ef; box-shadow: 0 0 0 2px rgba(101,184,239,.17); }
 .searchLabel input::placeholder, .quoteForm input::placeholder, .quoteForm textarea::placeholder { color: #718ca3; }
 .orderList ul { max-height: min(720px, 75vh); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
@@ -53,7 +53,8 @@
 .quoteForm > p { color: #9fb3c5; font-size: 13px; }
 .quoteForm label { display: grid; gap: 7px; color: #b8c8d7; font-size: 12px; font-weight: 700; }
 .quoteForm textarea { min-height: 95px; resize: vertical; }
-.quoteRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(85px, .6fr) minmax(130px, 1fr); gap: 10px; }
+.quoteRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, .8fr) minmax(85px, .6fr) minmax(130px, 1fr); gap: 10px; }
+.quoteRow label:first-child input + input { margin-top: 7px; }
 .formActions, .statusActions { display: flex; flex-wrap: wrap; gap: 10px; }
 .primaryButton, .secondaryButton { padding: 11px 15px; border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .primaryButton { border: 1px solid #ff6b1a; background: #ff6b1a; color: #fff; }

@@ -4,7 +4,9 @@ import { summarizePartnerWork, type DashboardNotification } from "../src/service
 import type { OrderStatus, RepairOrder } from "../src/types/workflow.ts";
 
 function order(id: string, status: OrderStatus, createdAt: string): RepairOrder {
-  return { id, status, createdAt, clientId: "client", partnerId: "partner", deviceId: "device", device: "Aparelho", problem: "Defeito", symptoms: [], checklist: [], quote: [], diagnosis: "", history: [], review: null };
+  return { id, status, createdAt, clientId: "client", partnerId: "partner", deviceId: "device", device: "Aparelho", problem: "Defeito", symptoms: [], checklist: [], quote: [], diagnosis: "", history: [], review: null,
+    serviceDetails: { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0, couponCode: "", discountCents: 0,
+      scheduledDate: "", schedulePeriod: "", serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" } };
 }
 
 const notification = (id: string, read: boolean): DashboardNotification => ({

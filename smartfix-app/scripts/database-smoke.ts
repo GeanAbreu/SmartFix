@@ -40,6 +40,9 @@ async function main() {
         device: "Apple iPhone 13", problem: "Não liga nem carrega", status: "pending",
         createdAt: new Date().toISOString(), quote: [], symptoms: [], checklist: [],
         diagnosis: "", history: [], review: null,
+        serviceDetails: { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0,
+          couponCode: "", discountCents: 0, scheduledDate: "", schedulePeriod: "",
+          serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" },
       };
       await saveRepairOrder(order, transaction);
       assert.equal((await RepairOrderModel.findByPk(order.id, { transaction }))?.estimated_budget, null);
@@ -54,7 +57,7 @@ async function main() {
         cpf: randomUUID().replaceAll("-", "").slice(0, 11), senha: "test-only" }, { transaction });
       await rejectWrite((savepoint) => saveRepairOrder({ ...order, id: randomUUID(), clientId: other.id }, savepoint), "23503");
       order.status = "completed";
-      order.quote = [{ name: "Reparo", quantity: 2, unitPriceCents: 19990 }];
+      order.quote = [{ name: "Reparo", category: "labor", details: "", quantity: 2, unitPriceCents: 19990 }];
       await saveRepairOrder(order, transaction);
       assert.equal((await RepairOrderModel.findByPk(order.id, { transaction }))?.estimated_budget, "399.80");
       await rejectWrite((savepoint) => Review.create({ repair_order_id: order.id, client_id: other.id,

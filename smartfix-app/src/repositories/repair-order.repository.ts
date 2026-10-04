@@ -16,6 +16,7 @@ export async function readRepairOrders(transaction: Transaction): Promise<Workfl
       problem: row.problem_description, status: row.status, device: row.device_label,
       symptoms: row.symptoms, checklist: row.checklist, quote: row.quote,
       diagnosis: row.diagnosis, history: row.history, createdAt: row.created_at.toISOString(),
+      serviceDetails: { ...emptyServiceDetails(), ...(row.service_details || {}) },
       review: review ? { rating: review.rating, comment: review.comment } : null,
     };
     return { id: row.id, kind: "order", ownerId: row.client_id, data: { ...order } };
@@ -23,7 +24,7 @@ export async function readRepairOrders(transaction: Transaction): Promise<Workfl
 }
 
 export async function saveRepairOrder(order: RepairOrder, transaction: Transaction) {
-  const totalCents = quoteTotal(order.quote);
+  const totalCents = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
   const budget = order.quote.length
     ? `${Math.floor(totalCents / 100)}.${String(totalCents % 100).padStart(2, "0")}`
     : null;
@@ -33,6 +34,7 @@ export async function saveRepairOrder(order: RepairOrder, transaction: Transacti
     created_at: new Date(order.createdAt),
     estimated_budget: budget, device_label: order.device, symptoms: order.symptoms,
     checklist: order.checklist, quote: order.quote, diagnosis: order.diagnosis, history: order.history,
+    service_details: order.serviceDetails,
   }, { transaction });
   if (order.review) {
     const existing = await Review.findOne({ where: { repair_order_id: order.id }, transaction });
@@ -45,4 +47,9 @@ export async function saveRepairOrder(order: RepairOrder, transaction: Transacti
         review_date: new Date().toISOString().slice(0, 10) }, { transaction });
     }
   }
+}
+
+function emptyServiceDetails(): RepairOrder["serviceDetails"] {
+  return { estimatedDays: 3, warrantyDays: 90, deliveryFeeCents: 0, couponCode: "", discountCents: 0, scheduledDate: "",
+    schedulePeriod: "", serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" };
 }

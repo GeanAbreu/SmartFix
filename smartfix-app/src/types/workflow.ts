@@ -9,8 +9,23 @@ export type OrderStatus =
   | "cancelled";
 export type QuoteItem = {
   name: string;
+  category: "part" | "labor";
+  details: string;
   quantity: number;
   unitPriceCents: number;
+};
+export type ServiceDetails = {
+  estimatedDays: number;
+  warrantyDays: number;
+  deliveryFeeCents: number;
+  couponCode: string;
+  discountCents: number;
+  scheduledDate: string;
+  schedulePeriod: "morning" | "afternoon" | "";
+  serviceAddress: string;
+  paymentMethod: "pix" | "card" | "";
+  paymentStatus: "pending" | "confirmed";
+  paidAt: string;
 };
 export type RepairOrder = {
   id: string;
@@ -24,6 +39,7 @@ export type RepairOrder = {
   status: OrderStatus;
   quote: QuoteItem[];
   diagnosis: string;
+  serviceDetails: ServiceDetails;
   history: { status: OrderStatus; at: string }[];
   review: { rating: number; comment: string } | null;
   createdAt: string;
