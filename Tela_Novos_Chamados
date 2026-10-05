@@ -1,0 +1,621 @@
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  Bell, CalendarDays, ChevronRight, ClipboardList, Clock3, Laptop,
+  LayoutGrid, MapPin, Menu, PackageCheck, Search, Smartphone,
+  Tablet, TrendingUp, Truck, UserRound, WalletCards, X, Zap,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import {
+  listOpenServiceRequests,
+  triageServiceRequest,
+} from "@/lib/service-requests.functions";
+import { cn } from "@/lib/utils";
+
+type ServiceRequest = Tables<"service_requests">;
+type SortOption = "recent" | "nearby" | "urgent";
+
+const requestsQuery = queryOptions({
+  queryKey: ["service-requests", "open", "florianopolis", 10],
+  queryFn: () => listOpenServiceRequests(),
+});
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Novos chamados | SmartFix Parceiros" },
+      {
+        name: "description",
+        content: "Painel técnico SmartFix para visualizar e atender novos chamados na região.",
+      },
+      { property: "og:title", content: "Painel técnico SmartFix" },
+      {
+        property: "og:description",
+        content: "Fila regional de novos chamados para assistências técnicas parceiras.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(requestsQuery),
+  component: TechnicalDashboard,
+});
+
+const navItems = [
+  { label: "Visão geral", icon: TrendingUp },
+  { label: "Novos chamados", icon: ClipboardList, active: true },
+  { label: "Em atendimento", icon: PackageCheck },
+  { label: "Agenda", icon: CalendarDays },
+  { label: "Financeiro", icon: WalletCards },
+];
+
+function TechnicalDashboard() {
+  const { data: requests } = useSuspenseQuery(requestsQuery);
+  const queryClient = useQueryClient();
+  const triage = useServerFn(triageServiceRequest);
+  const [query, setQuery] = useState("");
+  const [device, setDevice] = useState("all");
+  const [distance, setDistance] = useState("10");
+  const [sort, setSort] = useState<SortOption>("recent");
+  const [selected, setSelected] = useState<ServiceRequest | null>(null);
+  const [decision, setDecision] = useState<"accepted" | "declined" | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("open-service-requests")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_requests" },
+        () => void queryClient.invalidateQueries({ queryKey: requestsQuery.queryKey }),
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  const filtered = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    return requests
+      .filter((request) => {
+        const text = `${request.protocol} ${request.brand} ${request.model} ${request.issue_title}`.toLowerCase();
+        return (!search || text.includes(search)) &&
+          (device === "all" || request.device_type === device) &&
+          request.distance_km <= Number(distance);
+      })
+      .sort((a, b) => {
+        if (sort === "nearby") return a.distance_km - b.distance_km;
+        if (sort === "urgent") {
+          return Number(b.priority === "urgent") - Number(a.priority === "urgent");
+        }
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [requests, query, device, distance, sort]);
+
+  const urgent = requests.filter((item) => item.priority === "urgent").length;
+  const average = requests.length
+    ? requests.reduce((total, item) => total + item.distance_km, 0) / requests.length
+    : 0;
+
+  async function confirmDecision() {
+    if (!selected || !decision) return;
+    setSaving(true);
+    try {
+      await triage({ data: { requestId: selected.id, decision } });
+      await queryClient.invalidateQueries({ queryKey: requestsQuery.queryKey });
+      toast.success(decision === "accepted" ? "Chamado aceito com sucesso" : "Chamado recusado");
+      setSelected(null);
+      setDecision(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível concluir a ação.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Toaster richColors position="top-right" />
+      <Header count={requests.length} />
+
+      <div className="mx-auto flex max-w-[1600px]">
+        <Sidebar />
+        <main className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
+          <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-brand-orange">
+                <span className="size-2 rounded-full bg-brand-orange" />
+                Oficina SmartFix Centro
+              </p>
+              <h1 className="text-2xl font-bold sm:text-3xl">Novos chamados</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Solicitações disponíveis em um raio de 10 km da sua oficina.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-xs text-muted-foreground">
+              <span className="size-2 rounded-full bg-success" />
+              Atualização em tempo real
+            </div>
+          </div>
+
+          <section className="mb-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <Metric icon={ClipboardList} label="Novos chamados" value={String(requests.length)} note="na sua região" />
+            <Metric icon={Zap} label="Prioridade alta" value={String(urgent)} note="resposta rápida" accent />
+            <Metric icon={MapPin} label="Distância média" value={`${average.toFixed(1)} km`} note="da oficina" />
+            <Metric icon={TrendingUp} label="Taxa de aceite" value="86%" note="últimos 30 dias" />
+          </section>
+
+          <section className="rounded-md border bg-card p-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_150px_175px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  aria-label="Buscar chamados"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Buscar por aparelho, defeito ou protocolo"
+                  className="h-10 pl-9"
+                />
+              </div>
+
+              <Select value={device} onValueChange={setDevice}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os aparelhos</SelectItem>
+                  <SelectItem value="Smartphone">Smartphones</SelectItem>
+                  <SelectItem value="Notebook">Notebooks</SelectItem>
+                  <SelectItem value="Tablet">Tablets</SelectItem>
+                  <SelectItem value="Videogame">Videogames</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={distance} onValueChange={setDistance}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">Até 5 km</SelectItem>
+                  <SelectItem value="8">Até 8 km</SelectItem>
+                  <SelectItem value="10">Até 10 km</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais recentes</SelectItem>
+                  <SelectItem value="nearby">Mais próximos</SelectItem>
+                  <SelectItem value="urgent">Prioridade primeiro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </section>
+
+          <div className="mt-5 flex items-center justify-between">
+            <p className="text-sm font-semibold">{filtered.length} chamados encontrados</p>
+            {(query || device !== "all" || distance !== "10") && (
+              <Button variant="ghost" size="sm" onClick={() => {
+                setQuery(""); setDevice("all"); setDistance("10");
+              }}>
+                <X /> Limpar filtros
+              </Button>
+            )}
+          </div>
+
+          <section className="mt-3 grid gap-3 2xl:grid-cols-2">
+            {filtered.map((request) => (
+              <RequestCard key={request.id} request={request} onOpen={() => setSelected(request)} />
+            ))}
+          </section>
+
+          {filtered.length === 0 && (
+            <section className="mt-12 py-12 text-center">
+              <Search className="mx-auto size-9 text-muted-foreground" />
+              <h2 className="mt-4 text-lg font-bold">Nenhum chamado encontrado</h2>
+            </section>
+          )}
+        </main>
+      </div>
+
+      <RequestDetails request={selected} onClose={() => setSelected(null)} onDecide={setDecision} />
+      <DecisionDialog
+        request={selected}
+        decision={decision}
+        saving={saving}
+        onCancel={() => setDecision(null)}
+        onConfirm={confirmDecision}
+      />
+    </div>
+  );
+}
+
+function Header({ count }: { count: number }) {
+  return (
+    <header className="sticky top-0 z-30 border-b bg-brand-deep">
+      <div className="mx-auto flex h-16 max-w-[1600px] items-center px-4 sm:px-6">
+        <Button variant="ghost" size="icon" className="mr-2 lg:hidden" aria-label="Abrir menu">
+          <Menu />
+        </Button>
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-md bg-brand-orange font-bold text-brand-deep">S</div>
+          <span className="font-display text-xl font-bold">Smart<span className="text-brand-orange">Fix</span></span>
+          <span className="hidden border-l pl-3 text-xs text-muted-foreground sm:inline">PARCEIROS</span>
+        </div>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="hidden items-center gap-2 text-xs md:flex">
+            <MapPin className="size-4 text-brand-orange" /> Florianópolis, SC
+          </span>
+          <Button variant="ghost" size="icon" className="relative" aria-label="Notificações">
+            <Bell />
+            {count > 0 && (
+              <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-brand-orange text-[9px] font-bold text-brand-deep">
+                {count}
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Sidebar() {
+  return (
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 border-r bg-sidebar p-4 lg:block">
+      <nav className="space-y-1">
+        {navItems.map((item) => (
+          <Button
+            key={item.label}
+            variant="ghost"
+            className={cn("w-full justify-start", item.active && "bg-brand-orange-soft text-brand-orange")}
+          >
+            <item.icon /> {item.label}
+          </Button>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+function Metric({ icon: Icon, label, value, note, accent }: {
+  icon: typeof MapPin; label: string; value: string; note: string; accent?: boolean;
+}) {
+  return (
+    <article className="brand-shadow flex min-h-28 items-center gap-4 rounded-md border bg-card p-4">
+      <div className={cn("flex size-10 items-center justify-center rounded-md bg-muted", accent && "bg-brand-orange-soft text-brand-orange")}>
+        <Icon className="size-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <p className="mt-1 text-xl font-bold sm:text-2xl">{value}</p>
+        <p className="text-[11px] text-muted-foreground">{note}</p>
+      </div>
+    </article>
+  );
+}
+
+function RequestCard({ request, onOpen }: { request: ServiceRequest; onOpen: () => void }) {
+  const Icon = deviceIcon(request.device_type);
+  return (
+    <article className={cn("card-rise overflow-hidden rounded-md border bg-card", request.priority === "urgent" && "border-l-4 border-l-brand-orange")}>
+      <div className="flex items-center justify-between border-b bg-muted/45 px-4 py-2.5">
+        <span className="text-xs font-bold">#{request.protocol}</span>
+        {request.priority === "urgent" && <Badge className="bg-brand-orange-soft text-brand-orange">Prioridade alta</Badge>}
+      </div>
+      <div className="p-4">
+        <div className="flex gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-brand-orange-soft text-brand-orange">
+            <Icon className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">{request.device_type} • {request.brand}</p>
+            <h2 className="truncate text-base font-bold">{request.model}</h2>
+            <p className="mt-1 line-clamp-2 text-sm">{request.issue_title}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 border-y py-3 text-xs">
+          <Info icon={MapPin} label={`${request.neighborhood} • ${request.distance_km.toFixed(1)} km`} />
+          <Info icon={request.service_mode === "Coleta" ? Truck : UserRound} label={request.service_mode} />
+          <Info icon={CalendarDays} label={request.preferred_window} />
+          <Info icon={Clock3} label={`Prazo: ${request.estimated_days}`} />
+        </div>
+
+        <div className="mt-4 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground">Estimativa prévia</p>
+            <p className="mt-0.5 font-bold text-brand-orange">
+              {money(request.estimated_min_cents)} – {money(request.estimated_max_cents)}
+            </p>
+          </div>
+          <Button variant="navy" onClick={onOpen}>Ver chamado <ChevronRight /></Button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Info({ icon: Icon, label }: { icon: typeof MapPin; label: string }) {
+  return <span className="flex items-center gap-1.5 text-muted-foreground"><Icon className="size-3.5 text-brand-orange" />{label}</span>;
+}
+
+function RequestDetails({ request, onClose, onDecide }: {
+  request: ServiceRequest | null;
+  onClose: () => void;
+  onDecide: (value: "accepted" | "declined") => void;
+}) {
+  return (
+    <Dialog open={Boolean(request)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-2xl">
+        {request && <>
+          <div className="bg-brand-deep p-5">
+            <DialogHeader>
+              <DialogTitle>{request.brand} {request.model}</DialogTitle>
+              <DialogDescription>{request.device_type} • {request.issue_title}</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="space-y-5 p-5">
+            <div>
+              <h3 className="text-xs font-bold uppercase text-muted-foreground">Problema relatado</h3>
+              <p className="mt-2 text-sm leading-6">{request.issue_description}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Detail label="Cliente" value={request.customer_name} />
+              <Detail label="Localização" value={`${request.neighborhood} • ${request.distance_km.toFixed(1)} km`} />
+              <Detail label="Atendimento" value={request.service_mode} />
+              <Detail label="Janela preferida" value={request.preferred_window} />
+              <Detail label="Estimativa" value={`${money(request.estimated_min_cents)} – ${money(request.estimated_max_cents)}`} />
+              <Detail label="Prazo" value={request.estimated_days} />
+            </div>
+          </div>
+          <DialogFooter className="border-t p-4">
+            <Button variant="outline" onClick={() => onDecide("declined")}>Recusar chamado</Button>
+            <Button variant="brand" onClick={() => onDecide("accepted")}><PackageCheck /> Aceitar atendimento</Button>
+          </DialogFooter>
+        </>}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-md bg-muted p-3"><p className="text-[11px] uppercase text-muted-foreground">{label}</p><p className="mt-1 text-sm font-semibold">{value}</p></div>;
+}
+
+function DecisionDialog({ request, decision, saving, onCancel, onConfirm }: {
+  request: ServiceRequest | null;
+  decision: "accepted" | "declined" | null;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const accepting = decision === "accepted";
+  return (
+    <Dialog open={Boolean(decision)} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{accepting ? "Aceitar este atendimento?" : "Recusar este chamado?"}</DialogTitle>
+          <DialogDescription>Chamado {request?.protocol ?? ""}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={saving}>Cancelar</Button>
+          <Button variant={accepting ? "brand" : "destructive"} onClick={onConfirm} disabled={saving}>
+            {saving ? "Salvando..." : "Confirmar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function deviceIcon(device: string) {
+  if (device === "Notebook") return Laptop;
+  if (device === "Tablet") return Tablet;
+  if (device === "Videogame") return LayoutGrid;
+  return Smartphone;
+}
+
+function money(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-sans: "Manrope", sans-serif;
+  --font-display: "Sora", sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-soft: var(--brand-orange-soft);
+  --color-success: var(--success);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.145 0.025 254);
+  --foreground: oklch(0.985 0.002 250);
+  --card: oklch(0.225 0.042 252);
+  --card-foreground: oklch(0.985 0.002 250);
+  --popover: oklch(0.205 0.038 252);
+  --popover-foreground: oklch(0.985 0.002 250);
+  --primary: oklch(0.68 0.215 42);
+  --primary-foreground: oklch(0.145 0.025 254);
+  --secondary: oklch(0.275 0.045 252);
+  --secondary-foreground: oklch(0.985 0.002 250);
+  --muted: oklch(0.265 0.04 252);
+  --muted-foreground: oklch(0.72 0.025 250);
+  --accent: oklch(0.68 0.215 42 / 14%);
+  --accent-foreground: oklch(0.77 0.17 52);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.36 0.042 252);
+  --input: oklch(0.36 0.042 252);
+  --ring: oklch(0.68 0.215 42);
+  --sidebar: oklch(0.17 0.029 254);
+  --brand-deep: oklch(0.145 0.025 254);
+  --brand-orange: oklch(0.68 0.215 42);
+  --brand-orange-soft: oklch(0.68 0.215 42 / 15%);
+  --success: oklch(0.72 0.15 155);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    letter-spacing: 0;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0;
+  }
+}
+
+@utility brand-shadow {
+  box-shadow: 0 18px 48px -30px color-mix(in oklab, var(--brand-orange) 24%, transparent);
+}
+
+@utility card-rise {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 38px -28px color-mix(in oklab, var(--brand-orange) 38%, transparent);
+  }
+}
+import { createClient } from "@supabase/supabase-js";
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import type { Database } from "@/integrations/supabase/types";
+
+function createPublicClient() {
+  const url = process.env["SUPABASE_URL"]!;
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+
+  return createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+export const listOpenServiceRequests = createServerFn({ method: "GET" }).handler(async () => {
+  const { data, error } = await createPublicClient()
+    .from("service_requests")
+    .select("*")
+    .eq("status", "open")
+    .lte("distance_km", 10)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error("Não foi possível carregar os chamados.");
+  return data;
+});
+
+export const triageServiceRequest = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    requestId: z.string().uuid(),
+    decision: z.enum(["accepted", "declined"]),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: updated, error } = await supabaseAdmin
+      .from("service_requests")
+      .update({ status: data.decision, responded_at: new Date().toISOString() })
+      .eq("id", data.requestId)
+      .eq("status", "open")
+      .select("id")
+      .maybeSingle();
+
+    if (error || !updated) throw new Error("Este chamado não está mais disponível.");
+    return { ok: true };
+  });
+CREATE TYPE public.service_request_status AS ENUM ('open', 'accepted', 'declined');
+
+CREATE TABLE public.service_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  protocol TEXT NOT NULL UNIQUE,
+  customer_name TEXT NOT NULL,
+  customer_initials TEXT NOT NULL,
+  device_type TEXT NOT NULL,
+  brand TEXT NOT NULL,
+  model TEXT NOT NULL,
+  issue_title TEXT NOT NULL,
+  issue_description TEXT NOT NULL,
+  neighborhood TEXT NOT NULL,
+  city TEXT NOT NULL,
+  distance_km NUMERIC(5,1) NOT NULL CHECK (distance_km >= 0),
+  service_mode TEXT NOT NULL CHECK (service_mode IN ('Coleta', 'Presencial')),
+  preferred_window TEXT NOT NULL,
+  estimated_min_cents INTEGER NOT NULL CHECK (estimated_min_cents >= 0),
+  estimated_max_cents INTEGER NOT NULL CHECK (estimated_max_cents >= estimated_min_cents),
+  estimated_days TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
+  status public.service_request_status NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  responded_at TIMESTAMPTZ
+);
+
+GRANT SELECT ON public.service_requests TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.service_requests TO authenticated;
+GRANT ALL ON public.service_requests TO service_role;
+
+ALTER TABLE public.service_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public can view open requests"
+ON public.service_requests FOR SELECT TO anon
+USING (status = 'open');
+
+CREATE POLICY "Partners can view requests"
+ON public.service_requests FOR SELECT TO authenticated
+USING (true);
+
+CREATE POLICY "Partners can triage requests"
+ON public.service_requests FOR UPDATE TO authenticated
+USING (status = 'open')
+WITH CHECK (status IN ('accepted', 'declined'));
+
+CREATE INDEX service_requests_open_distance_idx
+ON public.service_requests (status, distance_km, created_at DESC);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.service_requests;
