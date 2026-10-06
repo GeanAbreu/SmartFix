@@ -10,13 +10,15 @@ type Order = RepairOrder & { totalCents: number };
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const addressLabel = (address: ClientAddress) => `${address.logradouro}, ${address.numero}${address.complemento ? ` — ${address.complemento}` : ""} · ${address.bairro}, ${address.cidade}/${address.estado} · CEP ${address.cep}`;
 
-export default function OrderCheckout({ order, busy, onCancel, onConfirm }: {
-  order: Order; busy: boolean; onCancel: () => void; onConfirm: (body: Record<string, unknown>) => Promise<void>;
+export default function OrderCheckout({ order, busy, onCancel }: {
+  order: Order; busy: boolean; onCancel: () => void;
 }) {
   const [addresses, setAddresses] = useState<ClientAddress[]>([]);
   const [address, setAddress] = useState("");
   const [coupon, setCoupon] = useState("");
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
+  const [error, setError] = useState("");
   const discount = useMemo(() => coupon.trim().toUpperCase() === "SMART10"
     ? Math.round((order.totalCents - order.serviceDetails.deliveryFeeCents) * .1) : 0,
   [coupon, order]);
@@ -34,12 +36,23 @@ export default function OrderCheckout({ order, busy, onCancel, onConfirm }: {
     return () => { active = false; };
   }, []);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    void onConfirm({ action: "approve", scheduledDate: data.get("scheduledDate"),
-      schedulePeriod: data.get("schedulePeriod"), serviceAddress: address,
-      paymentMethod: data.get("paymentMethod"), couponCode: coupon });
+    setRedirecting(true); setError("");
+    try {
+      const response = await fetch("/api/payments/mercado-pago/checkout", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, scheduledDate: data.get("scheduledDate"),
+          schedulePeriod: data.get("schedulePeriod"), serviceAddress: address, couponCode: coupon }),
+      });
+      const result = await readApiResponse<{ checkoutUrl: string }>(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível iniciar o pagamento.");
+      window.location.assign(result.data.checkoutUrl);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível iniciar o pagamento.");
+      setRedirecting(false);
+    }
   }
 
   return <form className={styles.checkout} onSubmit={submit}>
@@ -51,10 +64,11 @@ export default function OrderCheckout({ order, busy, onCancel, onConfirm }: {
         {loading ? <span>Carregando endereços…</span> : addresses.length ? <select value={address} onChange={(event) => setAddress(event.target.value)}>{addresses.map((item) => <option key={item.id} value={addressLabel(item)}>{item.apelido || "Endereço"} · {addressLabel(item)}</option>)}</select> : <input value={address} onChange={(event) => setAddress(event.target.value)} minLength={8} placeholder="Informe o endereço completo" required />}
       </label>
       <label>Cupom<input value={coupon} onChange={(event) => setCoupon(event.target.value)} placeholder="Use SMART10" /></label>
-      <fieldset><legend>Forma de pagamento</legend><label><input type="radio" name="paymentMethod" value="pix" defaultChecked /> PIX</label><label><input type="radio" name="paymentMethod" value="card" /> Cartão</label></fieldset>
+      <div><strong>Pagamento seguro</strong><p>Escolha PIX ou cartão no ambiente do Mercado Pago.</p></div>
     </div>
     {discount > 0 && <p className={styles.discount}>Cupom SMART10 aplicado: − {money(discount)}</p>}
-    <p className={styles.checkoutNote}>Ao confirmar, o pagamento demonstrativo será registrado e a assistência poderá iniciar o reparo.</p>
-    <div className={styles.actions}><button className={styles.primary} disabled={busy || !address}>{busy ? "Confirmando…" : `Confirmar e pagar ${money(order.totalCents - discount)}`}</button><button type="button" className={styles.secondary} disabled={busy} onClick={onCancel}>Voltar</button></div>
+    <p className={styles.checkoutNote}>Você será redirecionado ao Mercado Pago. A assistência só poderá iniciar após a confirmação do pagamento.</p>
+    {error && <p className={styles.checkoutNote} role="alert">{error}</p>}
+    <div className={styles.actions}><button className={styles.primary} disabled={busy || redirecting || !address}>{redirecting ? "Abrindo Mercado Pago…" : `Pagar ${money(order.totalCents - discount)}`}</button><button type="button" className={styles.secondary} disabled={busy || redirecting} onClick={onCancel}>Voltar</button></div>
   </form>;
 }

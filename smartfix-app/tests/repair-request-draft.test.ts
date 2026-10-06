@@ -4,8 +4,8 @@ import { initialRepairRequestDraft } from "../src/services/repair-request-draft"
 import type { ClientDevice } from "../src/types/api";
 
 const devices = [
-  { id: "first", issueType: "Tela quebrada" },
-  { id: "second", issueType: "Não carrega" },
+  { id: "first", issueDescription: "Tela quebrada" },
+  { id: "second", issueDescription: "Não carrega" },
 ] as ClientDevice[];
 const partners = [{ id: "one" }, { id: "two" }];
 
@@ -28,7 +28,7 @@ test("prioriza o aparelho e a assistência escolhidos na navegação", () => {
   assert.deepEqual(draft.symptoms, []);
 });
 
-test("ignora rascunho inválido e preenche o tipo de problema do aparelho", () => {
+test("ignora rascunho inválido e preenche a descrição opcional do aparelho", () => {
   const draft = initialRepairRequestDraft(devices, partners, null, "", "");
   assert.equal(draft.deviceId, "first");
   assert.equal(draft.problem, "Tela quebrada");

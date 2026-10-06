@@ -27,7 +27,7 @@ export function initialRepairRequestDraft(
     partnerId: [initialPartnerId, saved.partnerId]
       .find((id) => partners.some((partner) => partner.id === id)) || "",
     problem: sameDevice && typeof saved.problem === "string" && saved.problem.trim()
-      ? saved.problem : device?.issueDescription || device?.issueType || "",
+      ? saved.problem : device?.issueDescription || "",
     symptoms: Array.isArray(saved.symptoms)
       ? saved.symptoms.filter((item): item is string => typeof item === "string" && SYMPTOMS.includes(item)) : [],
     checklist: Array.isArray(saved.checklist)

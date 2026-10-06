@@ -35,17 +35,17 @@ function matchesFilter(order: Order, filter: Filter) {
 }
 
 function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean; onSubmit: (body: unknown) => Promise<void> }) {
-  const [count, setCount] = useState(1);
+  const [itemIds, setItemIds] = useState([0]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const items = Array.from({ length: count }, (_, index) => ({
-      name: String(data.get(`name-${index}`) || "").trim(),
-      category: String(data.get(`category-${index}`)),
-      details: String(data.get(`details-${index}`) || "").trim(),
-      quantity: Number(data.get(`quantity-${index}`)),
-      unitPriceCents: Math.round(Number(data.get(`price-${index}`)) * 100),
+    const items = itemIds.map((id) => ({
+      name: String(data.get(`name-${id}`) || "").trim(),
+      category: String(data.get(`category-${id}`)),
+      details: String(data.get(`details-${id}`) || "").trim(),
+      quantity: Number(data.get(`quantity-${id}`)),
+      unitPriceCents: Math.round(Number(data.get(`price-${id}`)) * 100),
     }));
     void onSubmit({ action: "quote", diagnosis: String(data.get("diagnosis") || "").trim(),
       estimatedDays: Number(data.get("estimatedDays")), warrantyDays: Number(data.get("warrantyDays")),
@@ -61,13 +61,14 @@ function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean
       <label>Garantia (dias)<input name="warrantyDays" type="number" min={0} max={3650} defaultValue={90} required /></label>
       <label>Coleta e entrega (R$)<input name="deliveryFee" type="number" min={0} max={100000} step="0.01" defaultValue="0.00" required /></label>
     </div>
-    {Array.from({ length: count }, (_, index) => <div className={styles.quoteRow} key={index}>
-      <label>Serviço ou peça<input name={`name-${index}`} maxLength={150} required placeholder="Ex.: Tela OLED" /><input name={`details-${index}`} maxLength={500} placeholder="Detalhes opcionais" /></label>
-      <label>Categoria<select name={`category-${index}`} defaultValue="labor"><option value="labor">Mão de obra</option><option value="part">Peça/material</option></select></label>
-      <label>Quantidade<input name={`quantity-${index}`} type="number" min={1} max={100} defaultValue={1} required /></label>
-      <label>Preço unitário (R$)<input name={`price-${index}`} type="number" min={0} max={100000} step="0.01" required placeholder="0,00" /></label>
+    {itemIds.map((id, index) => <div className={styles.quoteItemEditor} key={id}><div className={styles.quoteRow}>
+      <label>Serviço ou peça<input name={`name-${id}`} maxLength={150} required placeholder="Ex.: Tela OLED" /><input name={`details-${id}`} maxLength={500} placeholder="Detalhes opcionais" /></label>
+      <label>Categoria<select name={`category-${id}`} defaultValue="labor"><option value="labor">Mão de obra</option><option value="part">Peça/material</option></select></label>
+      <label>Quantidade<input name={`quantity-${id}`} type="number" min={1} max={100} defaultValue={1} required /></label>
+      <label>Preço unitário (R$)<input name={`price-${id}`} type="number" min={0} max={100000} step="0.01" required placeholder="0,00" /></label>
+    </div><button type="button" className={styles.removeItemButton} disabled={busy || itemIds.length === 1} onClick={() => setItemIds((current) => current.filter((itemId) => itemId !== id))} aria-label={`Remover item ${index + 1}`}>Remover item</button>
     </div>)}
-    <div className={styles.formActions}><button type="button" className={styles.secondaryButton} disabled={busy || count >= 30} onClick={() => setCount((current) => current + 1)}>+ Adicionar item</button><button type="submit" className={styles.primaryButton} disabled={busy}>{busy ? "Enviando..." : "Enviar orçamento ao cliente"}</button></div>
+    <div className={styles.formActions}><button type="button" className={styles.secondaryButton} disabled={busy || itemIds.length >= 30} onClick={() => setItemIds((current) => [...current, Math.max(...current) + 1])}>+ Adicionar item</button><button type="submit" className={styles.primaryButton} disabled={busy}>{busy ? "Enviando..." : "Enviar orçamento ao cliente"}</button></div>
   </form>;
 }
 

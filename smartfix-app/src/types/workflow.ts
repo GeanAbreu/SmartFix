@@ -26,6 +26,9 @@ export type ServiceDetails = {
   paymentMethod: "pix" | "card" | "";
   paymentStatus: "pending" | "confirmed";
   paidAt: string;
+  paymentProvider?: "mercado_pago";
+  paymentPreferenceId?: string;
+  paymentId?: string;
 };
 export type RepairOrder = {
   id: string;

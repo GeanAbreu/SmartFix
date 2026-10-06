@@ -3,8 +3,10 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import {
   applyOrderAction,
+  confirmOrderPayment,
   orderAction,
   orderInput,
+  prepareOrderPayment,
   quoteTotal,
 } from "../src/services/order-policy.service";
 import { openFlow, sealFlow } from "../src/services/auth-flow.service";
@@ -34,14 +36,8 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   const current = order();
   const client = { sub: "client", role: "client" };
   const partner = { sub: "partner", role: "partner" };
-  assert.throws(() =>
-    applyOrderAction(
-      current,
-      { sub: "other", role: "client" },
-      { action: "approve", scheduledDate: "2099-01-01", schedulePeriod: "morning",
-        serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" },
-    ),
-  );
+  assert.throws(() => prepareOrderPayment(current, "other", { scheduledDate: "2099-01-01",
+    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" }));
   assert.throws(() =>
     applyOrderAction(current, client, {
       action: "status",
@@ -56,12 +52,11 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   });
   applyOrderAction(current, partner, quote);
   assert.equal(quoteTotal(current.quote), 2002);
-  assert.throws(() =>
-    applyOrderAction(current, partner, { action: "approve", scheduledDate: "2099-01-01",
-      schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" }),
-  );
-  applyOrderAction(current, client, { action: "approve", scheduledDate: "2099-01-01",
-    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "" });
+  assert.throws(() => prepareOrderPayment(current, partner.sub, { scheduledDate: "2099-01-01",
+    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" }));
+  prepareOrderPayment(current, client.sub, { scheduledDate: "2099-01-01",
+    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" });
+  assert.equal(confirmOrderPayment(current, "payment-1", "pix"), true);
   assert.throws(() => applyOrderAction(current, partner, quote));
   assert.throws(() => applyOrderAction(current, client, { action: "cancel" }));
   applyOrderAction(current, partner, {

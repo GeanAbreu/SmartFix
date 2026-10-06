@@ -8,6 +8,7 @@ import styles from "./orders.module.css";
 import integratedStyles from "./prototype-integration.module.css";
 import OrderCheckout from "./OrderCheckout";
 import TrackingCode from "./TrackingCode";
+import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 
 type ClientOrder = RepairOrder & { totalCents: number; partnerName?: string };
 type Filter = "all" | "active" | "quoted" | "completed" | "cancelled";
@@ -53,6 +54,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
   const [expandedId, setExpandedId] = useState<string | null>(initialQuery || null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<ClientOrder | null>(null);
 
   const refresh = useCallback(async () => {
     try { setOrders(await getOrders()); setError(""); }
@@ -66,8 +68,22 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
     return () => { cancelAnimationFrame(frame); window.clearInterval(timer); };
   }, [refresh]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get("payment_id");
+    if (!paymentId || params.get("payment") !== "success") return;
+    void fetch(`/api/payments/mercado-pago/confirm?paymentId=${encodeURIComponent(paymentId)}`, {
+      credentials: "include", cache: "no-store",
+    }).then(async (response) => {
+      const result = await readApiResponse<{ confirmed: boolean }>(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível confirmar o pagamento.");
+      setNotice("Pagamento confirmado. A assistência já pode iniciar o reparo.");
+      await refresh();
+      window.history.replaceState(null, "", "/cliente/ordens");
+    }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Não foi possível confirmar o pagamento."));
+  }, [refresh]);
+
   async function act(order: ClientOrder, action: "approve" | "cancel", approval?: Record<string, unknown>) {
-    if (action === "cancel" && !window.confirm(`Cancelar a solicitação de reparo de ${order.device}?`)) return;
     setBusyId(order.id); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}`, {
@@ -77,6 +93,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
       const result = await readApiResponse<{ order: ClientOrder }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível atualizar o reparo.");
       setNotice(action === "approve" ? "Orçamento aprovado. A assistência já pode iniciar o reparo." : "Solicitação cancelada.");
+      if (action === "cancel") setPendingCancel(null);
       if (action === "approve") setCheckoutId(null);
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o reparo."); }
@@ -126,12 +143,13 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
           <div className={styles.cardActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setExpandedId(order.id)}>Revisar orçamento · {money(order.totalCents)}</button>}{order.status === "completed" && !order.review && <Link className={styles.primary} href={`/cliente/avaliacoes?order=${encodeURIComponent(order.id)}`}>Avaliar reparo</Link>}<button type="button" className={styles.detailsButton} aria-expanded={expanded} aria-controls={`details-${order.id}`} onClick={() => setExpandedId(expanded ? null : order.id)}>{expanded ? "Ocultar detalhes" : "Ver detalhes"} <span aria-hidden="true">{expanded ? "↑" : "→"}</span></button></div>
           {expanded && <div id={`details-${order.id}`} className={styles.details}><div className={styles.detailsGrid}><section><h4>Problema informado</h4><p>{order.problem}</p>{order.symptoms.length > 0 && <p className={styles.subtle}>Sintomas: {order.symptoms.join(" · ")}</p>}{order.checklist.length > 0 && <p className={styles.subtle}>Informações do aparelho: {order.checklist.join(" · ")}</p>}{order.diagnosis && <><h4>Diagnóstico da assistência</h4><p>{order.diagnosis}</p></>}</section><section><h4>Andamento</h4><ol className={styles.timeline}>{order.history.map((item, index) => <li key={`${item.status}-${index}`}><strong>{ORDER_LABELS[item.status]}</strong><time dateTime={item.at}>{dateTime(item.at)}</time></li>)}</ol></section></div>
             {order.quote.length > 0 && <section className={styles.quote}><div className={styles.quoteHeading}><div><h4>Orçamento detalhado</h4><small>{order.serviceDetails.estimatedDays} dias úteis · {order.serviceDetails.warrantyDays} dias de garantia</small></div><strong>{money(order.totalCents)}</strong></div><div className={styles.quoteItems}>{order.quote.map((item, index) => <div key={`${item.name}-${index}`}><span><b>{item.category === "part" ? "Peça" : "Mão de obra"} · {item.name}</b>{item.details && <small>{item.details}</small>}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div>{order.serviceDetails.deliveryFeeCents > 0 && <div className={integratedStyles.quoteExtra}><span>Coleta e entrega</span><strong>{money(order.serviceDetails.deliveryFeeCents)}</strong></div>}{order.serviceDetails.discountCents > 0 && <div className={integratedStyles.quoteExtra}><span>Desconto {order.serviceDetails.couponCode}</span><strong>− {money(order.serviceDetails.discountCents)}</strong></div>}{order.status === "quoted" && <p>O reparo só começa após sua confirmação de agendamento e pagamento.</p>}</section>}
-            {checkoutId === order.id && order.status === "quoted" ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} onConfirm={(body) => act(order, "approve", body)} /> : <div className={styles.detailActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Agendar e pagar · ${money(order.totalCents)}`}</button>}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => void act(order, "cancel")}>Cancelar solicitação</button>}<Link href="/cliente/ajuda">Precisa de ajuda? →</Link></div>}
+            {checkoutId === order.id && order.status === "quoted" ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} /> : <div className={styles.detailActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Agendar e pagar · ${money(order.totalCents)}`}</button>}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => setPendingCancel(order)}>Cancelar solicitação</button>}<Link href="/cliente/ajuda">Precisa de ajuda? →</Link></div>}
             {order.serviceDetails.paymentStatus === "confirmed" && <section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>COMPROVANTE</span><h4>Pagamento confirmado</h4><p>{order.serviceDetails.paymentMethod === "pix" ? "PIX" : "Cartão"} · {dateTime(order.serviceDetails.paidAt)}</p></div><div><strong>{money(order.totalCents)}</strong><small>{order.serviceDetails.scheduledDate.split("-").reverse().join("/")} · {order.serviceDetails.schedulePeriod === "morning" ? "Manhã" : "Tarde"}</small></div><p>{order.serviceDetails.serviceAddress}</p></section>}
             <TrackingCode orderId={order.id} device={order.device} />
           </div>}
         </article>;
       })}</div>}
     </section>
+    <ConfirmDialog open={pendingCancel !== null} title="Cancelar solicitação?" message={`A O.S. de ${pendingCancel?.device || "este dispositivo"} será cancelada e não poderá continuar para o reparo.`} confirmLabel="Cancelar solicitação" busyLabel="Cancelando..." busy={busyId === pendingCancel?.id} onCancel={() => { if (!busyId) setPendingCancel(null); }} onConfirm={() => { if (pendingCancel) void act(pendingCancel, "cancel"); }} />
   </div></main>;
 }

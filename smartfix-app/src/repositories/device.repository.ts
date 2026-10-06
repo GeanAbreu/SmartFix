@@ -18,8 +18,6 @@ export function createDevice(clientId: string, input: DeviceInput) {
     modelo: input.modelo,
     foto_url: input.fotoUrl,
     apelido: input.apelido,
-    numero_serie: input.numeroSerie,
-    issue_type: input.issueType ?? "",
     issue_description: input.issueDescription ?? "",
   });
 }
@@ -37,8 +35,6 @@ export function updateDevice(device: ClientDevice, input: DeviceInput) {
     modelo: input.modelo,
     foto_url: input.fotoUrl,
     apelido: input.apelido,
-    numero_serie: input.numeroSerie,
-    ...(input.issueType !== undefined ? { issue_type: input.issueType } : {}),
     ...(input.issueDescription !== undefined
       ? { issue_description: input.issueDescription }
       : {}),

@@ -14,7 +14,7 @@ type DeviceListData = { devices: ClientDevice[] };
 
 const MAX_PHOTO_BYTES = 1_500_000;
 const SUPPORTED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const emptyForm: DeviceForm = { tipo: "", marca: "", modelo: "", fotoUrl: "", issueType: "" };
+const emptyForm: DeviceForm = { tipo: "", marca: "", modelo: "", fotoUrl: "" };
 
 async function readResponse<T>(response: Response): Promise<ApiResponse<T>> {
   const payload: unknown = await response.json();
@@ -75,7 +75,7 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
 
   function openEdit(device: ClientDevice) {
     setEditingId(device.id);
-    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl, apelido: device.apelido || "", numeroSerie: device.numeroSerie || "", issueType: device.issueType || "", issueDescription: device.issueDescription || "" });
+    setForm({ tipo: device.tipo, marca: device.marca, modelo: device.modelo, fotoUrl: device.fotoUrl, apelido: device.apelido || "", issueDescription: device.issueDescription || "" });
     setError("");
     setOpen(true);
   }
@@ -192,8 +192,6 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
                 </div>
               </div>
               <p><strong>{device.marca} {device.modelo}</strong></p>
-              {device.numeroSerie && <p>Número de série / IMEI: {device.numeroSerie}</p>}
-              {device.issueType && <p><strong>Problema:</strong> {device.issueType}</p>}
               <div className={styles.actions}>
                 <Link href={`/cliente/solicitar-reparo?deviceId=${encodeURIComponent(device.id)}`} className={styles.repair}>Solicitar reparo</Link>
                 <button type="button" onClick={() => setPhotoDevice(device)}>Ver foto</button>
@@ -210,11 +208,10 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.formHeader}><div><small>MEU APARELHO</small><h2 id="device-title">{editingId ? "Editar dispositivo" : "Adicionar dispositivo"}</h2></div><button type="button" onClick={closeModal} aria-label="Fechar">×</button></div>
           <div className={styles.formGrid}>
-            <label>Apelido<input maxLength={100} value={form.apelido || ""} onChange={(event) => setForm({ ...form, apelido: event.target.value })} /></label><label>Número de série / IMEI<input maxLength={100} value={form.numeroSerie || ""} onChange={(event) => setForm({ ...form, numeroSerie: event.target.value })} /></label>
+            <label className={styles.wide}>Apelido<input maxLength={100} value={form.apelido || ""} onChange={(event) => setForm({ ...form, apelido: event.target.value })} /></label>
             <label>Tipo de dispositivo *<select value={form.tipo} onChange={(event) => selectType(event.target.value)} required><option value="">Selecione o tipo</option>{DEVICE_TYPES.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}</select></label>
             <label>Marca *<select value={form.marca} onChange={(event) => selectBrand(event.target.value)} disabled={!form.tipo} required><option value="">Selecione a marca</option>{brands.map((marca) => <option key={marca} value={marca}>{marca}</option>)}</select></label>
             <label className={styles.wide}>Modelo *<select value={form.modelo} onChange={(event) => setForm((current) => ({ ...current, modelo: event.target.value }))} disabled={!form.marca} required><option value="">Selecione o modelo</option>{models.map((modelo) => <option key={modelo} value={modelo}>{modelo}</option>)}</select></label>
-            <label className={styles.wide}>Tipo de problema<input maxLength={150} value={form.issueType || ""} onChange={(event) => setForm((current) => ({ ...current, issueType: event.target.value }))} placeholder="Ex.: não liga, tela quebrada, bateria" /></label>
           </div>
           <label className={styles.photoPicker}>
             <span>{form.fotoUrl ? "Trocar foto" : "Adicionar foto"}</span>
@@ -240,6 +237,7 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
         title="Excluir dispositivo?"
         message={`${pendingDelete?.marca ?? "Este dispositivo"} ${pendingDelete?.modelo ?? ""} será removido permanentemente.`}
         confirmLabel="Excluir dispositivo"
+        busyLabel="Excluindo..."
         busy={deleting}
         onCancel={() => { if (!deleting) setPendingDelete(null); }}
         onConfirm={() => void confirmDelete()}

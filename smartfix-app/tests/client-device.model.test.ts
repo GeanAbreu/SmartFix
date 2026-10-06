@@ -11,13 +11,13 @@ test("mapeia os campos da API para devices conforme o DER", () => {
   assert.ok(attributes.modelo);
   assert.ok(attributes.foto_url);
   assert.ok(attributes.apelido);
-  assert.ok(attributes.numero_serie);
+  assert.equal(attributes.numero_serie, undefined);
   assert.equal(ClientDevice.tableName, "devices");
   assert.equal(attributes.client_id.field, "user_id");
   assert.equal(attributes.tipo.field, "device_type");
   assert.equal(attributes.marca.field, "brand");
   assert.equal(attributes.modelo.field, "model");
-  assert.ok(attributes.issue_type);
+  assert.equal(attributes.issue_type, undefined);
   assert.ok(attributes.issue_description);
 });
 

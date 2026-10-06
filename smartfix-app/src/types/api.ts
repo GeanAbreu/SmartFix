@@ -35,8 +35,6 @@ export type ClientDevice = {
   modelo: string;
   fotoUrl: string;
   apelido?: string;
-  numeroSerie?: string;
-  issueType?: string;
   issueDescription?: string;
 };
 

@@ -97,10 +97,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       modelo: "iPhone 15",
       fotoUrl: "https://example.test/photo.png",
       apelido: "Pessoal",
-      numeroSerie: "SER123",
-      issueType: "Não liga",
+      issueDescription: "Não liga",
     });
-    assert.equal((await store.listLocalDevices(client.id))[0]?.issueType, "Não liga");
+    assert.equal((await store.listLocalDevices(client.id))[0]?.issueDescription, "Não liga");
     const input = {
       deviceId: device.id,
       partnerId: partner.id,
@@ -147,8 +146,13 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       ).status,
       200,
     );
-    assert.equal((await action(client, { action: "approve", scheduledDate: "2099-01-01",
-      schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", paymentMethod: "pix", couponCode: "SMART10" })).status, 200);
+    const { prepareOrderPayment, confirmOrderPayment } = await import("../src/services/order-policy.service");
+    await withWorkflow((records) => {
+      const current = records.find((record) => record.id === order.id)!.data as unknown as import("../src/types/workflow").RepairOrder;
+      prepareOrderPayment(current, client.id, { scheduledDate: "2099-01-01", schedulePeriod: "morning",
+        serviceAddress: "Rua Teste, 123", couponCode: "SMART10" });
+      confirmOrderPayment(current, "payment-test", "pix");
+    }, true);
     const attempts = await Promise.all([
       action(partner, { action: "status", status: "in_progress" }),
       action(partner, { action: "status", status: "in_progress" }),
@@ -233,21 +237,35 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       ).status,
       503,
     );
-    const token = "ab".repeat(32);
+    const recoveryCode = "123456";
     await withWorkflow((records) => {
       records.push({
         id: randomUUID(),
         kind: "reset",
         ownerId: client.id,
         data: {
-          tokenHash: digest(token),
+          codeHash: digest(recoveryCode),
           passwordHash: digest("Senha@123"),
           role: "client",
+          created: Date.now(),
           expires: Date.now() + 60000,
+          attempts: 0,
           consumed: false,
         },
       });
     }, true);
+    assert.equal((await RecoveryController.verifyCode(request(
+      null,
+      "/api/auth/verify-recovery-code",
+      { email: client.email, code: "000000" },
+    ))).status, 422);
+    const verification = await RecoveryController.verifyCode(request(
+      null,
+      "/api/auth/verify-recovery-code",
+      { email: client.email, code: recoveryCode },
+    ));
+    assert.equal(verification.status, 200);
+    const token = (await verification.json()).data.token as string;
     const resetRequest = () =>
       request(null, "/api/auth/reset-password", {
         token,
@@ -274,7 +292,7 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     ).data;
     assert.equal(savedOrder.status, "completed");
     assert.equal(savedOrder.review.rating, 5);
-    assert.equal(disk.devices[0].numeroSerie, "SER123");
+    assert.equal(disk.devices[0].issueDescription, "Não liga");
   } finally {
     process.env = previousEnv;
     assert.equal(path.dirname(path.resolve(directory)), path.resolve(tmpdir()));

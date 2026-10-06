@@ -10,8 +10,6 @@ export const deviceInputSchema = z
     marca: z.string().trim().min(1, "Selecione a marca."),
     modelo: z.string().trim().min(1, "Selecione o modelo."),
     apelido: z.string().trim().max(100).optional().default(""),
-    numeroSerie: z.string().trim().max(100).optional().default(""),
-    issueType: z.string().trim().max(150).optional(),
     issueDescription: z.string().trim().max(3000).optional(),
     fotoUrl: z
       .string()

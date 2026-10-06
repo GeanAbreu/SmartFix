@@ -55,6 +55,9 @@
 .quoteForm textarea { min-height: 95px; resize: vertical; }
 .quoteRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, .8fr) minmax(85px, .6fr) minmax(130px, 1fr); gap: 10px; }
 .quoteRow label:first-child input + input { margin-top: 7px; }
+.quoteItemEditor { display: grid; gap: 8px; padding: 14px; border: 1px solid rgba(60,130,190,.22); border-radius: 11px; background: rgba(5,18,31,.28); }
+.removeItemButton { justify-self: end; padding: 7px 10px; border: 1px solid #7d4040; border-radius: 7px; background: #35212b; color: #ffd0cf; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.removeItemButton:disabled { opacity: .45; cursor: not-allowed; }
 .formActions, .statusActions { display: flex; flex-wrap: wrap; gap: 10px; }
 .primaryButton, .secondaryButton { padding: 11px 15px; border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .primaryButton { border: 1px solid #ff6b1a; background: #ff6b1a; color: #fff; }

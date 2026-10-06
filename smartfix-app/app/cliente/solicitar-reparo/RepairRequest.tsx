@@ -71,9 +71,9 @@ export default function RepairRequest({ accountId, initialDeviceId, initialPartn
   function changeDevice(deviceId: string) {
     const current = devices.find((device) => device.id === draft.deviceId);
     const next = devices.find((device) => device.id === deviceId);
-    const inheritedProblem = current?.issueDescription || current?.issueType || "";
+    const inheritedProblem = current?.issueDescription || "";
     update({ deviceId, problem: !draft.problem || draft.problem === inheritedProblem
-      ? next?.issueDescription || next?.issueType || "" : draft.problem });
+      ? next?.issueDescription || "" : draft.problem });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -127,7 +127,6 @@ export default function RepairRequest({ accountId, initialDeviceId, initialPartn
             </section>
             <section className={styles.panel}>
               <div className={styles.sectionTitle}><span>02</span><div><h3>Problema do aparelho</h3><p>Seu relato ajuda a assistência a preparar o diagnóstico.</p></div></div>
-              {selectedDevice?.issueType && <p className={styles.deviceIssue}>Tipo informado no cadastro: <strong>{selectedDevice.issueType}</strong></p>}
               <label>Descreva o problema<textarea value={draft.problem} onChange={(event) => update({ problem: event.target.value })} placeholder="Explique o defeito, quando começou e o que já tentou fazer." minLength={10} maxLength={3000} required /><small>Mínimo de 10 caracteres · {draft.problem.length}/3000</small></label>
             </section>
             <section className={styles.panel}>

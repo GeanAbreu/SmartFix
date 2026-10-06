@@ -50,8 +50,6 @@ erDiagram
         text model
         text photo_url
         varchar nickname
-        varchar serial_number
-        text issue_type
         text issue_description
     }
     REPAIR_ORDERS {
@@ -151,12 +149,12 @@ Os nomes físicos são minúsculos: `clients`, `partner`, `devices`,
 ## Resumo da modelagem
 
 O aplicativo usa hashes de senha, timestamps e aprovação de parceiros. Os aparelhos
-armazenam foto, apelido, número de série e informações iniciais do defeito. Cada ordem
+armazenam foto, apelido e uma descrição opcional. Cada ordem
 mantém o nome do aparelho na ocasião (`device_label`), diagnóstico, sintomas,
 checklist, orçamento detalhado e histórico de status.
 
-Os campos `issue_type` e `issue_description` são opcionais na API de aparelhos,
-expostos como `issueType` e `issueDescription`; cada reparo conserva sua própria
+O campo `issue_description` é opcional na API de aparelhos e exposto como
+`issueDescription`; cada reparo conserva sua própria
 descrição em `repair_orders.problem_description`.
 
 ## Tabelas auxiliares

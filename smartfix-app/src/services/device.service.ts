@@ -28,8 +28,6 @@ function serialize(device: ClientDevice) {
     modelo: device.modelo,
     fotoUrl: device.foto_url,
     apelido: device.apelido,
-    numeroSerie: device.numero_serie,
-    issueType: device.issue_type,
     issueDescription: device.issue_description,
   };
 }

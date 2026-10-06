@@ -11,6 +11,7 @@ const links = [
   { href: "/parceiro/dashboard", label: "Início" },
   { href: "/parceiro/ordens", label: "Ordens de serviço" },
   { href: "/parceiro/servicos", label: "Serviços" },
+  { href: "/parceiro/mensagens", label: "Mensagens" },
   { href: "/parceiro/notificacoes", label: "Notificações" },
 ];
 

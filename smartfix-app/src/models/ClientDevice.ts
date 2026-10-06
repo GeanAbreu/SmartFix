@@ -9,8 +9,6 @@ export class ClientDevice extends Model {
   declare modelo: string;
   declare foto_url: string;
   declare apelido: string;
-  declare numero_serie: string;
-  declare issue_type: string;
   declare issue_description: string;
 }
 
@@ -47,8 +45,6 @@ ClientDevice.init(
       allowNull: false,
     },
     apelido: { field: "nickname", type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
-    numero_serie: { field: "serial_number", type: DataTypes.STRING(100), allowNull: false, defaultValue: "" },
-    issue_type: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
     issue_description: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
     foto_url: {
       field: "photo_url",
