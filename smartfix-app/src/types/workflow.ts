@@ -6,6 +6,7 @@ export type OrderStatus =
   | "waiting_parts"
   | "ready"
   | "completed"
+  | "rejected"
   | "cancelled";
 export type QuoteItem = {
   name: string;
@@ -32,6 +33,7 @@ export type ServiceDetails = {
   technicianName?: string;
   promisedDate?: string;
   internalNotes?: string;
+  rejectionReason?: string;
 };
 export type RepairOrder = {
   id: string;
@@ -69,6 +71,7 @@ export const ORDER_LABELS: Record<OrderStatus, string> = {
   waiting_parts: "Aguardando peças",
   ready: "Pronto para retirada",
   completed: "Concluído",
+  rejected: "Recusado pela assistência",
   cancelled: "Cancelado",
 };
 export const SYMPTOMS = [

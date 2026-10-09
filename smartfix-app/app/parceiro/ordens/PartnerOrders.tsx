@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { readApiResponse } from "@/src/services/api-response.service";
 import { ORDER_LABELS, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
+import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import styles from "./orders.module.css";
 
 type Order = RepairOrder & { totalCents: number };
@@ -31,7 +32,7 @@ async function request<T>(url: string, body?: unknown): Promise<T> {
 function matchesFilter(order: Order, filter: Filter) {
   if (filter === "attention") return order.status === "pending" || order.status === "quoted";
   if (filter === "active") return ["approved", "in_progress", "waiting_parts", "ready"].includes(order.status);
-  if (filter === "finished") return order.status === "completed" || order.status === "cancelled";
+  if (filter === "finished") return ["completed", "cancelled", "rejected"].includes(order.status);
   return true;
 }
 
@@ -102,6 +103,14 @@ function OperationsForm({ order, busy, onSubmit }: { order: Order; busy: boolean
   </form>;
 }
 
+function RejectForm({ busy, onSubmit }: { busy: boolean; onSubmit: (body: unknown) => Promise<void> }) {
+  return <form className={styles.operationsForm} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void onSubmit({ action: "reject", reason: data.get("reason") }); }}>
+    <div><h3>Recusar solicitação</h3><p>Use somente quando a assistência não puder atender e explique o motivo ao cliente.</p></div>
+    <label>Motivo da recusa<textarea name="reason" minLength={10} maxLength={1000} required placeholder="Ex.: modelo fora da cobertura da assistência." /></label>
+    <button type="submit" className={styles.secondaryButton} disabled={busy}>{busy ? "Recusando..." : "Recusar solicitação"}</button>
+  </form>;
+}
+
 export default function PartnerOrders({ initialOrderId }: { initialOrderId: string }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +122,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("list");
   const [selectedId, setSelectedId] = useState(initialOrderId);
+  const [pendingComplete, setPendingComplete] = useState<Order | null>(null);
 
   const refresh = useCallback(async (showProgress = false) => {
     if (showProgress) setRefreshing(true);
@@ -174,7 +184,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
       </div><div className={styles.viewToggle}><button type="button" className={view === "list" ? styles.filterActive : ""} onClick={() => setView("list")}>☷ Lista</button><button type="button" className={view === "board" ? styles.filterActive : ""} onClick={() => setView("board")}>▦ Kanban</button></div></div>
       {error && <div className={styles.error} role="alert">{error} <button type="button" onClick={() => void refresh(true)}>Tentar novamente</button></div>}
       {message && <p className={styles.message} role="status">{message}</p>}
-      {view === "board" && <section className={styles.board} aria-label="Kanban de ordens">{boardColumns.map((column) => { const items = visible.filter((order) => (column.statuses as readonly OrderStatus[]).includes(order.status)); return <div className={styles.boardColumn} key={column.title}><header><strong>{column.title}</strong><span>{items.length}</span></header><div>{items.length === 0 ? <p>Nenhuma ordem</p> : items.map((order) => <article key={order.id}><button type="button" onClick={() => { setSelectedId(order.id); setView("list"); }}><small>O.S. {shortId(order.id)}</small><strong>{order.device}</strong><span>{order.problem}</span>{order.serviceDetails.promisedDate && <time>Prazo: {order.serviceDetails.promisedDate.split("-").reverse().join("/")}</time>}{order.serviceDetails.technicianName && <em>{order.serviceDetails.technicianName}</em>}</button>{nextStatuses[order.status]?.[0] && <button type="button" className={styles.boardAdvance} disabled={busy} onClick={() => void act(order.id, { action: "status", status: nextStatuses[order.status]?.[0] })}>Avançar para {ORDER_LABELS[nextStatuses[order.status]![0]].toLocaleLowerCase("pt-BR")} →</button>}</article>)}</div></div>; })}</section>}
+      {view === "board" && <section className={styles.board} aria-label="Kanban de ordens">{boardColumns.map((column) => { const items = visible.filter((order) => (column.statuses as readonly OrderStatus[]).includes(order.status)); return <div className={styles.boardColumn} key={column.title}><header><strong>{column.title}</strong><span>{items.length}</span></header><div>{items.length === 0 ? <p>Nenhuma ordem</p> : items.map((order) => { const next = nextStatuses[order.status]?.[0]; return <article key={order.id}><button type="button" onClick={() => { setSelectedId(order.id); setView("list"); }}><small>O.S. {shortId(order.id)}</small><strong>{order.device}</strong><span>{order.problem}</span>{order.serviceDetails.promisedDate && <time>Prazo: {order.serviceDetails.promisedDate.split("-").reverse().join("/")}</time>}{order.serviceDetails.technicianName && <em>{order.serviceDetails.technicianName}</em>}</button>{next && <button type="button" className={styles.boardAdvance} disabled={busy} onClick={() => next === "completed" ? setPendingComplete(order) : void act(order.id, { action: "status", status: next })}>Avançar para {ORDER_LABELS[next].toLocaleLowerCase("pt-BR")} →</button>}</article>; })}</div></div>; })}</section>}
       {view === "list" && <div className={styles.workspace}>
         <section className={styles.orderList} aria-label="Lista de ordens">
           <label className={styles.searchLabel}>Buscar ordem<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Aparelho, número ou status" /></label>
@@ -192,13 +202,16 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
                 {selected.diagnosis && <section><h3>Diagnóstico</h3><p>{selected.diagnosis}</p></section>}
                 {selected.quote.length > 0 && <section><h3>Orçamento</h3><div className={styles.quoteItems}>{selected.quote.map((item, index) => <div key={`${item.name}-${index}`}><span>{item.name}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div><div className={styles.quoteTotal}><span>Total</span><strong>{money(selected.totalCents)}</strong></div></section>}
                 {selected.status === "quoted" && <p className={styles.waitingNote}>Orçamento enviado. Aguardando a aprovação do cliente.</p>}
-                {(selected.status === "pending" || selected.status === "quoted") && <QuoteForm key={selected.id} orderId={selected.id} busy={busy} onSubmit={(body) => act(selected.id, body)} />}
-                {!!nextStatuses[selected.status]?.length && <section><h3>Próxima etapa</h3><div className={styles.statusActions}>{nextStatuses[selected.status]?.map((status) => <button key={status} type="button" className={styles.primaryButton} disabled={busy} onClick={() => void act(selected.id, { action: "status", status })}>{busy ? "Atualizando..." : `Marcar como ${ORDER_LABELS[status].toLocaleLowerCase("pt-BR")}`}</button>)}</div></section>}
-                <OperationsForm key={`operations-${selected.id}-${selected.serviceDetails.technicianName}-${selected.serviceDetails.promisedDate}`} order={selected} busy={busy} onSubmit={(body) => act(selected.id, body)} />
+                {(selected.status === "pending" || selected.status === "quoted") && !selected.serviceDetails.paymentPreferenceId && <QuoteForm key={selected.id} orderId={selected.id} busy={busy} onSubmit={(body) => act(selected.id, body)} />}
+                {selected.status === "quoted" && selected.serviceDetails.paymentPreferenceId && <p className={styles.waitingNote}>O cliente iniciou o checkout. O orçamento está bloqueado para evitar divergência de valores.</p>}
+                {!!nextStatuses[selected.status]?.length && <section><h3>Próxima etapa</h3><div className={styles.statusActions}>{nextStatuses[selected.status]?.map((status) => <button key={status} type="button" className={styles.primaryButton} disabled={busy} onClick={() => status === "completed" ? setPendingComplete(selected) : void act(selected.id, { action: "status", status })}>{busy ? "Atualizando..." : `Marcar como ${ORDER_LABELS[status].toLocaleLowerCase("pt-BR")}`}</button>)}</div></section>}
+                {selected.status === "pending" && <RejectForm busy={busy} onSubmit={(body) => act(selected.id, body)} />}
+                {!(["completed", "cancelled", "rejected"] as OrderStatus[]).includes(selected.status) && <OperationsForm key={`operations-${selected.id}-${selected.serviceDetails.technicianName}-${selected.serviceDetails.promisedDate}`} order={selected} busy={busy} onSubmit={(body) => act(selected.id, body)} />}
                 <section><h3>Histórico</h3><ol className={styles.history}>{selected.history.map((item, index) => <li key={`${item.at}-${index}`}><span>{ORDER_LABELS[item.status]}</span><time dateTime={item.at}>{new Date(item.at).toLocaleString("pt-BR")}</time></li>)}</ol></section>
               </div></>}
         </section>
       </div>}
+      <ConfirmDialog open={pendingComplete !== null} title="Concluir ordem de serviço?" message={`A O.S. de ${pendingComplete?.device || "este dispositivo"} será encerrada e o cliente poderá avaliá-la.`} confirmLabel="Concluir ordem" busyLabel="Concluindo..." busy={busy} onCancel={() => { if (!busy) setPendingComplete(null); }} onConfirm={() => { if (pendingComplete) void act(pendingComplete.id, { action: "status", status: "completed" }).then(() => setPendingComplete(null)); }} />
     </div>
   </main>;
 }

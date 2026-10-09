@@ -29,6 +29,8 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       await import("../src/controllers/WorkflowController");
     const { TrackingController } =
       await import("../src/controllers/TrackingController");
+    const { PaymentController } =
+      await import("../src/controllers/PaymentController");
     const { ClientController } =
       await import("../src/controllers/ClientController");
     const { RecoveryController } =
@@ -165,6 +167,24 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     });
     assert.equal(quoted.status, 200);
     assert.equal((await quoted.json()).data.whatsappStatus, "not_configured");
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "test-token";
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      id: 123,
+      status: "pending",
+      external_reference: order.id,
+      transaction_amount: 199.9,
+      payment_type_id: "pix",
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    try {
+      const pendingPayment = await PaymentController.confirm(
+        request(client, "/api/payments/mercado-pago/confirm?paymentId=123"),
+      );
+      assert.equal(pendingPayment.status, 409);
+      assert.equal((await pendingPayment.json()).code, "PAYMENT_NOT_APPROVED");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
     const { prepareOrderPayment, confirmOrderPayment } = await import("../src/services/order-policy.service");
     await withWorkflow((records) => {
       const current = records.find((record) => record.id === order.id)!.data as unknown as import("../src/types/workflow").RepairOrder;

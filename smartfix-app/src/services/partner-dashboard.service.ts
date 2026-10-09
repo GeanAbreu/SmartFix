@@ -6,7 +6,7 @@ export type DashboardNotification = {
 };
 
 export function summarizePartnerFinance(orders: RepairOrder[]) {
-  const quotedOrders = orders.filter((order) => !["pending", "cancelled"].includes(order.status));
+  const quotedOrders = orders.filter((order) => !["pending", "cancelled", "rejected"].includes(order.status));
   const confirmedOrders = quotedOrders.filter((order) => order.serviceDetails.paymentStatus === "confirmed");
   const pendingOrders = quotedOrders.filter((order) => order.serviceDetails.paymentStatus !== "confirmed");
   const totalFor = (order: RepairOrder) => order.quote.reduce(
@@ -32,7 +32,7 @@ export function summarizePartnerWork(orders: RepairOrder[], notifications: Dashb
   );
   const completed = orders.filter((order) => order.status === "completed");
   const decided = orders.filter((order) => !["pending", "cancelled"].includes(order.status));
-  const won = decided.filter((order) => !["quoted", "cancelled"].includes(order.status));
+  const won = decided.filter((order) => !["quoted", "cancelled", "rejected"].includes(order.status));
   const quoteResponseHours = orders.flatMap((order) => {
     const received = order.history.find((item) => item.status === "pending");
     const quoted = order.history.find((item) => item.status === "quoted");

@@ -40,7 +40,7 @@ export default function PartnerFinance() {
     return () => { active = false; };
   }, []);
   const finance = summarizePartnerFinance(orders);
-  const entries = useMemo(() => orders.filter((order) => !["pending", "cancelled"].includes(order.status)).filter((order) => filter === "all" || (filter === "confirmed" ? order.serviceDetails.paymentStatus === "confirmed" : order.serviceDetails.paymentStatus !== "confirmed")), [orders, filter]);
+  const entries = useMemo(() => orders.filter((order) => !["pending", "cancelled", "rejected"].includes(order.status)).filter((order) => filter === "all" || (filter === "confirmed" ? order.serviceDetails.paymentStatus === "confirmed" : order.serviceDetails.paymentStatus !== "confirmed")), [orders, filter]);
 
   return <main className={styles.page}><div className={styles.container}>
     <header className={styles.header}><div><span>GESTÃO FINANCEIRA</span><h1>Financeiro</h1><p>Acompanhe recebimentos e valores em aberto das suas ordens.</p></div><button onClick={() => void load()} disabled={loading}>{loading ? "Atualizando…" : "Atualizar"}</button></header>

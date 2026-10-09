@@ -20,7 +20,7 @@ const dateTime = (value: string) => new Date(value).toLocaleString("pt-BR", { da
 function statusClass(status: OrderStatus) {
   if (status === "quoted" || status === "ready") return styles.attention;
   if (status === "completed") return styles.completed;
-  if (status === "cancelled") return styles.cancelled;
+  if (status === "cancelled" || status === "rejected") return styles.cancelled;
   return styles.active;
 }
 
@@ -33,6 +33,7 @@ function nextStep(order: ClientOrder) {
     case "waiting_parts": return "O serviço aguarda peças para continuar.";
     case "ready": return "Seu dispositivo está pronto. Combine a retirada com a assistência.";
     case "completed": return order.review ? "Reparo finalizado e avaliado." : "Reparo finalizado. Conte como foi sua experiência.";
+    case "rejected": return "A assistência não conseguiu atender esta solicitação. Consulte o motivo e escolha outra assistência.";
     case "cancelled": return "Esta solicitação foi cancelada.";
   }
 }
@@ -108,7 +109,8 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
 
   const visible = useMemo(() => orders.filter((order) => {
     if (filter === "active" && !activeStatuses.has(order.status)) return false;
-    if (filter !== "all" && filter !== "active" && order.status !== filter) return false;
+    if (filter === "cancelled" && !["cancelled", "rejected"].includes(order.status)) return false;
+    if (filter !== "all" && filter !== "active" && filter !== "cancelled" && order.status !== filter) return false;
     const text = `${order.device} ${order.id} ${order.partnerName || ""} ${ORDER_LABELS[order.status]} ${order.problem}`.toLocaleLowerCase("pt-BR");
     return text.includes(query.trim().toLocaleLowerCase("pt-BR"));
   }), [orders, filter, query]);
@@ -116,7 +118,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: "Todos" }, { key: "active", label: "Em andamento" },
     { key: "quoted", label: "Aguardando aprovação" }, { key: "completed", label: "Concluídos" },
-    { key: "cancelled", label: "Cancelados" },
+    { key: "cancelled", label: "Cancelados / recusados" },
   ];
 
   return <main className={styles.page}><div className={styles.content}>
@@ -141,7 +143,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
           <div className={styles.cardTop}><div className={styles.deviceIcon} aria-hidden="true">▣</div><div className={styles.cardIdentity}><span className={styles.code}>O.S. {order.id.slice(0, 8).toUpperCase()} · {date(order.createdAt)}</span><h3>{order.device}</h3><p>{order.partnerName || "Assistência parceira"}</p></div><span className={`${styles.badge} ${statusClass(order.status)}`}>{ORDER_LABELS[order.status]}</span></div>
           <p className={styles.nextStep}>{nextStep(order)}</p>
           <div className={styles.cardActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setExpandedId(order.id)}>Revisar orçamento · {money(order.totalCents)}</button>}{order.status === "completed" && !order.review && <Link className={styles.primary} href={`/cliente/avaliacoes?order=${encodeURIComponent(order.id)}`}>Avaliar reparo</Link>}<button type="button" className={styles.detailsButton} aria-expanded={expanded} aria-controls={`details-${order.id}`} onClick={() => setExpandedId(expanded ? null : order.id)}>{expanded ? "Ocultar detalhes" : "Ver detalhes"} <span aria-hidden="true">{expanded ? "↑" : "→"}</span></button></div>
-          {expanded && <div id={`details-${order.id}`} className={styles.details}><div className={styles.detailsGrid}><section><h4>Problema informado</h4><p>{order.problem}</p>{order.symptoms.length > 0 && <p className={styles.subtle}>Sintomas: {order.symptoms.join(" · ")}</p>}{order.checklist.length > 0 && <p className={styles.subtle}>Informações do aparelho: {order.checklist.join(" · ")}</p>}{order.diagnosis && <><h4>Diagnóstico da assistência</h4><p>{order.diagnosis}</p></>}</section><section><h4>Andamento</h4><ol className={styles.timeline}>{order.history.map((item, index) => <li key={`${item.status}-${index}`}><strong>{ORDER_LABELS[item.status]}</strong><time dateTime={item.at}>{dateTime(item.at)}</time></li>)}</ol></section></div>
+          {expanded && <div id={`details-${order.id}`} className={styles.details}><div className={styles.detailsGrid}><section><h4>Problema informado</h4><p>{order.problem}</p>{order.symptoms.length > 0 && <p className={styles.subtle}>Sintomas: {order.symptoms.join(" · ")}</p>}{order.checklist.length > 0 && <p className={styles.subtle}>Informações do aparelho: {order.checklist.join(" · ")}</p>}{order.diagnosis && <><h4>Diagnóstico da assistência</h4><p>{order.diagnosis}</p></>}{order.status === "rejected" && order.serviceDetails.rejectionReason && <><h4>Motivo da recusa</h4><p>{order.serviceDetails.rejectionReason}</p></>}</section><section><h4>Andamento</h4><ol className={styles.timeline}>{order.history.map((item, index) => <li key={`${item.status}-${index}`}><strong>{ORDER_LABELS[item.status]}</strong><time dateTime={item.at}>{dateTime(item.at)}</time></li>)}</ol></section></div>
             {order.quote.length > 0 && <section className={styles.quote}><div className={styles.quoteHeading}><div><h4>Orçamento detalhado</h4><small>{order.serviceDetails.estimatedDays} dias úteis · {order.serviceDetails.warrantyDays} dias de garantia</small></div><strong>{money(order.totalCents)}</strong></div><div className={styles.quoteItems}>{order.quote.map((item, index) => <div key={`${item.name}-${index}`}><span><b>{item.category === "part" ? "Peça" : "Mão de obra"} · {item.name}</b>{item.details && <small>{item.details}</small>}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div>{order.serviceDetails.deliveryFeeCents > 0 && <div className={integratedStyles.quoteExtra}><span>Coleta e entrega</span><strong>{money(order.serviceDetails.deliveryFeeCents)}</strong></div>}{order.serviceDetails.discountCents > 0 && <div className={integratedStyles.quoteExtra}><span>Desconto {order.serviceDetails.couponCode}</span><strong>− {money(order.serviceDetails.discountCents)}</strong></div>}{order.status === "quoted" && <p>O reparo só começa após sua confirmação de agendamento e pagamento.</p>}</section>}
             {checkoutId === order.id && order.status === "quoted" ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} /> : <div className={styles.detailActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Agendar e pagar · ${money(order.totalCents)}`}</button>}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => setPendingCancel(order)}>Cancelar solicitação</button>}<Link href="/cliente/ajuda">Precisa de ajuda? →</Link></div>}
             {order.serviceDetails.paymentStatus === "confirmed" && <section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>COMPROVANTE</span><h4>Pagamento confirmado</h4><p>{order.serviceDetails.paymentMethod === "pix" ? "PIX" : "Cartão"} · {dateTime(order.serviceDetails.paidAt)}</p></div><div><strong>{money(order.totalCents)}</strong><small>{order.serviceDetails.scheduledDate.split("-").reverse().join("/")} · {order.serviceDetails.schedulePeriod === "morning" ? "Manhã" : "Tarde"}</small></div><p>{order.serviceDetails.serviceAddress}</p></section>}

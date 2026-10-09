@@ -139,6 +139,60 @@ test("somente o parceiro responsável altera os dados operacionais internos", ()
   assert.equal(current.serviceDetails.internalNotes, "Peça reservada na bancada 2.");
   assert.equal(current.status, "pending");
 });
+test("impede orçamento sem valor e alteração depois do início do checkout", () => {
+  const partner = { sub: "partner", role: "partner" };
+  const zero = order();
+  assert.throws(
+    () => applyOrderAction(zero, partner, orderAction.parse({
+      action: "quote",
+      diagnosis: "Teste funcional",
+      estimatedDays: 2,
+      warrantyDays: 90,
+      deliveryFeeCents: 0,
+      items: [{ name: "Diagnóstico", category: "labor", details: "", quantity: 1, unitPriceCents: 0 }],
+    })),
+    { code: "INVALID_QUOTE_TOTAL" },
+  );
+  const locked = order();
+  locked.serviceDetails.paymentPreferenceId = "pref-1";
+  assert.throws(
+    () => applyOrderAction(locked, partner, orderAction.parse({
+      action: "quote",
+      diagnosis: "Troca necessária",
+      estimatedDays: 2,
+      warrantyDays: 90,
+      deliveryFeeCents: 0,
+      items: [{ name: "Serviço", category: "labor", details: "", quantity: 1, unitPriceCents: 1000 }],
+    })),
+    { code: "CHECKOUT_ALREADY_STARTED" },
+  );
+});
+test("recusa exige motivo e ordens encerradas não aceitam gestão interna", () => {
+  const partner = { sub: "partner", role: "partner" };
+  const rejected = order();
+  assert.equal(orderAction.safeParse({ action: "reject", reason: "curto" }).success, false);
+  applyOrderAction(rejected, partner, orderAction.parse({
+    action: "reject",
+    reason: "Modelo fora da cobertura técnica da assistência.",
+  }));
+  assert.equal(rejected.status, "rejected");
+  assert.equal(rejected.serviceDetails.rejectionReason, "Modelo fora da cobertura técnica da assistência.");
+  assert.throws(() => applyOrderAction(rejected, partner, orderAction.parse({
+    action: "operations",
+    technicianName: "Ana",
+    promisedDate: "",
+    internalNotes: "Alteração tardia",
+  })), { code: "INVALID_TRANSITION" });
+});
+test("prazo operacional não pode estar no passado", () => {
+  const current = order();
+  assert.throws(() => applyOrderAction(current, { sub: "partner", role: "partner" }, orderAction.parse({
+    action: "operations",
+    technicianName: "Ana",
+    promisedDate: "2000-01-01",
+    internalNotes: "Prazo inválido",
+  })), { code: "INVALID_PROMISED_DATE" });
+});
 test("estado OAuth adulterado ou expirado não é aceito", () => {
   process.env.SESSION_SECRET = "test-oauth-secret-at-least-32-characters";
   const sealed = sealFlow({ state: "nonce", verifier: "challenge" });

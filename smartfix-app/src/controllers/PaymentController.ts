@@ -61,8 +61,10 @@ export class PaymentController {
       const actor = await actorFrom(request);
       if (actor.role !== "client") throw new AppError("Acesso negado.", 403, "FORBIDDEN");
       const paymentId = z.string().regex(/^\d+$/).parse(request.nextUrl.searchParams.get("paymentId"));
-      await confirmPayment(paymentId, actor.sub);
-      return ok({ confirmed: true });
+      const confirmed = await confirmPayment(paymentId, actor.sub);
+      if (!confirmed)
+        throw new AppError("O pagamento ainda não foi aprovado pelo provedor.", 409, "PAYMENT_NOT_APPROVED");
+      return ok({ confirmed });
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
   }
 

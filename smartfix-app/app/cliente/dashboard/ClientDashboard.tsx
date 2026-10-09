@@ -24,7 +24,7 @@ function orderAction(order: RepairOrder) {
 
 function statusStyle(order: RepairOrder) {
   if (order.status === "completed") return styles.statusComplete;
-  if (order.status === "cancelled") return styles.statusCancelled;
+  if (order.status === "cancelled" || order.status === "rejected") return styles.statusCancelled;
   if (order.status === "quoted" || order.status === "ready") return styles.statusAttention;
   return styles.statusActive;
 }

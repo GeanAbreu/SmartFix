@@ -197,14 +197,16 @@ export class WorkflowController {
         const previousStatus = orderOf(record).status;
         const updated = applyOrderAction(orderOf(record), actor, input);
         record.data = { ...updated };
-        const ownerId =
-          actor.role === "client" ? updated.partnerId : updated.clientId;
-        notify(
-          records,
-          ownerId,
-          `${updated.device}: ${input.action === "review" ? "avaliação recebida" : ORDER_LABELS[updated.status]}.`,
-          actor.role === "client" ? "/parceiro/ordens" : "/cliente/ordens",
-        );
+        if (input.action !== "operations") {
+          const ownerId =
+            actor.role === "client" ? updated.partnerId : updated.clientId;
+          notify(
+            records,
+            ownerId,
+            `${updated.device}: ${input.action === "review" ? "avaliação recebida" : ORDER_LABELS[updated.status]}.`,
+            actor.role === "client" ? "/parceiro/ordens" : "/cliente/ordens",
+          );
+        }
         return { order: updated, statusChanged: previousStatus !== updated.status };
       }, true);
       const order = result.order;

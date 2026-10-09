@@ -51,6 +51,10 @@ export const orderAction = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("cancel") }),
   z.object({
+    action: z.literal("reject"),
+    reason: z.string().trim().min(10).max(1000),
+  }),
+  z.object({
     action: z.literal("status"),
     status: z.enum(["in_progress", "waiting_parts", "ready", "completed"]),
   }),
@@ -85,6 +89,18 @@ export function applyOrderAction(
   };
   if (input.action === "quote") {
     if (!partner || !["pending", "quoted"].includes(status)) invalid();
+    if (order.serviceDetails.paymentPreferenceId)
+      throw new AppError(
+        "O orçamento não pode ser alterado depois que o checkout foi iniciado.",
+        409,
+        "CHECKOUT_ALREADY_STARTED",
+      );
+    if (quoteTotal(input.items, input.deliveryFeeCents) <= 0)
+      throw new AppError(
+        "O valor total do orçamento deve ser maior que zero.",
+        422,
+        "INVALID_QUOTE_TOTAL",
+      );
     order.quote = input.items;
     order.diagnosis = input.diagnosis;
     order.serviceDetails.estimatedDays = input.estimatedDays;
@@ -92,13 +108,24 @@ export function applyOrderAction(
     order.serviceDetails.deliveryFeeCents = input.deliveryFeeCents;
     status = "quoted";
   } else if (input.action === "operations") {
-    if (!partner) invalid();
+    if (!partner || ["completed", "cancelled", "rejected"].includes(status)) invalid();
+    if (input.promisedDate) {
+      const promised = new Date(`${input.promisedDate}T12:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (Number.isNaN(promised.getTime()) || promised < today)
+        throw new AppError("Informe um prazo prometido atual ou futuro.", 422, "INVALID_PROMISED_DATE");
+    }
     order.serviceDetails.technicianName = input.technicianName;
     order.serviceDetails.promisedDate = input.promisedDate;
     order.serviceDetails.internalNotes = input.internalNotes;
   } else if (input.action === "cancel") {
     if (!client || !["pending", "quoted"].includes(status)) invalid();
     status = "cancelled";
+  } else if (input.action === "reject") {
+    if (!partner || status !== "pending") invalid();
+    order.serviceDetails.rejectionReason = input.reason;
+    status = "rejected";
   } else if (input.action === "review") {
     if (!client || status !== "completed" || order.review) invalid();
     order.review = { rating: input.rating, comment: input.comment };
@@ -132,9 +159,12 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, input:
   order.serviceDetails.couponCode = input.couponCode.toUpperCase();
   order.serviceDetails.discountCents = order.serviceDetails.couponCode === "SMART10"
     ? Math.round(quoteTotal(order.quote) * 0.1) : 0;
+  const total = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
+  if (total <= 0)
+    throw new AppError("O valor total do orçamento deve ser maior que zero.", 422, "INVALID_QUOTE_TOTAL");
   order.serviceDetails.paymentProvider = "mercado_pago";
   order.serviceDetails.paymentStatus = "pending";
-  return quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
+  return total;
 }
 
 export function confirmOrderPayment(order: RepairOrder, paymentId: string, paymentMethod: "pix" | "card") {
