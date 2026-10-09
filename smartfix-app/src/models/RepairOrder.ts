@@ -18,6 +18,8 @@ export class RepairOrderModel extends Model {
   declare quote: QuoteItem[];
   declare history: RepairOrder["history"];
   declare service_details: RepairOrder["serviceDetails"];
+  declare tracking_token_nonce: string | null;
+  declare tracking_token_hash: string | null;
 }
 
 RepairOrderModel.init({
@@ -37,4 +39,6 @@ RepairOrderModel.init({
   quote: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
   history: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
   service_details: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+  tracking_token_nonce: { type: DataTypes.TEXT, allowNull: true },
+  tracking_token_hash: { type: DataTypes.STRING(64), allowNull: true, unique: true },
 }, { sequelize, tableName: "repair_orders", timestamps: false });

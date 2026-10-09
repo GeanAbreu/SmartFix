@@ -1,0 +1,221 @@
+.page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  position: relative;
+  padding: 40px 24px;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(18, 97, 160, 0.2), transparent 34%),
+    radial-gradient(circle at 88% 82%, rgba(255, 107, 26, 0.12), transparent 30%),
+    #07111f;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  opacity: 0.42;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+.orb {
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  border: 1px solid rgba(30, 136, 229, 0.14);
+  border-radius: 50%;
+  animation: float 7s ease-in-out infinite;
+}
+
+.orb::before,
+.orb::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 107, 26, 0.12);
+}
+
+.orb::before {
+  inset: 52px;
+}
+
+.orb::after {
+  inset: 112px;
+  background: rgba(18, 97, 160, 0.05);
+}
+
+.card {
+  width: min(100%, 680px);
+  padding: clamp(32px, 6vw, 64px);
+  text-align: center;
+  border: 1px solid rgba(78, 143, 196, 0.25);
+  border-radius: 24px;
+  background: rgba(9, 24, 41, 0.86);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(18px);
+}
+
+.brand {
+  display: inline-flex;
+  margin-bottom: 34px;
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -1px;
+}
+
+.brandAccent {
+  color: #ff6b1a;
+}
+
+.icon {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 22px;
+  color: #ff7a1f;
+  border: 1px solid rgba(255, 107, 26, 0.32);
+  border-radius: 22px;
+  background: rgba(255, 107, 26, 0.07);
+  box-shadow: 0 16px 38px rgba(255, 107, 26, 0.08);
+}
+
+.icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.code {
+  display: block;
+  margin-bottom: 10px;
+  color: #68b5f4;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.description {
+  max-width: 500px;
+  margin: 18px auto 0;
+  color: #aab7c7;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.primary,
+.secondary {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.primary {
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b1a, #ff7a1f);
+  box-shadow: 0 12px 30px rgba(255, 107, 26, 0.18);
+}
+
+.secondary {
+  color: #e8edf5;
+  border: 1px solid rgba(30, 136, 229, 0.58);
+  background: rgba(18, 97, 160, 0.08);
+}
+
+.primary:hover,
+.secondary:hover {
+  transform: translateY(-2px);
+}
+
+.primary:hover {
+  box-shadow: 0 16px 34px rgba(255, 107, 26, 0.28);
+}
+
+.secondary:hover {
+  border-color: #1e88e5;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 3px solid rgba(104, 181, 244, 0.72);
+  outline-offset: 3px;
+}
+
+.hint {
+  margin-top: 28px;
+  color: #718096;
+  font-size: 12px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-9deg); }
+  50% { transform: translateY(-14px) rotate(-5deg); }
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 20px 16px;
+  }
+
+  .card {
+    padding: 30px 22px;
+    border-radius: 20px;
+  }
+
+  .brand {
+    margin-bottom: 26px;
+  }
+
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary,
+  .secondary {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb {
+    animation: none;
+  }
+
+  .primary,
+  .secondary {
+    transition: none;
+  }
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { summarizePartnerWork, type DashboardNotification } from "../src/services/partner-dashboard.service.ts";
+import { summarizePartnerFinance, summarizePartnerWork, type DashboardNotification } from "../src/services/partner-dashboard.service.ts";
 import type { OrderStatus, RepairOrder } from "../src/types/workflow.ts";
 
 function order(id: string, status: OrderStatus, createdAt: string): RepairOrder {
@@ -31,4 +31,24 @@ test("mostra estado vazio sem contadores fictícios", () => {
   assert.equal(result.pending, 0);
   assert.equal(result.unread, 0);
   assert.deepEqual(result.requests, []);
+});
+
+test("resume somente valores orçados e separa pagamentos confirmados", () => {
+  const paid = order("paid", "completed", "2026-09-10T10:00:00Z");
+  paid.quote = [{ name: "Tela", category: "part", details: "", quantity: 1, unitPriceCents: 80000 }];
+  paid.serviceDetails.deliveryFeeCents = 2000;
+  paid.serviceDetails.discountCents = 5000;
+  paid.serviceDetails.paymentStatus = "confirmed";
+  const open = order("open", "quoted", "2026-09-11T10:00:00Z");
+  open.quote = [{ name: "Mão de obra", category: "labor", details: "", quantity: 2, unitPriceCents: 10000 }];
+  const unquoted = order("new", "pending", "2026-09-12T10:00:00Z");
+
+  assert.deepEqual(summarizePartnerFinance([paid, open, unquoted]), {
+    receivedCents: 77000,
+    pendingCents: 20000,
+    grossCents: 97000,
+    paidOrders: 1,
+    pendingOrders: 1,
+    averageTicketCents: 77000,
+  });
 });

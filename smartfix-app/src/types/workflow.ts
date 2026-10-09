@@ -29,6 +29,9 @@ export type ServiceDetails = {
   paymentProvider?: "mercado_pago";
   paymentPreferenceId?: string;
   paymentId?: string;
+  technicianName?: string;
+  promisedDate?: string;
+  internalNotes?: string;
 };
 export type RepairOrder = {
   id: string;
@@ -46,6 +49,11 @@ export type RepairOrder = {
   history: { status: OrderStatus; at: string }[];
   review: { rating: number; comment: string } | null;
   createdAt: string;
+  trackingTokenNonce?: string;
+  trackingTokenHash?: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
 };
 export type WorkflowRecord = {
   id: string;

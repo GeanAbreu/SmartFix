@@ -1,0 +1,8 @@
+# Local dependencies and generated builds
+**/node_modules/
+**/dist/
+**/.next/
+
+# Temporary render and prototype artifacts
+tmp/
+prototypes/

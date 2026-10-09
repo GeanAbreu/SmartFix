@@ -46,6 +46,12 @@ function sign(encodedPayload: string) {
     .digest("base64url");
 }
 
+export function signServerValue(namespace: string, value: string) {
+  return createHmac("sha256", getSecret())
+    .update(`${namespace}:${value}`)
+    .digest("base64url");
+}
+
 export function createSessionToken(
   payload: Omit<SessionPayload, "exp" | "iat">
 ) {

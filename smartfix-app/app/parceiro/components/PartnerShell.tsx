@@ -10,8 +10,10 @@ import styles from "@/app/cliente/components/client-shell.module.css";
 const links = [
   { href: "/parceiro/dashboard", label: "Início" },
   { href: "/parceiro/ordens", label: "Ordens de serviço" },
+  { href: "/parceiro/parceiros", label: "Rede de parceiros" },
   { href: "/parceiro/servicos", label: "Serviços" },
   { href: "/parceiro/mensagens", label: "Mensagens" },
+  { href: "/parceiro/financeiro", label: "Financeiro" },
   { href: "/parceiro/notificacoes", label: "Notificações" },
 ];
 

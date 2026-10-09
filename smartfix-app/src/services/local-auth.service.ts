@@ -1,6 +1,6 @@
 import "server-only";
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
@@ -121,7 +121,13 @@ async function saveStore(store: LocalAuthStore) {
 
   const temporaryFile = `${dataFile}.${process.pid}.tmp`;
   await writeFile(temporaryFile, JSON.stringify(store, null, 2), "utf8");
-  await rename(temporaryFile, dataFile);
+  try {
+    // copyFile sobrescreve o destino também no Windows, onde rename pode
+    // retornar EPERM. As operações desta store são serializadas por withStore.
+    await copyFile(temporaryFile, dataFile);
+  } finally {
+    await rm(temporaryFile, { force: true });
+  }
 }
 
 function withStore<T>(

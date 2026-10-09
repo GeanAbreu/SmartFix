@@ -43,6 +43,12 @@ export const orderAction = z.discriminatedUnion("action", [
     deliveryFeeCents: z.number().int().min(0).max(10_000_000).default(0),
     items: z.array(quoteItemInput).min(1).max(30),
   }),
+  z.object({
+    action: z.literal("operations"),
+    technicianName: z.string().trim().max(120).default(""),
+    promisedDate: z.union([z.literal(""), z.iso.date()]).default(""),
+    internalNotes: z.string().trim().max(5000).default(""),
+  }),
   z.object({ action: z.literal("cancel") }),
   z.object({
     action: z.literal("status"),
@@ -85,6 +91,11 @@ export function applyOrderAction(
     order.serviceDetails.warrantyDays = input.warrantyDays;
     order.serviceDetails.deliveryFeeCents = input.deliveryFeeCents;
     status = "quoted";
+  } else if (input.action === "operations") {
+    if (!partner) invalid();
+    order.serviceDetails.technicianName = input.technicianName;
+    order.serviceDetails.promisedDate = input.promisedDate;
+    order.serviceDetails.internalNotes = input.internalNotes;
   } else if (input.action === "cancel") {
     if (!client || !["pending", "quoted"].includes(status)) invalid();
     status = "cancelled";

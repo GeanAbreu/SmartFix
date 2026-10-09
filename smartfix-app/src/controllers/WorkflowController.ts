@@ -17,6 +17,11 @@ import {
 import { withWorkflow } from "@/src/services/workflow.service";
 import { emailConfigured, sendEmail } from "@/src/services/email.service";
 import {
+  orderStatusWhatsAppMessage,
+  sendWhatsAppText,
+  whatsappConfigured,
+} from "@/src/services/whatsapp.service";
+import {
   listLocalDevices,
   listLocalPartners,
   usesLocalAuthStore,
@@ -99,11 +104,16 @@ export class WorkflowController {
       const partnerNames = actor.role === "client"
         ? new Map((await partners()).map((partner) => [partner.id, partner.name]))
         : null;
+      const clientAccounts = actor.role === "partner"
+        ? new Map((await Promise.all([...new Set(orders.map((order) => order.clientId))].map(async (id) => [id, await accountById(id, "client")] as const))).map(([id, account]) => [id, account]))
+        : null;
       return ok({
         orders: orders.map((order) => ({
           ...order,
+          serviceDetails: actor.role === "client" ? { ...order.serviceDetails, internalNotes: "" } : order.serviceDetails,
           totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents),
           ...(partnerNames ? { partnerName: partnerNames.get(order.partnerId) || "Assistência parceira" } : {}),
+          ...(clientAccounts ? { clientName: clientAccounts.get(order.clientId)?.name || "Cliente", clientEmail: clientAccounts.get(order.clientId)?.email || "", clientPhone: clientAccounts.get(order.clientId)?.phone || "" } : {}),
         })),
       });
     } catch (error) {
@@ -178,12 +188,13 @@ export class WorkflowController {
       z.uuid().parse(id);
       const actor = await actorFrom(request);
       const input = orderAction.parse(await request.json());
-      const order = await withWorkflow((records) => {
+      const result = await withWorkflow((records) => {
         const record = records.find(
           (item) => item.id === id && item.kind === "order",
         );
         if (!record)
           throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
+        const previousStatus = orderOf(record).status;
         const updated = applyOrderAction(orderOf(record), actor, input);
         record.data = { ...updated };
         const ownerId =
@@ -194,9 +205,36 @@ export class WorkflowController {
           `${updated.device}: ${input.action === "review" ? "avaliação recebida" : ORDER_LABELS[updated.status]}.`,
           actor.role === "client" ? "/parceiro/ordens" : "/cliente/ordens",
         );
-        return updated;
+        return { order: updated, statusChanged: previousStatus !== updated.status };
       }, true);
-      return ok({ order: { ...order, totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents) } });
+      const order = result.order;
+      let whatsappStatus = "not_applicable";
+      if (result.statusChanged) {
+        whatsappStatus = "not_configured";
+        if (whatsappConfigured()) {
+          const client = await accountById(order.clientId, "client");
+          if (!client?.phone) {
+            whatsappStatus = "missing_phone";
+          } else {
+            try {
+              await sendWhatsAppText(
+                client.phone,
+                orderStatusWhatsAppMessage({
+                  clientName: client.name,
+                  orderId: order.id,
+                  device: order.device,
+                  status: order.status,
+                }),
+              );
+              whatsappStatus = "accepted";
+            } catch (error) {
+              console.error("Falha ao enviar atualização da OS por WhatsApp.", error);
+              whatsappStatus = "failed";
+            }
+          }
+        }
+      }
+      return ok({ order: { ...order, totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents) }, whatsappStatus });
     } catch (error) {
       return failure(error);
     }

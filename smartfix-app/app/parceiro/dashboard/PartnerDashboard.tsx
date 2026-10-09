@@ -120,7 +120,13 @@ export default function PartnerDashboard() {
           <div><strong>{loading ? "…" : orders.error ? "—" : summary.pending}</strong><span>Aguardando orçamento</span></div>
           <div><strong>{loading ? "…" : orders.error ? "—" : summary.awaitingApproval}</strong><span>Aguardando cliente</span></div>
           <div><strong>{loading ? "…" : orders.error ? "—" : summary.active}</strong><span>Em andamento</span></div>
-          <div><strong>{loading ? "…" : notifications.error ? "—" : summary.unread}</strong><span>Notificações não lidas</span></div>
+          <div><strong>{loading ? "…" : summary.completed}</strong><span>Serviços concluídos</span></div>
+          <div><strong>{loading ? "…" : `${summary.conversionRate}%`}</strong><span>Conversão de orçamentos</span></div>
+          <div><strong>{loading ? "…" : summary.averageResponseHours === null ? "—" : `${summary.averageResponseHours}h`}</strong><span>Tempo médio de resposta</span></div>
+        </section>
+        <section className={styles.actionCenter} aria-labelledby="action-center-title">
+          <div className={styles.sectionHeading}><div><span className={styles.kicker}>CENTRAL DE AÇÃO</span><h2 id="action-center-title">O que precisa da sua atenção</h2><p>Prioridade organizada para você avançar o trabalho sem procurar ordem por ordem.</p></div><Link href="/parceiro/ordens">Abrir operação</Link></div>
+          {loading ? <p role="status">Organizando prioridades...</p> : summary.attention.length === 0 ? <p className={styles.empty}>Tudo em dia. Nenhuma ordem exige ação imediata.</p> : <div className={styles.actionGrid}>{summary.attention.slice(0, 6).map((order) => <Link key={order.id} href={`/parceiro/ordens?order=${encodeURIComponent(order.id)}`}><span className={styles.status}>{ORDER_LABELS[order.status]}</span><strong>{order.device}</strong><small>{order.status === "pending" ? "Preparar diagnóstico e orçamento" : order.status === "waiting_parts" ? "Revisar chegada ou previsão da peça" : "Combinar retirada ou finalizar ordem"}</small><b>Agir agora →</b></Link>)}</div>}
         </section>
         <div className={styles.columns}>
           <section className={styles.panel} aria-labelledby="requests-title">

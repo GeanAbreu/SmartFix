@@ -15,15 +15,20 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     SMARTFIX_LOCAL_AUTH: "true",
     SESSION_SECRET: "integration-test-secret-of-at-least-32-characters",
     APP_URL: "http://localhost:3000",
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
   });
   process.env.SMARTFIX_LOCAL_DATA_DIR = directory;
   delete process.env.DATABASE_URL;
   delete process.env.RESEND_API_KEY;
+  delete process.env.WHATSAPP_PROVIDER;
   delete process.env.GOOGLE_CLIENT_ID;
   try {
     const store = await import("../src/services/local-auth.service");
     const { WorkflowController: controller } =
       await import("../src/controllers/WorkflowController");
+    const { TrackingController } =
+      await import("../src/controllers/TrackingController");
     const { ClientController } =
       await import("../src/controllers/ClientController");
     const { RecoveryController } =
@@ -116,6 +121,23 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     );
     assert.equal(created.status, 201);
     const order = (await created.json()).data.order;
+    assert.equal((await TrackingController.issue(request(other, `/api/orders/${order.id}/tracking-link`, {}), order.id)).status, 404);
+    const trackingLink = await TrackingController.issue(request(client, `/api/orders/${order.id}/tracking-link`, {}), order.id);
+    assert.equal(trackingLink.status, 200);
+    const trackingPath = (await trackingLink.json()).data.path as string;
+    assert.match(trackingPath, /^\/tracking\/[A-Za-z0-9_-]{43}$/);
+    const publicTracking = await TrackingController.show(trackingPath.split("/").at(-1)!);
+    assert.equal(publicTracking.status, 200);
+    const publicPayload = (await publicTracking.json()).data.tracking;
+    assert.equal(publicPayload.device, "Apple iPhone 15");
+    assert.equal(publicPayload.status, "pending");
+    assert.equal(publicPayload.problem, undefined);
+    assert.equal(publicPayload.serviceDetails, undefined);
+    assert.equal(publicPayload.realtime.url, "https://example.supabase.co");
+    assert.match(publicPayload.realtime.topic, /^tracking:[a-f0-9]{64}$/);
+    assert.equal(publicPayload.realtime.topic.includes(trackingPath.split("/").at(-1)!), false);
+    assert.equal(publicTracking.headers.get("cache-control"), "no-store, max-age=0");
+    assert.equal(publicTracking.headers.get("x-robots-tag"), "noindex, nofollow, noarchive");
     await assert.rejects(store.deleteLocalDevice(client.id, device.id), { code: "DEVICE_IN_USE" });
     assert.equal(
       (await (await controller.list(request(other, "/api/orders"))).json()).data
@@ -133,19 +155,16 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     );
     const action = async (actor: typeof client, body: unknown) =>
       controller.update(request(actor, "/api/orders", body, "PATCH"), order.id);
-    assert.equal(
-      (
-        await action(partner, {
-          action: "quote",
-          diagnosis: "Trocar bateria",
-          estimatedDays: 3,
-          warrantyDays: 90,
-          deliveryFeeCents: 0,
-          items: [{ name: "Bateria", quantity: 1, unitPriceCents: 19990 }],
-        })
-      ).status,
-      200,
-    );
+    const quoted = await action(partner, {
+      action: "quote",
+      diagnosis: "Trocar bateria",
+      estimatedDays: 3,
+      warrantyDays: 90,
+      deliveryFeeCents: 0,
+      items: [{ name: "Bateria", quantity: 1, unitPriceCents: 19990 }],
+    });
+    assert.equal(quoted.status, 200);
+    assert.equal((await quoted.json()).data.whatsappStatus, "not_configured");
     const { prepareOrderPayment, confirmOrderPayment } = await import("../src/services/order-policy.service");
     await withWorkflow((records) => {
       const current = records.find((record) => record.id === order.id)!.data as unknown as import("../src/types/workflow").RepairOrder;
@@ -293,6 +312,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     assert.equal(savedOrder.status, "completed");
     assert.equal(savedOrder.review.rating, 5);
     assert.equal(disk.devices[0].issueDescription, "Não liga");
+    assert.equal(JSON.stringify(disk).includes(trackingPath.split("/").at(-1)!), false);
+    await TrackingController.revoke(request(client, `/api/orders/${order.id}/tracking-link`, {}, "DELETE"), order.id);
+    assert.equal((await TrackingController.show(trackingPath.split("/").at(-1)!)).status, 404);
   } finally {
     process.env = previousEnv;
     assert.equal(path.dirname(path.resolve(directory)), path.resolve(tmpdir()));

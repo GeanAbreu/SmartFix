@@ -128,6 +128,17 @@ test("entrada rejeita valores negativos, fracionários, documentos arbitrários 
     false,
   );
 });
+test("somente o parceiro responsável altera os dados operacionais internos", () => {
+  const current = order();
+  const operations = orderAction.parse({ action: "operations", technicianName: "Ana Técnica", promisedDate: "2099-02-10", internalNotes: "Peça reservada na bancada 2." });
+  assert.throws(() => applyOrderAction(current, { sub: "client", role: "client" }, operations));
+  assert.throws(() => applyOrderAction(current, { sub: "other", role: "partner" }, operations));
+  applyOrderAction(current, { sub: "partner", role: "partner" }, operations);
+  assert.equal(current.serviceDetails.technicianName, "Ana Técnica");
+  assert.equal(current.serviceDetails.promisedDate, "2099-02-10");
+  assert.equal(current.serviceDetails.internalNotes, "Peça reservada na bancada 2.");
+  assert.equal(current.status, "pending");
+});
 test("estado OAuth adulterado ou expirado não é aceito", () => {
   process.env.SESSION_SECRET = "test-oauth-secret-at-least-32-characters";
   const sealed = sealFlow({ state: "nonce", verifier: "challenge" });

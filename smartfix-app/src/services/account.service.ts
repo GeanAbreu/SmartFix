@@ -21,6 +21,7 @@ export async function accountById(id: string, role: SessionRole) {
           role,
           name: user.name,
           email: user.email,
+          phone: user.phone,
           passwordHash: user.passwordHash,
         }
       : null;
@@ -34,6 +35,7 @@ export async function accountById(id: string, role: SessionRole) {
           role,
           name: user.nome,
           email: user.email,
+          phone: user.telefone || "",
           passwordHash: user.senha,
         }
       : null;
@@ -45,6 +47,7 @@ export async function accountById(id: string, role: SessionRole) {
         role,
         name: user.full_name,
         email: user.email,
+        phone: user.phone || "",
         passwordHash: user.password_hash,
       }
     : null;

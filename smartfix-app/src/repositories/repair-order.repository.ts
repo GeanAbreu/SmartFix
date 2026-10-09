@@ -17,6 +17,8 @@ export async function readRepairOrders(transaction: Transaction): Promise<Workfl
       symptoms: row.symptoms, checklist: row.checklist, quote: row.quote,
       diagnosis: row.diagnosis, history: row.history, createdAt: row.created_at.toISOString(),
       serviceDetails: { ...emptyServiceDetails(), ...(row.service_details || {}) },
+      trackingTokenNonce: row.tracking_token_nonce || undefined,
+      trackingTokenHash: row.tracking_token_hash || undefined,
       review: review ? { rating: review.rating, comment: review.comment } : null,
     };
     return { id: row.id, kind: "order", ownerId: row.client_id, data: { ...order } };
@@ -35,6 +37,8 @@ export async function saveRepairOrder(order: RepairOrder, transaction: Transacti
     estimated_budget: budget, device_label: order.device, symptoms: order.symptoms,
     checklist: order.checklist, quote: order.quote, diagnosis: order.diagnosis, history: order.history,
     service_details: order.serviceDetails,
+    tracking_token_nonce: order.trackingTokenNonce || null,
+    tracking_token_hash: order.trackingTokenHash || null,
   }, { transaction });
   if (order.review) {
     const existing = await Review.findOne({ where: { repair_order_id: order.id }, transaction });
