@@ -14,8 +14,8 @@ export class PartnerService extends Model {
 }
 
 PartnerService.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
-  partner_id: { type: DataTypes.UUID, allowNull: false },
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  partner_id: { type: DataTypes.BIGINT, allowNull: false },
   name: { type: DataTypes.STRING(150), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
   unit_price_cents: { type: DataTypes.INTEGER, allowNull: false },

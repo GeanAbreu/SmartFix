@@ -2,23 +2,24 @@ import { loadEnvConfig } from "@next/env";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { databaseId } from "../src/validations/database-id";
 
 loadEnvConfig(process.cwd(), true);
 
 const userSchema = z.object({
-  id: z.uuid(), role: z.enum(["client", "partner"]), name: z.string(), email: z.email(),
+  id: databaseId, role: z.enum(["client", "partner"]), name: z.string(), email: z.email(),
   passwordHash: z.string().min(1), document: z.string(), phone: z.string(),
   birthDate: z.string().nullable(), companyName: z.string().nullable(),
   address: z.string().optional(), city: z.string().optional(), state: z.string().optional(), zipCode: z.string().optional(),
   isVerified: z.boolean(), createdAt: z.iso.datetime(),
 });
 const addressSchema = z.object({
-  id: z.uuid(), clientId: z.uuid().nullable(), partnerId: z.uuid().nullable().optional(), apelido: z.string(), cep: z.string(),
+  id: databaseId, clientId: databaseId.nullable(), partnerId: databaseId.nullable().optional(), apelido: z.string(), cep: z.string(),
   logradouro: z.string(), numero: z.string(), complemento: z.string(),
   bairro: z.string(), cidade: z.string(), estado: z.string(), principal: z.boolean(),
 });
 const deviceSchema = z.object({
-  id: z.uuid(), clientId: z.uuid(), tipo: z.string(), marca: z.string(), modelo: z.string(),
+  id: databaseId, clientId: databaseId, tipo: z.string(), marca: z.string(), modelo: z.string(),
   fotoUrl: z.string(), apelido: z.string().default(""), numeroSerie: z.string().default(""),
   issueType: z.string().default(""), issueDescription: z.string().default(""),
 });
@@ -26,8 +27,8 @@ const storeSchema = z.object({
   version: z.literal(1), users: z.array(userSchema),
   addresses: z.array(addressSchema).default([]), devices: z.array(deviceSchema).default([]),
   workflow: z.array(z.object({
-    id: z.uuid(), kind: z.enum(["order", "notification", "reset", "google", "service"]),
-    ownerId: z.uuid(), data: z.record(z.string(), z.unknown()),
+    id: databaseId, kind: z.enum(["order", "notification", "reset", "google", "service"]),
+    ownerId: databaseId, data: z.record(z.string(), z.unknown()),
   })).default([]),
 });
 

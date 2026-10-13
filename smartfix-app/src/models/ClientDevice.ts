@@ -15,13 +15,13 @@ export class ClientDevice extends Model {
 ClientDevice.init(
   {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
+      autoIncrement: true,
     },
     client_id: {
       field: "user_id",
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       allowNull: false,
       references: {
         model: "clients",

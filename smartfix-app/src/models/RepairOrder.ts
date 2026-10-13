@@ -23,10 +23,10 @@ export class RepairOrderModel extends Model {
 }
 
 RepairOrderModel.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
-  client_id: { type: DataTypes.UUID, allowNull: false, references: { model: "clients", key: "id" } },
-  partner_id: { type: DataTypes.UUID, allowNull: false, references: { model: "partner", key: "id" } },
-  device_id: { type: DataTypes.UUID, allowNull: false, references: { model: "devices", key: "id" } },
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  client_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: "clients", key: "id" } },
+  partner_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: "partner", key: "id" } },
+  device_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: "devices", key: "id" } },
   problem_description: { type: DataTypes.TEXT, allowNull: false },
   status: { type: DataTypes.TEXT, allowNull: false, defaultValue: "pending" },
   estimated_budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },

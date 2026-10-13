@@ -10,7 +10,13 @@ loadEnvConfig(process.cwd(), true);
 const mode = process.argv[2] || '--check';
 if (!['--check', '--seed', '--schema'].includes(mode)) throw new Error('Use --check, --schema or --seed');
 const outputPath = path.resolve('.smartfix-data/seed-demo.json');
-const uuid = (key) => { const s = crypto.createHash('sha256').update(`smartfix-demo-2026:${key}`).digest('hex'); return `${s.slice(0,8)}-${s.slice(8,12)}-4${s.slice(13,16)}-a${s.slice(17,20)}-${s.slice(20,32)}`; };
+const sequence = { address: 0, device: 0, service: 0, order: 0, review: 0 };
+const uuid = (key) => {
+  const [kind, index] = key.split(':');
+  if (kind === 'client') return String(Number(index) + 1);
+  if (kind === 'partner') return String(Number(index) + 16);
+  return String(++sequence[kind]);
+};
 const cpf = (n) => { const a = String(700000000+n).padStart(9,'0').split('').map(Number); for (let len=9;len<11;len++) { const v=(a.slice(0,len).reduce((sum,d,i)=>sum+d*(len+1-i),0)*10)%11; a.push(v===10?0:v); } return a.join(''); };
 const cnpj = (n) => { const a = String(450000000001+n).padStart(12,'0').split('').map(Number); for (const w of [[5,4,3,2,9,8,7,6,5,4,3,2],[6,5,4,3,2,9,8,7,6,5,4,3,2]]) { const r=a.reduce((sum,d,i)=>sum+d*w[i],0)%11; a.push(r<2?0:11-r); } return a.join(''); };
 const people = ['Ana Luiza Nascimento','Bruno Henrique Valente','Camila Torres Azevedo','Diego Rafael Monteiro','Elisa Beatriz Farias','Felipe Augusto Barros','Gabriela Nunes Prado','Hugo César Almeida','Isabela Martins Coelho','João Pedro Siqueira','Larissa Vitória Campos','Marcos Vinícius Duarte','Nadia Cristina Ribeiro','Otávio Luiz Pacheco','Renata Maria Freitas'];
@@ -101,36 +107,38 @@ async function main() {
     console.log('Contagens atuais:',counts);
     if(mode==='--check') {
       if (!fs.existsSync(outputPath)) return;
-      const seeded=JSON.parse(fs.readFileSync(outputPath,'utf8'));
+      const saved=JSON.parse(fs.readFileSync(outputPath,'utf8'));
+      const seeded=saved.clients?.every(x=>/^\d+$/.test(x.id))?saved:build();
       const clientIds=seeded.clients.map(x=>x.id), partnerIds=seeded.partners.map(x=>x.id), deviceIds=seeded.devices.map(x=>x.id), orderIds=seeded.orders.map(x=>x.id), addressIds=seeded.addresses.map(x=>x.id);
       const checks = {
-        duplicate_addresses: ["SELECT count(*)::int n FROM (SELECT logradouro, numero, municipio, uf FROM public.client_addresses WHERE id=ANY($1::uuid[]) GROUP BY 1,2,3,4 HAVING count(*) > 1) x",addressIds],
-        clients_wrong_addresses: ["SELECT count(*)::int n FROM (SELECT c.id FROM public.clients c LEFT JOIN public.client_addresses a ON a.client_id=c.id AND a.id=ANY($2::uuid[]) WHERE c.id=ANY($1::uuid[]) GROUP BY c.id HAVING count(a.id) <> 3) x",[clientIds,addressIds]],
-        partners_wrong_addresses: ["SELECT count(*)::int n FROM (SELECT p.id FROM public.partner p LEFT JOIN public.client_addresses a ON a.partner_id=p.id AND a.id=ANY($2::uuid[]) WHERE p.id=ANY($1::uuid[]) GROUP BY p.id HAVING count(a.id) <> 3) x",[partnerIds,addressIds]],
-        clients_wrong_devices: ["SELECT count(*)::int n FROM (SELECT c.id FROM public.clients c LEFT JOIN public.devices d ON d.user_id=c.id AND d.id=ANY($2::uuid[]) WHERE c.id=ANY($1::uuid[]) GROUP BY c.id HAVING count(d.id) <> 2) x",[clientIds,deviceIds]],
-        partners_wrong_services: ["SELECT count(*)::int n FROM (SELECT p.id FROM public.partner p LEFT JOIN public.partner_services s ON s.partner_id=p.id WHERE p.id=ANY($1::uuid[]) GROUP BY p.id HAVING count(s.id) < 3) x",partnerIds],
-        devices_wrong_orders: ["SELECT count(*)::int n FROM (SELECT d.id FROM public.devices d LEFT JOIN public.repair_orders o ON o.device_id=d.id AND o.id=ANY($2::uuid[]) WHERE d.id=ANY($1::uuid[]) GROUP BY d.id HAVING count(o.id) <> 2 OR count(DISTINCT o.partner_id) <> 2) x",[deviceIds,orderIds]],
-        completed_without_review: ["SELECT count(*)::int n FROM public.repair_orders o LEFT JOIN public.reviews r ON r.repair_order_id=o.id WHERE o.id=ANY($1::uuid[]) AND o.status='completed' AND r.id IS NULL",orderIds],
-        review_not_completed: ["SELECT count(*)::int n FROM public.reviews r JOIN public.repair_orders o ON o.id=r.repair_order_id WHERE o.id=ANY($1::uuid[]) AND o.status <> 'completed'",orderIds],
-        history_wrong_status: ["SELECT count(*)::int n FROM public.repair_orders o WHERE o.id=ANY($1::uuid[]) AND o.history->-1->>'status' IS DISTINCT FROM o.status",orderIds]
+        duplicate_addresses: ["SELECT count(*)::int n FROM (SELECT logradouro, numero, municipio, uf FROM public.client_addresses WHERE id=ANY($1::bigint[]) GROUP BY 1,2,3,4 HAVING count(*) > 1) x",addressIds],
+        clients_wrong_addresses: ["SELECT count(*)::int n FROM (SELECT c.id FROM public.clients c LEFT JOIN public.client_addresses a ON a.client_id=c.id AND a.id=ANY($2::bigint[]) WHERE c.id=ANY($1::bigint[]) GROUP BY c.id HAVING count(a.id) <> 3) x",[clientIds,addressIds]],
+        partners_wrong_addresses: ["SELECT count(*)::int n FROM (SELECT p.id FROM public.partner p LEFT JOIN public.client_addresses a ON a.partner_id=p.id AND a.id=ANY($2::bigint[]) WHERE p.id=ANY($1::bigint[]) GROUP BY p.id HAVING count(a.id) <> 3) x",[partnerIds,addressIds]],
+        clients_wrong_devices: ["SELECT count(*)::int n FROM (SELECT c.id FROM public.clients c LEFT JOIN public.devices d ON d.user_id=c.id AND d.id=ANY($2::bigint[]) WHERE c.id=ANY($1::bigint[]) GROUP BY c.id HAVING count(d.id) <> 2) x",[clientIds,deviceIds]],
+        partners_wrong_services: ["SELECT count(*)::int n FROM (SELECT p.id FROM public.partner p LEFT JOIN public.partner_services s ON s.partner_id=p.id WHERE p.id=ANY($1::bigint[]) GROUP BY p.id HAVING count(s.id) < 3) x",partnerIds],
+        devices_wrong_orders: ["SELECT count(*)::int n FROM (SELECT d.id FROM public.devices d LEFT JOIN public.repair_orders o ON o.device_id=d.id AND o.id=ANY($2::bigint[]) WHERE d.id=ANY($1::bigint[]) GROUP BY d.id HAVING count(o.id) <> 2 OR count(DISTINCT o.partner_id) <> 2) x",[deviceIds,orderIds]],
+        completed_without_review: ["SELECT count(*)::int n FROM public.repair_orders o LEFT JOIN public.reviews r ON r.repair_order_id=o.id WHERE o.id=ANY($1::bigint[]) AND o.status='completed' AND r.id IS NULL",orderIds],
+        review_not_completed: ["SELECT count(*)::int n FROM public.reviews r JOIN public.repair_orders o ON o.id=r.repair_order_id WHERE o.id=ANY($1::bigint[]) AND o.status <> 'completed'",orderIds],
+        history_wrong_status: ["SELECT count(*)::int n FROM public.repair_orders o WHERE o.id=ANY($1::bigint[]) AND o.history->-1->>'status' IS DISTINCT FROM o.status",orderIds]
       };
       const failures={}; for(const [name,[sql,ids]] of Object.entries(checks)) { const values=Array.isArray(ids[0])?ids:[ids]; const n=Number((await db.query(sql,values)).rows[0].n); if(n) failures[name]=n; }
       console.log('Integridade:',Object.keys(failures).length?failures:'OK');
       if(Object.keys(failures).length) process.exitCode=1;
       return;
     }
-    const data=fs.existsSync(outputPath)?JSON.parse(fs.readFileSync(outputPath,'utf8')):build();
+    const stored=fs.existsSync(outputPath)?JSON.parse(fs.readFileSync(outputPath,'utf8')):null;
+    const data=stored?.clients?.every(x=>/^\d+$/.test(x.id))?stored:build();
     await db.query('BEGIN');
     try {
       for(const x of data.clients) await db.query('INSERT INTO public.clients(id,full_name,email,password_hash,tax_id,phone,birth_date) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING',[x.id,x.name,x.email,x.passwordHash,x.cpf,x.phone,x.birthDate]);
       for(const x of data.partners) await db.query('INSERT INTO public.partner(id,full_name,email,password_hash,tax_id,phone,company_name,is_approved) VALUES($1,$2,$3,$4,$5,$6,$7,true) ON CONFLICT(id) DO NOTHING',[x.id,x.owner,x.email,x.passwordHash,x.cnpj,x.phone,x.company]);
       for(const x of data.addresses) await db.query('INSERT INTO public.client_addresses(id,client_id,partner_id,apelido,cep,logradouro,numero,complemento,bairro,municipio,uf,is_principal) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING',[x.id,x.clientId,x.partnerId,x.label,x.cep,x.street,x.number,x.complement,x.district,x.city,x.state,x.primary]);
-      for(const x of data.devices) await db.query('INSERT INTO public.devices(id,user_id,device_type,brand,model,photo_url,nickname,serial_number,issue_type,issue_description) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING',[x.id,x.clientId,x.type,x.brand,x.model,x.photoUrl,x.nickname,x.serial,x.issueType,x.issueDescription]);
+      for(const x of data.devices) await db.query('INSERT INTO public.devices(id,user_id,device_type,brand,model,photo_url,nickname,issue_description) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING',[x.id,x.clientId,x.type,x.brand,x.model,x.photoUrl,x.nickname,x.issueDescription]);
       for(const x of data.services) await db.query('INSERT INTO public.partner_services(id,partner_id,name,description,unit_price_cents,estimated_days,is_active) VALUES($1,$2,$3,$4,$5,$6,true) ON CONFLICT(id) DO NOTHING',[x.id,x.partnerId,x.name,x.description,x.priceCents,x.days]);
       for(const x of data.orders) { const total=x.quote.reduce((n,q)=>n+q.quantity*q.unitPriceCents,0); await db.query('INSERT INTO public.repair_orders(id,client_id,partner_id,device_id,problem_description,status,estimated_budget,created_at,device_label,diagnosis,symptoms,checklist,quote,history) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(id) DO NOTHING',[x.id,x.clientId,x.partnerId,x.deviceId,x.problem,x.status,x.quote.length?total/100:null,x.createdAt,x.deviceLabel,x.diagnosis,JSON.stringify(x.symptoms),JSON.stringify(x.checklist),JSON.stringify(x.quote),JSON.stringify(x.history)]); }
       for(const x of data.reviews) await db.query('INSERT INTO public.reviews(id,rating,comment,review_date,client_id,partner_id,repair_order_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING',[x.id,x.rating,x.comment,x.date,x.clientId,x.partnerId,x.orderId]);
       const expected={clients:15,partner:15,client_addresses:90,devices:30,partner_services:60,repair_orders:60,reviews:data.reviews.length};
-      for(const [table,count] of Object.entries(expected)) { const ids=(table==='clients'?data.clients:table==='partner'?data.partners:table==='client_addresses'?data.addresses:table==='devices'?data.devices:table==='partner_services'?data.services:table==='repair_orders'?data.orders:data.reviews).map(x=>x.id); const actual=Number((await db.query(`SELECT count(*)::int AS n FROM public.${table} WHERE id = ANY($1::uuid[])`,[ids])).rows[0].n); if(actual!==count) throw new Error(`${table}: esperado ${count}, encontrado ${actual}`); }
+      for(const [table,count] of Object.entries(expected)) { const ids=(table==='clients'?data.clients:table==='partner'?data.partners:table==='client_addresses'?data.addresses:table==='devices'?data.devices:table==='partner_services'?data.services:table==='repair_orders'?data.orders:data.reviews).map(x=>x.id); const actual=Number((await db.query(`SELECT count(*)::int AS n FROM public.${table} WHERE id = ANY($1::bigint[])`,[ids])).rows[0].n); if(actual!==count) throw new Error(`${table}: esperado ${count}, encontrado ${actual}`); }
       await db.query('COMMIT');
       fs.mkdirSync(path.dirname(outputPath),{recursive:true}); fs.writeFileSync(outputPath,JSON.stringify(data,null,2),{mode:0o600});
       console.log('Carga validada:',expected);

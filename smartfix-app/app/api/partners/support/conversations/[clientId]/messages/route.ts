@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
 import { z } from "zod";
+import { databaseId } from "@/src/validations/database-id";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { actorFrom } from "@/src/services/account.service";
 import { AppError } from "@/src/errors/AppError";
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest, context: Context) {
     const actor = await actorFrom(request);
     if (actor.role !== "partner") throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
-    const clientId = z.uuid().parse((await context.params).clientId);
+    const clientId = databaseId.parse((await context.params).clientId);
     const messages = await sequelize.query<{
       id: string; senderRole: "client" | "partner"; body: string; createdAt: string;
     }>(`SELECT id, sender_role AS "senderRole", body, created_at AS "createdAt"
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, context: Context) {
     const actor = await actorFrom(request);
     if (actor.role !== "partner") throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
-    const clientId = z.uuid().parse((await context.params).clientId);
+    const clientId = databaseId.parse((await context.params).clientId);
     const { body } = schema.parse(await request.json());
     const [linked] = await sequelize.query<{ id: string }>(
       `SELECT id FROM public.repair_orders WHERE client_id = $1 AND partner_id = $2 LIMIT 1`,

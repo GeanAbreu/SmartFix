@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AppError } from "@/src/errors/AppError";
+import { databaseId } from "@/src/validations/database-id";
 import {
   CHECKLIST,
   SYMPTOMS,
@@ -9,8 +10,8 @@ import {
 } from "@/src/types/workflow";
 
 export const orderInput = z.object({
-  deviceId: z.uuid(),
-  partnerId: z.uuid(),
+  deviceId: databaseId,
+  partnerId: databaseId,
   problem: z.string().trim().min(10).max(3000),
   symptoms: z
     .array(z.enum(SYMPTOMS as [string, ...string[]]))

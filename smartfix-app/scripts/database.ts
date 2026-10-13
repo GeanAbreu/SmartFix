@@ -21,7 +21,7 @@ async function main() {
             EXECUTE format('REVOKE ALL ON public.smartfix_migrations FROM %I',r);
           END IF; END LOOP; END $$;`);
       const applied = await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT });
-      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql", "20260920_partner_services.sql", "20260921_support_chat.sql", "20261002_remove_unused_columns.sql", "20261004_integrate_prototypes.sql", "20261005_remove_device_serial_and_issue_type.sql", "20261007_public_order_tracking.sql", "20261008_tracking_realtime.sql"]
+      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql", "20260920_partner_services.sql", "20260921_support_chat.sql", "20261002_remove_unused_columns.sql", "20261004_integrate_prototypes.sql", "20261005_remove_device_serial_and_issue_type.sql", "20261007_public_order_tracking.sql", "20261008_tracking_realtime.sql", "20261013_sequential_ids.sql"]
         .filter((name) => !applied.some((entry) => entry.name === name));
       if (pending.length) {
       const backup: Record<string, unknown> = {};
@@ -81,6 +81,9 @@ main().catch((error: unknown) => {
   // Do not print connection objects, URLs or SQL bind parameters (credentials/PII).
   const code = (error as { original?: { code?: string }; code?: string }).original?.code
     ?? (error as { code?: string }).code;
-  console.error(`Verificação falhou${code ? ` (${code})` : ""}. Confira DATABASE_URL, SSL e migrations no README.`);
+  const original = (error as { original?: { schema?: string; table?: string; constraint?: string; routine?: string; message?: string } }).original;
+  const context = [original?.schema, original?.table, original?.constraint, original?.routine].filter(Boolean).join("/");
+  console.error(`Verificação falhou${code ? ` (${code})` : ""}${context ? ` em ${context}` : ""}. Confira DATABASE_URL, SSL e migrations no README.`);
+  if (original?.message && code === "42P07") console.error(original.message);
   process.exitCode = 1;
 });

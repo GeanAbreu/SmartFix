@@ -21,6 +21,8 @@ test("mapeia os campos da API para devices conforme o DER", () => {
   assert.ok(attributes.issue_description);
 });
 
-test("o ORM continua gerando UUID v4 com a dependência corrigida", () => {
-  assert.match(ClientDevice.build().id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+test("o ORM delega ao PostgreSQL a geração do ID sequencial", () => {
+  const id = ClientDevice.getAttributes().id;
+  assert.equal(id.autoIncrement, true);
+  assert.equal(String(id.type), "BIGINT");
 });

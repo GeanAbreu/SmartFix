@@ -23,7 +23,7 @@ async function main() {
       assert.equal((await ClientAddress.findByPk(address.id, { transaction }))?.cidade, "São Paulo");
       await device.update({ apelido: "Atualizado" }, { transaction });
       assert.equal((await ClientDevice.findByPk(device.id, { transaction }))?.apelido, "Atualizado");
-      const otherClientId = randomUUID();
+      const otherClientId = "9223372036854775807";
       assert.equal(await ClientAddress.findOne({ where: { id: address.id, client_id: otherClientId }, transaction }), null);
       assert.equal(await ClientDevice.findOne({ where: { id: device.id, client_id: otherClientId }, transaction }), null);
       const partner = await Partner.create({ full_name: "Parceiro Teste", email: `partner-${suffix}@example.invalid`,
@@ -36,7 +36,7 @@ async function main() {
       assert.equal((await ClientAddress.findByPk(partnerAddress.id, { transaction }))?.partner_id, partner.id);
       assert.equal(await ClientAddress.findOne({ where: { id: partnerAddress.id, client_id: client.id }, transaction }), null);
       const order: import("../src/types/workflow").RepairOrder = {
-        id: randomUUID(), clientId: client.id, partnerId: partner.id, deviceId: device.id,
+        id: "9223372036854775801", clientId: client.id, partnerId: partner.id, deviceId: device.id,
         device: "Apple iPhone 13", problem: "Não liga nem carrega", status: "pending",
         createdAt: new Date().toISOString(), quote: [], symptoms: [], checklist: [],
         diagnosis: "", history: [], review: null,
@@ -55,7 +55,7 @@ async function main() {
       await rejectWrite((savepoint) => device.destroy({ transaction: savepoint }), "23503");
       const other = await Client.create({ nome: "Outro cliente", email: `other-${suffix}@example.invalid`,
         cpf: randomUUID().replaceAll("-", "").slice(0, 11), senha: "test-only" }, { transaction });
-      await rejectWrite((savepoint) => saveRepairOrder({ ...order, id: randomUUID(), clientId: other.id }, savepoint), "23503");
+      await rejectWrite((savepoint) => saveRepairOrder({ ...order, id: "9223372036854775802", clientId: other.id }, savepoint), "23503");
       order.status = "completed";
       order.quote = [{ name: "Reparo", category: "labor", details: "", quantity: 2, unitPriceCents: 19990 }];
       await saveRepairOrder(order, transaction);
@@ -78,7 +78,7 @@ async function main() {
       for (const owners of [
         { client_id: null, partner_id: null },
         { client_id: client.id, partner_id: partner.id },
-        { client_id: null, partner_id: randomUUID() },
+        { client_id: null, partner_id: "9223372036854775807" },
       ]) {
         await assert.rejects(sequelize.transaction({ transaction }, async (savepoint) => {
           await ClientAddress.create({ ...owners, apelido: "Inválido", cep: "01001000",

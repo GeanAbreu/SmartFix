@@ -1,10 +1,10 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { accountById, actorFrom } from "@/src/services/account.service";
 import { applicationUrl } from "@/src/services/email.service";
 import { openFlow, sealFlow } from "@/src/services/auth-flow.service";
-import { withWorkflow } from "@/src/services/workflow.service";
+import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import { AppError } from "@/src/errors/AppError";
 import {
   createSessionToken,
@@ -151,7 +151,7 @@ export class GoogleController {
             );
           if (existing) return existing;
           const record = {
-            id: randomUUID(),
+            id: nextWorkflowId(records),
             kind: "google" as const,
             ownerId: actor.sub,
             data: { subject: google.sub, role: actor.role },

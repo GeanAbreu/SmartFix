@@ -41,7 +41,7 @@ test("busca protegida filtra raio, usa aprovação e não vaza endereço de outr
   const previous = { ...process.env };
   process.env.DATABASE_URL = "postgres://test:test@localhost/test";
   process.env.SESSION_SECRET = "discovery-test-session-secret-with-32-characters";
-  const clientId = randomUUID(), partnerId = randomUUID();
+  const clientId = "1", partnerId = "2";
   t.mock.method(Workflow, "findAll", async () => []);
   t.mock.method(Client, "unscoped", () => ({ findByPk: async () => ({ id: clientId, nome: "Teste", email: "test@example.test" }) }));
   t.mock.method(Partner, "unscoped", () => ({ findByPk: async () => ({ id: partnerId }) }));
@@ -64,7 +64,7 @@ test("busca protegida filtra raio, usa aprovação e não vaza endereço de outr
   try {
     assert.equal((await DiscoveryController.search(request({ origin }, null))).status, 401);
     assert.equal((await DiscoveryController.search(request({ origin }, "partner"))).status, 403);
-    assert.equal((await DiscoveryController.search(request({ addressId: randomUUID() }))).status, 404);
+    assert.equal((await DiscoveryController.search(request({ addressId: "999" }))).status, 404);
     const response = await DiscoveryController.search(request({ origin }));
     assert.equal(response.status, 200);
     const { data } = await response.json();

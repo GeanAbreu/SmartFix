@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Op, QueryTypes } from "sequelize";
 import { z } from "zod";
+import { databaseId } from "@/src/validations/database-id";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { ClientAddress, Partner, Review } from "@/src/models";
 import { actorFrom } from "@/src/services/account.service";
@@ -13,7 +14,7 @@ import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180),
   label: z.string().max(250), precision: z.enum(["gps", "cep", "city"]) });
 export const discoveryInput = z.object({
-  origin: point.optional(), addressId: z.string().uuid().optional(),
+  origin: point.optional(), addressId: databaseId.optional(),
   radius: z.union([z.literal(5), z.literal(10), z.literal(25), z.literal(50), z.literal(100)]).default(10),
 }).refine((v) => Boolean(v.origin) !== Boolean(v.addressId), "Selecione uma localização.");
 const ok = (data: unknown) => noStoreResponse(NextResponse.json({ success: true, data }));
@@ -72,7 +73,7 @@ export class DiscoveryController {
   static async reviews(request: NextRequest, id: string) {
     try {
       await client(request);
-      z.string().uuid().parse(id);
+      databaseId.parse(id);
       if (!await Partner.findOne({ where: { id, is_verified: true }, attributes: ["id"] }))
         throw new AppError("Assistência não encontrada.", 404, "NOT_FOUND");
       return ok({ reviews: await Review.findAll({ where: { partner_id: id },

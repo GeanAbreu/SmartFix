@@ -11,9 +11,9 @@ export class Workflow extends Model {
 }
 Workflow.init(
   {
-    id: { type: DataTypes.UUID, primaryKey: true },
+    id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     kind: { type: DataTypes.STRING(20), allowNull: false },
-    ownerId: { type: DataTypes.UUID, allowNull: false, field: "owner_id" },
+    ownerId: { type: DataTypes.BIGINT, allowNull: false, field: "owner_id" },
     data: { type: DataTypes.JSONB, allowNull: false },
   },
   { sequelize, tableName: "workflow_records", timestamps: false },

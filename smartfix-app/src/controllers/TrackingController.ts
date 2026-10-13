@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { databaseId } from "@/src/validations/database-id";
 import { actorFrom } from "@/src/services/account.service";
 import {
   findPublicTracking,
@@ -22,7 +22,7 @@ function failure(error: unknown) {
 export class TrackingController {
   static async issue(request: NextRequest, orderId: string) {
     try {
-      z.uuid().parse(orderId);
+      databaseId.parse(orderId);
       const actor = await actorFrom(request);
       if (actor.role !== "client") return response({}, 404);
       const token = await issueTrackingToken(orderId, actor.sub);
@@ -34,7 +34,7 @@ export class TrackingController {
 
   static async revoke(request: NextRequest, orderId: string) {
     try {
-      z.uuid().parse(orderId);
+      databaseId.parse(orderId);
       const actor = await actorFrom(request);
       if (actor.role !== "client") return response({}, 404);
       await revokeTrackingToken(orderId, actor.sub);

@@ -19,12 +19,12 @@ export class ClientAddress extends Model {
 ClientAddress.init(
   {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
+      autoIncrement: true,
     },
     client_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       allowNull: true,
       references: {
         model: "clients",
@@ -33,7 +33,7 @@ ClientAddress.init(
       onDelete: "CASCADE",
     },
     partner_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       allowNull: true,
       references: { model: "partner", key: "id" },
       onDelete: "CASCADE",

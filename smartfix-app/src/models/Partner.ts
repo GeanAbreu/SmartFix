@@ -17,9 +17,9 @@ export class Partner extends Model {
 Partner.init(
   {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
+      autoIncrement: true,
     },
     full_name: {
       type: DataTypes.TEXT,

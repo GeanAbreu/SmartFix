@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AppError } from "@/src/errors/AppError";
 import { Partner, PartnerService } from "@/src/models";
 import { actorFrom } from "@/src/services/account.service";
-import { withWorkflow } from "@/src/services/workflow.service";
+import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
+import { databaseId } from "@/src/validations/database-id";
 import { usesLocalAuthStore } from "@/src/services/local-auth.service";
 import { assertDatabaseConfigured } from "@/src/config/database";
 import type { WorkflowRecord } from "@/src/types/workflow";
@@ -62,7 +62,7 @@ export class ServiceController {
       const id = await partnerId(request);
       const values = input.parse(await request.json());
       if (usesLocalAuthStore()) await withWorkflow((records) => {
-        records.push({ id: randomUUID(), kind: "service", ownerId: id, data: values });
+        records.push({ id: nextWorkflowId(records), kind: "service", ownerId: id, data: values });
       }, true);
       else {
         assertDatabaseConfigured();
@@ -75,7 +75,7 @@ export class ServiceController {
 
   static async update(request: NextRequest, serviceId: string) {
     try {
-      z.uuid().parse(serviceId);
+      databaseId.parse(serviceId);
       const id = await partnerId(request);
       const values = input.partial().refine((value) => Object.keys(value).length > 0).parse(await request.json());
       if (usesLocalAuthStore()) await withWorkflow((records) => {
@@ -101,7 +101,7 @@ export class ServiceController {
     try {
       const actor = await actorFrom(request);
       if (actor.role !== "client") throw new AppError("Área exclusiva de clientes.", 403, "FORBIDDEN");
-      z.uuid().parse(id);
+      databaseId.parse(id);
       if (usesLocalAuthStore()) {
         const { listLocalPartners } = await import("@/src/services/local-auth.service");
         if (!(await listLocalPartners()).some((partner) => partner.id === id && partner.isVerified))

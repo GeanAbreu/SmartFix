@@ -1,8 +1,8 @@
-import { randomBytes, randomInt, randomUUID } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { accountByEmail, accountById, changePassword } from "@/src/services/account.service";
-import { withWorkflow } from "@/src/services/workflow.service";
+import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import { emailConfigured, recoveryCodeEmail, sendEmail } from "@/src/services/email.service";
 import { hashPassword } from "@/src/services/password.service";
 import { digest } from "@/src/services/auth-flow.service";
@@ -37,8 +37,9 @@ export class RecoveryController {
       const user = await accountByEmail(email);
       if (user) {
         const now = Date.now();
-        const id = randomUUID();
+        let id = "";
         const code = await withWorkflow((records) => {
+          id = nextWorkflowId(records);
           for (let index = records.length - 1; index >= 0; index--)
             if (records[index].kind === "reset" && Number(records[index].data.expires) <= now &&
               !(Number(records[index].data.revokedAt) >= now - SESSION_MAX_AGE * 1000))

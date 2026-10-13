@@ -7,6 +7,11 @@ import { localWorkflow, usesLocalAuthStore } from "./local-auth.service";
 import type { RepairOrder, WorkflowRecord } from "@/src/types/workflow";
 import type { Transaction } from "sequelize";
 
+export function nextWorkflowId(records: WorkflowRecord[]) {
+  const ids = records.map((record) => BigInt(record.id));
+  return String((ids.length ? ids.reduce((highest, id) => id > highest ? id : highest) : BigInt(0)) + BigInt(1));
+}
+
 // All workflow mutations share the same transaction lock. Local development uses
 // the existing auth store queue; PostgreSQL uses a transaction advisory lock.
 export async function withWorkflow<T>(

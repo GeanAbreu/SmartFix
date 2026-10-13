@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { databaseId } from "@/src/validations/database-id";
 import { AppError } from "@/src/errors/AppError";
 import { actorFrom, accountById } from "@/src/services/account.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
@@ -15,7 +16,7 @@ function orderFrom(data: Record<string, unknown>) { return data as unknown as Re
 async function confirmPayment(paymentId: string, expectedClientId?: string) {
   const payment = await getPayment(paymentId);
   if (payment.status !== "approved" || !payment.external_reference) return false;
-  const orderId = z.uuid().parse(payment.external_reference);
+  const orderId = databaseId.parse(payment.external_reference);
   return withWorkflow((records) => {
     const record = records.find((item) => item.kind === "order" && item.id === orderId);
     if (!record) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
@@ -36,7 +37,7 @@ export class PaymentController {
     try {
       const actor = await actorFrom(request);
       if (actor.role !== "client") throw new AppError("Apenas clientes podem pagar uma O.S.", 403, "FORBIDDEN");
-      const input = z.object({ orderId: z.uuid() }).extend(checkoutInput.shape).parse(await request.json());
+      const input = z.object({ orderId: databaseId }).extend(checkoutInput.shape).parse(await request.json());
       const account = await accountById(actor.sub, "client");
       if (!account) throw new AppError("Cliente não encontrado.", 404, "NOT_FOUND");
       const prepared = await withWorkflow((records) => {

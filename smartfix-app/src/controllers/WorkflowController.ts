@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ClientDevice, Partner } from "@/src/models";
@@ -14,7 +13,8 @@ import {
   orderInput,
   quoteTotal,
 } from "@/src/services/order-policy.service";
-import { withWorkflow } from "@/src/services/workflow.service";
+import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
+import { databaseId } from "@/src/validations/database-id";
 import { emailConfigured, sendEmail } from "@/src/services/email.service";
 import {
   orderStatusWhatsAppMessage,
@@ -58,7 +58,7 @@ function notify(
   href: string,
 ) {
   records.push({
-    id: randomUUID(),
+    id: nextWorkflowId(records),
     kind: "notification",
     ownerId,
     data: { message, href, read: false, createdAt: new Date().toISOString() },
@@ -151,7 +151,7 @@ export class WorkflowController {
       const now = new Date().toISOString();
       const order: RepairOrder = {
         ...input,
-        id: randomUUID(),
+        id: "0",
         clientId: actor.sub,
         device: `${device.marca} ${device.modelo}`,
         status: "pending",
@@ -165,6 +165,7 @@ export class WorkflowController {
         createdAt: now,
       };
       await withWorkflow((records) => {
+        order.id = nextWorkflowId(records);
         records.push({
           id: order.id,
           kind: "order",
@@ -185,7 +186,7 @@ export class WorkflowController {
   }
   static async update(request: NextRequest, id: string) {
     try {
-      z.uuid().parse(id);
+      databaseId.parse(id);
       const actor = await actorFrom(request);
       const input = orderAction.parse(await request.json());
       const result = await withWorkflow((records) => {
@@ -265,7 +266,7 @@ export class WorkflowController {
   }
   static async approvePartner(request: NextRequest, id: string) {
     try {
-      z.uuid().parse(id);
+      databaseId.parse(id);
       const actor = await actorFrom(request);
       if (!isAdministrator(actor.sub))
         throw new AppError(
@@ -291,9 +292,9 @@ export class WorkflowController {
       const message = input.verified
         ? "Seu credenciamento foi aprovado."
         : `Credenciamento recusado: ${input.reason}`;
-      const notificationId = randomUUID();
+      let notificationId = "";
       const notification: WorkflowRecord = {
-        id: notificationId,
+        id: "0",
         kind: "notification",
         ownerId: id,
         data: {
@@ -304,10 +305,15 @@ export class WorkflowController {
           createdAt: new Date().toISOString(),
         },
       };
-      if (usesLocalAuthStore())
+      if (usesLocalAuthStore()) {
+        notificationId = await withWorkflow((records) => nextWorkflowId(records));
+        notification.id = notificationId;
         await verifyLocalPartner(id, input.verified, notification);
+      }
       else
         await withWorkflow(async (records, transaction) => {
+          notificationId = nextWorkflowId(records);
+          notification.id = notificationId;
           await Partner.update(
             { is_verified: input.verified },
             { where: { id }, transaction },

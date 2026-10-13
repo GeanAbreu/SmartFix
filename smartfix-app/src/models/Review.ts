@@ -12,10 +12,10 @@ export class Review extends Model {
 }
 
 Review.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
-  client_id: { type: DataTypes.UUID, allowNull: false, references: { model: "clients", key: "id" } },
-  partner_id: { type: DataTypes.UUID, allowNull: false, references: { model: "partner", key: "id" } },
-  repair_order_id: { type: DataTypes.UUID, allowNull: false, unique: true, references: { model: "repair_orders", key: "id" } },
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  client_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: "clients", key: "id" } },
+  partner_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: "partner", key: "id" } },
+  repair_order_id: { type: DataTypes.BIGINT, allowNull: false, unique: true, references: { model: "repair_orders", key: "id" } },
   rating: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1, max: 5 } },
   comment: { type: DataTypes.TEXT, allowNull: false, defaultValue: "" },
   review_date: { type: DataTypes.DATEONLY, allowNull: false },

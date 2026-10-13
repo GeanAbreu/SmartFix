@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
 import { z } from "zod";
+import { databaseId } from "@/src/validations/database-id";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { actorFrom } from "@/src/services/account.service";
 import { AppError } from "@/src/errors/AppError";
@@ -8,7 +9,7 @@ import { controllerErrorResponse, noStoreResponse } from "@/src/controllers/cont
 
 export const runtime = "nodejs";
 
-const messageSchema = z.object({ body: z.string().trim().min(1, "Digite uma mensagem.").max(2000), partnerId: z.uuid().nullable().default(null) });
+const messageSchema = z.object({ body: z.string().trim().min(1, "Digite uma mensagem.").max(2000), partnerId: databaseId.nullable().default(null) });
 
 async function authorizedPartner(clientId: string, partnerId: string) {
   const [row] = await sequelize.query<{ id: string }>(
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (actor.role !== "client") throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
     const rawPartnerId = request.nextUrl.searchParams.get("partnerId");
-    const partnerId = rawPartnerId ? z.uuid().parse(rawPartnerId) : null;
+    const partnerId = rawPartnerId ? databaseId.parse(rawPartnerId) : null;
     if (partnerId) await authorizedPartner(actor.sub, partnerId);
     const messages = await sequelize.query<{
       id: string; senderRole: "client" | "admin"; body: string; createdAt: string;

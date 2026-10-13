@@ -2,7 +2,6 @@ import "server-only";
 
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 import { assertAddressCanBeDeleted } from "@/src/services/address-policy.service";
 import type { SessionRole } from "@/src/types/api";
@@ -81,6 +80,11 @@ export function usesLocalAuthStore() {
 
 function emptyStore(): LocalAuthStore {
   return { version: 1, users: [] };
+}
+
+function nextLocalId(items: Array<{ id: string }>) {
+  const ids = items.filter((item) => /^\d+$/.test(item.id)).map((item) => BigInt(item.id));
+  return String((ids.length ? ids.reduce((highest, id) => id > highest ? id : highest) : BigInt(0)) + BigInt(1));
 }
 
 function isLocalAuthStore(value: unknown): value is LocalAuthStore {
@@ -214,7 +218,7 @@ export function createLocalUser(
     delete profile.zipCode;
     const user: LocalAuthUser = {
       ...profile,
-      id: randomUUID(),
+      id: nextLocalId(store.users),
       email: normalizedEmail,
       isVerified: false,
       createdAt: new Date().toISOString(),
@@ -225,7 +229,7 @@ export function createLocalUser(
     if (initialAddress) {
       localAddresses(store).push({
         ...initialAddress,
-        id: randomUUID(),
+        id: nextLocalId(localAddresses(store)),
         clientId: user.role === "client" ? user.id : null,
         partnerId: user.role === "partner" ? user.id : null,
         principal: true,
@@ -307,7 +311,7 @@ export function createLocalAddress(
 
     const address: LocalClientAddress = {
       ...input,
-      id: randomUUID(),
+      id: nextLocalId(addresses),
       clientId,
       principal,
     };
@@ -402,7 +406,7 @@ export function createLocalDevice(
   return withStore((store) => {
     const device: LocalClientDevice = {
       ...input,
-      id: randomUUID(),
+      id: nextLocalId(localDevices(store)),
       clientId,
     };
     localDevices(store).push(device);
