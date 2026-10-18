@@ -1,0 +1,373 @@
+/* Modal de comprovante SmartFix — azul-marinho e laranja */
+.sf-receipt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgba(2, 6, 16, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.sf-receipt-modal {
+  width: min(100%, 560px);
+  max-height: min(92vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #eaf0fa;
+  background: #0b1120;
+  border: 1px solid #26334a;
+  border-radius: 20px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.sf-receipt-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #26334a;
+}
+
+.sf-receipt-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sf-receipt-brand-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: #f97316;
+  border-radius: 12px;
+}
+
+.sf-receipt-brand strong,
+.sf-receipt-brand small {
+  display: block;
+}
+
+.sf-receipt-brand strong {
+  color: #fff;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+
+.sf-receipt-brand small {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.sf-icon-button,
+.sf-copy-button {
+  display: grid;
+  place-items: center;
+  color: #cbd5e1;
+  background: #172338;
+  border: 1px solid #2b3a51;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.sf-icon-button {
+  width: 38px;
+  height: 38px;
+}
+
+.sf-icon-button:hover,
+.sf-copy-button:hover {
+  background: #24334b;
+  border-color: #f97316;
+}
+
+.sf-receipt-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.sf-receipt-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 8px 24px;
+}
+
+.sf-receipt-status-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  border-radius: 50%;
+}
+
+.sf-status-pago .sf-receipt-status-icon {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.13);
+}
+
+.sf-status-pendente .sf-receipt-status-icon {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.13);
+}
+
+.sf-status-falhou .sf-receipt-status-icon {
+  color: #fb7185;
+  background: rgba(244, 63, 94, 0.13);
+}
+
+.sf-receipt-status h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.45px;
+}
+
+.sf-receipt-status p {
+  margin: 7px 0 16px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sf-receipt-amount {
+  color: #fff;
+  font-size: clamp(29px, 6vw, 36px);
+  font-weight: 750;
+  letter-spacing: -1px;
+}
+
+.sf-receipt-fee {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.sf-receipt-card {
+  margin-top: 14px;
+  padding: 17px;
+  background: #111c2e;
+  border: 1px solid #26334a;
+  border-radius: 14px;
+}
+
+.sf-receipt-card h3 {
+  margin: 0 0 14px;
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sf-receipt-info-row {
+  display: grid;
+  grid-template-columns: 20px minmax(110px, 1fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 9px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.55);
+}
+
+.sf-receipt-info-row:first-of-type {
+  padding-top: 0;
+}
+
+.sf-receipt-info-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.sf-receipt-info-icon {
+  display: flex;
+  padding-top: 1px;
+  color: #f97316;
+}
+
+.sf-receipt-info-label {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sf-receipt-info-row strong {
+  min-width: 0;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.sf-receipt-transaction {
+  margin-top: 14px;
+  padding: 15px 17px;
+  background: #111c2e;
+  border: 1px solid #26334a;
+  border-radius: 14px;
+}
+
+.sf-receipt-transaction-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4ade80;
+  font-size: 13px;
+}
+
+.sf-receipt-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sf-receipt-code-row code {
+  min-width: 0;
+  color: #cbd5e1;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.sf-copy-button {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  color: #f97316;
+}
+
+.sf-receipt-feedback {
+  margin: 12px 0 0;
+  color: #fdba74;
+  font-size: 12px;
+}
+
+.sf-receipt-footer {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 10px;
+  padding: 18px 24px 20px;
+  border-top: 1px solid #26334a;
+  background: #0b1120;
+}
+
+.sf-button {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.sf-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.sf-button:focus-visible,
+.sf-icon-button:focus-visible,
+.sf-copy-button:focus-visible {
+  outline: 2px solid #fb923c;
+  outline-offset: 3px;
+}
+
+.sf-button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.sf-button-primary {
+  color: #fff;
+  background: #f97316;
+}
+
+.sf-button-primary:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.sf-button-secondary {
+  color: #e2e8f0;
+  background: #111c2e;
+  border-color: #334155;
+}
+
+.sf-button-secondary:hover {
+  background: #1b2940;
+  border-color: #475569;
+}
+
+.sf-receipt-footer > p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.sf-spin {
+  animation: sf-spin 1s linear infinite;
+}
+
+@keyframes sf-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 520px) {
+  .sf-receipt-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .sf-receipt-modal {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .sf-receipt-header {
+    padding: 16px 18px;
+  }
+
+  .sf-receipt-body {
+    padding: 18px;
+  }
+
+  .sf-receipt-footer {
+    padding: 15px 18px 18px;
+  }
+
+  .sf-receipt-info-row {
+    grid-template-columns: 18px minmax(90px, 0.9fr) minmax(0, 1.1fr);
+    gap: 7px;
+  }
+
+  .sf-receipt-info-label,
+  .sf-receipt-info-row strong {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-spin { animation: none; }
+  .sf-button, .sf-icon-button, .sf-copy-button { transition: none; }
+}
