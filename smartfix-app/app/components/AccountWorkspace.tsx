@@ -92,7 +92,7 @@ export default function AccountWorkspace({
     <main className={styles.page}>
       <div className={styles.inner}>
         <h1>{title}</h1>
-        {mode === "admin" && <p><Link href="/admin/mensagens">Abrir mensagens recebidas →</Link></p>}
+        {mode === "admin" && <p><Link href="/admin/mensagens">Abrir mensagens recebidas →</Link> · <Link href="/admin/logistica">Ocorrências logísticas →</Link> · <Link href="/admin/financeiro">Reembolsos →</Link></p>}
         {message && (
           <p role="status" className={styles.message}>
             {message}

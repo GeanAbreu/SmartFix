@@ -33,6 +33,7 @@ export const checkoutInput = z.object({
   scheduledDate: z.iso.date(),
   schedulePeriod: z.enum(["morning", "afternoon"]),
   serviceAddress: z.string().trim().min(8).max(500),
+  serviceAddressId: databaseId.optional(),
   couponCode: z.string().trim().max(30).default(""),
 });
 export const orderAction = z.discriminatedUnion("action", [
@@ -57,8 +58,10 @@ export const orderAction = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("status"),
-    status: z.enum(["in_progress", "waiting_parts", "ready", "completed"]),
+    status: z.enum(["in_progress", "waiting_parts", "ready"]),
   }),
+  z.object({ action: z.literal("confirm_receipt") }),
+  z.object({ action: z.literal("request_cancellation"), reason: z.string().trim().min(10).max(1000) }),
   z.object({
     action: z.literal("review"),
     rating: z.number().int().min(1).max(5),
@@ -130,12 +133,22 @@ export function applyOrderAction(
   } else if (input.action === "review") {
     if (!client || status !== "completed" || order.review) invalid();
     order.review = { rating: input.rating, comment: input.comment };
+  } else if (input.action === "confirm_receipt") {
+    if (!client || status !== "ready" || order.serviceDetails.logistics?.return?.deliveryId) invalid();
+    completeOrder(order, new Date().toISOString(), "client_confirmation");
+    status = order.status;
+  } else if (input.action === "request_cancellation") {
+    if (!client || status !== "approved" || order.serviceDetails.paymentStatus !== "confirmed" ||
+      order.serviceDetails.logistics?.pickup?.deliveryId || order.serviceDetails.cancellationRequestedAt) invalid();
+    order.serviceDetails.cancellationRequestedAt = new Date().toISOString();
+    order.serviceDetails.cancellationReason = input.reason;
+    order.serviceDetails.refundStatus = "pending";
   } else {
     const allowed: Partial<Record<OrderStatus, OrderStatus[]>> = {
       approved: ["in_progress"],
       in_progress: ["waiting_parts", "ready"],
       waiting_parts: ["in_progress"],
-      ready: ["completed"],
+      ready: [],
     };
     if (!partner || !allowed[status]?.includes(input.status)) invalid();
     status = input.status;
@@ -144,6 +157,22 @@ export function applyOrderAction(
     order.history.push({ status, at: new Date().toISOString() });
   order.status = status;
   return order;
+}
+
+export function completeOrder(order: RepairOrder, at: string, method: "uber_direct" | "client_confirmation") {
+  if (order.status === "completed") return false;
+  if (order.status !== "ready")
+    throw new AppError("A ordem ainda não está pronta para conclusão.", 409, "INVALID_TRANSITION");
+  const starts = new Date(at);
+  const ends = new Date(starts);
+  ends.setUTCDate(ends.getUTCDate() + order.serviceDetails.warrantyDays);
+  order.status = "completed";
+  order.serviceDetails.deliveredAt = starts.toISOString();
+  order.serviceDetails.completionMethod = method;
+  order.serviceDetails.warrantyStartsAt = starts.toISOString();
+  order.serviceDetails.warrantyEndsAt = ends.toISOString();
+  order.history.push({ status: "completed", at: starts.toISOString() });
+  return true;
 }
 
 export function prepareOrderPayment(order: RepairOrder, clientId: string, input: z.infer<typeof checkoutInput>) {
@@ -157,6 +186,7 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, input:
   order.serviceDetails.scheduledDate = input.scheduledDate;
   order.serviceDetails.schedulePeriod = input.schedulePeriod;
   order.serviceDetails.serviceAddress = input.serviceAddress;
+  order.serviceDetails.serviceAddressId = input.serviceAddressId;
   order.serviceDetails.couponCode = input.couponCode.toUpperCase();
   order.serviceDetails.discountCents = order.serviceDetails.couponCode === "SMART10"
     ? Math.round(quoteTotal(order.quote) * 0.1) : 0;

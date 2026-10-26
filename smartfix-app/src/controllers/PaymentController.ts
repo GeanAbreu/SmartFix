@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { databaseId } from "@/src/validations/database-id";
 import { AppError } from "@/src/errors/AppError";
-import { actorFrom, accountById } from "@/src/services/account.service";
+import { actorFrom, accountById, isAdministrator } from "@/src/services/account.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
-import { createPreference, getPayment } from "@/src/services/mercado-pago.service";
+import { createPreference, getPayment, refundPayment } from "@/src/services/mercado-pago.service";
 import { withWorkflow } from "@/src/services/workflow.service";
 import type { RepairOrder } from "@/src/types/workflow";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
@@ -33,6 +33,64 @@ async function confirmPayment(paymentId: string, expectedClientId?: string) {
 }
 
 export class PaymentController {
+  static async refundRequests(request: NextRequest) {
+    try {
+      const actor = await actorFrom(request);
+      if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      const requests = await withWorkflow((records) => records.filter((item) => item.kind === "order").flatMap((record) => {
+        const order = orderFrom(record.data);
+        if (order.serviceDetails.refundStatus !== "pending") return [];
+        return [{ orderId: order.id, device: order.device, reason: order.serviceDetails.cancellationReason || "",
+          requestedAt: order.serviceDetails.cancellationRequestedAt, paymentId: order.serviceDetails.paymentId,
+          totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents) }];
+      }).sort((a, b) => (a.requestedAt || "").localeCompare(b.requestedAt || "")));
+      return ok({ requests });
+    } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
+  }
+
+  static async refund(request: NextRequest, id: string) {
+    try {
+      databaseId.parse(id);
+      const actor = await actorFrom(request);
+      if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      const input = z.object({ amountCents: z.number().int().positive().optional(),
+        reason: z.string().trim().min(10).max(1000) }).parse(await request.json());
+      const prepared = await withWorkflow((records) => {
+        const record = records.find((item) => item.kind === "order" && item.id === id);
+        if (!record) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
+        const order = orderFrom(record.data);
+        if (order.serviceDetails.paymentStatus !== "confirmed" || !order.serviceDetails.paymentId)
+          throw new AppError("Esta ordem não possui pagamento confirmado.", 409, "PAYMENT_NOT_REFUNDABLE");
+        if (order.serviceDetails.refundStatus === "processed")
+          return { order, alreadyProcessed: true as const, totalCents: 0 };
+        const totalCents = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
+        if (input.amountCents && input.amountCents > totalCents)
+          throw new AppError("O reembolso não pode exceder o valor pago.", 422, "INVALID_REFUND_AMOUNT");
+        order.serviceDetails.refundStatus = "pending";
+        order.serviceDetails.cancellationReason = input.reason;
+        record.data = { ...order };
+        return { order, alreadyProcessed: false as const, totalCents };
+      }, true);
+      if (prepared.alreadyProcessed) return ok({ refunded: true, order: prepared.order });
+      const amount = input.amountCents;
+      const refund = await refundPayment({ paymentId: prepared.order.serviceDetails.paymentId!,
+        idempotencyKey: `smartfix-refund-${id}-${amount ?? "full"}`, amountCents: amount });
+      const order = await withWorkflow((records) => {
+        const current = orderFrom(records.find((item) => item.kind === "order" && item.id === id)!.data);
+        current.serviceDetails.refundStatus = "processed";
+        current.serviceDetails.refundId = refund.id;
+        current.serviceDetails.refundAmountCents = refund.amountCents;
+        current.serviceDetails.refundedAt = new Date().toISOString();
+        if (refund.amountCents >= prepared.totalCents && !current.serviceDetails.logistics?.pickup?.deliveryId) {
+          current.status = "cancelled";
+          current.history.push({ status: "cancelled", at: current.serviceDetails.refundedAt });
+        }
+        return current;
+      }, true);
+      return ok({ refunded: true, refund, order });
+    } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
+  }
+
   static async checkout(request: NextRequest) {
     try {
       const actor = await actorFrom(request);

@@ -171,6 +171,15 @@ export function updateLocalProfile(id: string, input: { name: string; phone: str
   }, true);
 }
 
+export function updateLocalPartnerProfile(id: string, input: { companyName: string; phone: string }) {
+  return withStore((store) => {
+    const user = store.users.find((candidate) => candidate.id === id && candidate.role === "partner");
+    if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
+    user.companyName = input.companyName;
+    user.phone = input.phone;
+  }, true);
+}
+
 export function listLocalPartners() {
   return withStore((store) => store.users.filter((user) => user.role === "partner").map((user) => ({
     id: user.id, name: user.companyName || user.name, email: user.email, document: user.document, isVerified: user.isVerified,
@@ -289,6 +298,15 @@ export function listLocalAddresses(clientId: string) {
   return withStore((store) =>
     localAddresses(store)
       .filter((address) => address.clientId === clientId)
+      .sort((a, b) => Number(b.principal) - Number(a.principal))
+      .map((address) => ({ ...address }))
+  );
+}
+
+export function listLocalOwnerAddresses(ownerId: string, role: SessionRole) {
+  return withStore((store) =>
+    localAddresses(store)
+      .filter((address) => role === "client" ? address.clientId === ownerId : address.partnerId === ownerId)
       .sort((a, b) => Number(b.principal) - Number(a.principal))
       .map((address) => ({ ...address }))
   );

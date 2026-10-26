@@ -204,10 +204,8 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       (await action(partner, { action: "status", status: "ready" })).status,
       200,
     );
-    assert.equal(
-      (await action(partner, { action: "status", status: "completed" })).status,
-      200,
-    );
+    assert.equal((await action(partner, { action: "status", status: "completed" })).status, 422);
+    assert.equal((await action(client, { action: "confirm_receipt" })).status, 200);
     const completedOrders = (await (await controller.list(request(client, "/api/orders"))).json()).data.orders;
     assert.equal(completedOrders[0].partnerName, partner.name);
     assert.equal(completedOrders[0].status, "completed");

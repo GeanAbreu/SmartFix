@@ -43,6 +43,7 @@ export type PartnerProfile = {
   name: string;
   email: string;
   companyName: string | null;
+  phone: string | null;
   isVerified: boolean;
 };
 

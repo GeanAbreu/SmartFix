@@ -38,12 +38,7 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   const partner = { sub: "partner", role: "partner" };
   assert.throws(() => prepareOrderPayment(current, "other", { scheduledDate: "2099-01-01",
     schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" }));
-  assert.throws(() =>
-    applyOrderAction(current, client, {
-      action: "status",
-      status: "completed",
-    }),
-  );
+  assert.equal(orderAction.safeParse({ action: "status", status: "completed" }).success, false);
   const quote = orderAction.parse({
     action: "quote",
     diagnosis: "Troca de bateria",
@@ -67,18 +62,15 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
     action: "status",
     status: "waiting_parts",
   });
-  assert.throws(() =>
-    applyOrderAction(current, partner, {
-      action: "status",
-      status: "completed",
-    }),
-  );
+  assert.equal(orderAction.safeParse({ action: "status", status: "completed" }).success, false);
   applyOrderAction(current, partner, {
     action: "status",
     status: "in_progress",
   });
   applyOrderAction(current, partner, { action: "status", status: "ready" });
-  applyOrderAction(current, partner, { action: "status", status: "completed" });
+  applyOrderAction(current, client, { action: "confirm_receipt" });
+  assert.equal(current.serviceDetails.completionMethod, "client_confirmation");
+  assert.ok(current.serviceDetails.warrantyEndsAt);
   applyOrderAction(current, client, {
     action: "review",
     rating: 5,
@@ -192,6 +184,25 @@ test("prazo operacional não pode estar no passado", () => {
     promisedDate: "2000-01-01",
     internalNotes: "Prazo inválido",
   })), { code: "INVALID_PROMISED_DATE" });
+});
+test("somente o cliente conclui retirada presencial e a garantia começa na entrega", () => {
+  const current = order();
+  current.status = "ready";
+  assert.throws(() => applyOrderAction(current, { sub: "partner", role: "partner" }, { action: "confirm_receipt" }));
+  applyOrderAction(current, { sub: "client", role: "client" }, { action: "confirm_receipt" });
+  assert.equal(current.status, "completed");
+  assert.equal(current.serviceDetails.completionMethod, "client_confirmation");
+  assert.ok(current.serviceDetails.warrantyStartsAt);
+  assert.ok(current.serviceDetails.warrantyEndsAt);
+});
+test("cliente pode solicitar cancelamento pago somente antes da coleta", () => {
+  const current = order();
+  current.status = "approved";
+  current.serviceDetails.paymentStatus = "confirmed";
+  applyOrderAction(current, { sub: "client", role: "client" }, { action: "request_cancellation", reason: "Não poderei mais prosseguir com este reparo." });
+  assert.equal(current.serviceDetails.refundStatus, "pending");
+  assert.ok(current.serviceDetails.cancellationRequestedAt);
+  assert.throws(() => applyOrderAction(current, { sub: "client", role: "client" }, { action: "request_cancellation", reason: "Tentativa repetida de cancelar este serviço." }));
 });
 test("estado OAuth adulterado ou expirado não é aceito", () => {
   process.env.SESSION_SECRET = "test-oauth-secret-at-least-32-characters";

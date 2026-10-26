@@ -4357,6 +4357,11 @@ a {
     );
 }
 
+.cadastro-account-selector button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .cadastro-account-selector button.active {
   border-color:
     var(
@@ -4519,6 +4524,115 @@ a {
 /* ============================================================
    SEÇÃO
 ============================================================ */
+
+.cadastro-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.cadastro-progress button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(5, 22, 39, 0.7);
+  color: #6f8295;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cadastro-progress button span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cadastro-progress button.active {
+  border-color: rgba(255, 107, 23, 0.42);
+  background: rgba(255, 107, 23, 0.1);
+  color: #fff;
+}
+
+.cadastro-progress button.active span,
+.cadastro-progress button.done span {
+  background: var(--cadastro-orange);
+  color: #081523;
+}
+
+.cadastro-progress button.done {
+  color: #bdd0e1;
+  cursor: pointer;
+}
+
+.cadastro-step {
+  min-height: 330px;
+}
+
+.cadastro-step-actions {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.45fr) minmax(240px, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.cadastro-step-actions .cadastro-submit {
+  height: 50px;
+}
+
+.cadastro-step-back,
+.cadastro-step-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(12, 34, 54, 0.75);
+  color: #bed0df;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cadastro-review {
+  display: grid;
+  gap: 12px;
+}
+
+.cadastro-review article {
+  position: relative;
+  padding: 17px 92px 17px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(5, 22, 39, 0.68);
+}
+
+.cadastro-review small,
+.cadastro-review strong,
+.cadastro-review p {
+  display: block;
+}
+
+.cadastro-review small { color: var(--cadastro-orange); font-size: 8px; font-weight: 800; letter-spacing: 0.1em; }
+.cadastro-review strong { margin-top: 5px; color: #fff; font-size: 12px; }
+.cadastro-review p { margin: 4px 0 0; color: #7f93a6; font-size: 10px; }
+.cadastro-review article button { position: absolute; top: 50%; right: 16px; transform: translateY(-50%); border: 0; background: transparent; color: #73b8f2; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.cadastro-review-actions { grid-template-columns: minmax(120px, 0.45fr); border-top: 0; padding-top: 0; }
 
 .cadastro-section-title {
   display: flex;
@@ -5622,6 +5736,24 @@ a {
   .cadastro-login-link {
     flex-wrap:
       wrap;
+  }
+
+  .cadastro-progress button {
+    flex-direction: column;
+    gap: 4px;
+    min-height: 58px;
+  }
+
+  .cadastro-step-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .cadastro-step-actions .cadastro-submit {
+    grid-row: 1;
+  }
+
+  .cadastro-review article {
+    padding: 16px 72px 16px 15px;
   }
 
 }

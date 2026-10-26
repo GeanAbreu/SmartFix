@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ClientDevice, Partner } from "@/src/models";
+import { ClientDevice, Partner, PartnerService, Review } from "@/src/models";
 import { AppError } from "@/src/errors/AppError";
 import {
   actorFrom,
@@ -204,7 +204,7 @@ export class WorkflowController {
           notify(
             records,
             ownerId,
-            `${updated.device}: ${input.action === "review" ? "avaliação recebida" : ORDER_LABELS[updated.status]}.`,
+            `${updated.device}: ${input.action === "review" ? "avaliação recebida" : input.action === "request_cancellation" ? "cancelamento e reembolso solicitados" : ORDER_LABELS[updated.status]}.`,
             actor.role === "client" ? "/parceiro/ordens" : "/cliente/ordens",
           );
         }
@@ -253,12 +253,35 @@ export class WorkflowController {
           "FORBIDDEN",
         );
       const all = await partners();
+      const approved = all.filter((partner) => partner.isVerified);
+      const summaries = new Map<string, { rating: number | null; reviewCount: number; serviceCount: number; startingPriceCents: number | null; fastestDays: number | null }>();
+      for (const partner of approved) summaries.set(partner.id, { rating: null, reviewCount: 0, serviceCount: 0, startingPriceCents: null, fastestDays: null });
+      if (!admin) {
+        if (usesLocalAuthStore()) {
+          await withWorkflow((records) => {
+            for (const partner of approved) {
+              const services = records.filter((record) => record.kind === "service" && record.ownerId === partner.id && record.data.isActive !== false);
+              const reviews = records.filter((record) => record.kind === "order" && (record.data as unknown as RepairOrder).partnerId === partner.id && (record.data as unknown as RepairOrder).review).map((record) => (record.data as unknown as RepairOrder).review!.rating);
+              summaries.set(partner.id, { rating: reviews.length ? reviews.reduce((sum, value) => sum + value, 0) / reviews.length : null, reviewCount: reviews.length, serviceCount: services.length, startingPriceCents: services.length ? Math.min(...services.map((service) => Number(service.data.unitPriceCents))) : null, fastestDays: services.length ? Math.min(...services.map((service) => Number(service.data.estimatedDays))) : null });
+            }
+          });
+        } else {
+          const ids = approved.map((partner) => partner.id);
+          const [services, reviews] = await Promise.all([
+            PartnerService.findAll({ where: { partner_id: ids, is_active: true }, attributes: ["partner_id", "unit_price_cents", "estimated_days"] }),
+            Review.findAll({ where: { partner_id: ids }, attributes: ["partner_id", "rating"] }),
+          ]);
+          for (const partner of approved) {
+            const partnerServices = services.filter((service) => String(service.partner_id) === String(partner.id));
+            const partnerReviews = reviews.filter((review) => String(review.partner_id) === String(partner.id));
+            summaries.set(partner.id, { rating: partnerReviews.length ? partnerReviews.reduce((sum, review) => sum + review.rating, 0) / partnerReviews.length : null, reviewCount: partnerReviews.length, serviceCount: partnerServices.length, startingPriceCents: partnerServices.length ? Math.min(...partnerServices.map((service) => service.unit_price_cents)) : null, fastestDays: partnerServices.length ? Math.min(...partnerServices.map((service) => service.estimated_days)) : null });
+          }
+        }
+      }
       return ok({
         partners: admin
           ? all
-          : all
-              .filter((partner) => partner.isVerified)
-              .map(({ id, name }) => ({ id, name })),
+          : approved.map(({ id, name }) => ({ id, name, ...summaries.get(id) })),
       });
     } catch (error) {
       return failure(error);

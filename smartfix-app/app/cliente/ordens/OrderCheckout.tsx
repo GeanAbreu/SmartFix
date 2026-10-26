@@ -15,6 +15,7 @@ export default function OrderCheckout({ order, busy, onCancel }: {
 }) {
   const [addresses, setAddresses] = useState<ClientAddress[]>([]);
   const [address, setAddress] = useState("");
+  const [addressId, setAddressId] = useState("");
   const [coupon, setCoupon] = useState("");
   const [loading, setLoading] = useState(true);
   const [redirecting, setRedirecting] = useState(false);
@@ -31,7 +32,7 @@ export default function OrderCheckout({ order, busy, onCancel }: {
         if (!active) return;
         setAddresses(result.data.addresses);
         const primary = result.data.addresses.find((item) => item.principal) || result.data.addresses[0];
-        if (primary) setAddress(addressLabel(primary));
+        if (primary) { setAddress(addressLabel(primary)); setAddressId(primary.id); }
       }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -44,7 +45,8 @@ export default function OrderCheckout({ order, busy, onCancel }: {
       const response = await fetch("/api/payments/mercado-pago/checkout", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: order.id, scheduledDate: data.get("scheduledDate"),
-          schedulePeriod: data.get("schedulePeriod"), serviceAddress: address, couponCode: coupon }),
+          schedulePeriod: data.get("schedulePeriod"), serviceAddress: address,
+          serviceAddressId: addressId || undefined, couponCode: coupon }),
       });
       const result = await readApiResponse<{ checkoutUrl: string }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível iniciar o pagamento.");
@@ -61,7 +63,7 @@ export default function OrderCheckout({ order, busy, onCancel }: {
       <label>Data da coleta<input name="scheduledDate" type="date" required /></label>
       <label>Turno<select name="schedulePeriod" required><option value="morning">Manhã · 08h às 12h</option><option value="afternoon">Tarde · 13h às 18h</option></select></label>
       <label className={styles.wide}>Endereço de coleta e entrega
-        {loading ? <span>Carregando endereços…</span> : addresses.length ? <select value={address} onChange={(event) => setAddress(event.target.value)}>{addresses.map((item) => <option key={item.id} value={addressLabel(item)}>{item.apelido || "Endereço"} · {addressLabel(item)}</option>)}</select> : <input value={address} onChange={(event) => setAddress(event.target.value)} minLength={8} placeholder="Informe o endereço completo" required />}
+        {loading ? <span>Carregando endereços…</span> : addresses.length ? <select value={addressId} onChange={(event) => { const selected = addresses.find((item) => item.id === event.target.value); setAddressId(event.target.value); if (selected) setAddress(addressLabel(selected)); }}>{addresses.map((item) => <option key={item.id} value={item.id}>{item.apelido || "Endereço"} · {addressLabel(item)}</option>)}</select> : <input value={address} onChange={(event) => { setAddress(event.target.value); setAddressId(""); }} minLength={8} placeholder="Informe o endereço completo" required />}
       </label>
       <label>Cupom<input value={coupon} onChange={(event) => setCoupon(event.target.value)} placeholder="Use SMART10" /></label>
       <div><strong>Pagamento seguro</strong><p>Escolha PIX ou cartão no ambiente do Mercado Pago.</p></div>

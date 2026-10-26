@@ -14,7 +14,7 @@ const nextStatuses: Partial<Record<OrderStatus, OrderStatus[]>> = {
   approved: ["in_progress"],
   in_progress: ["waiting_parts", "ready"],
   waiting_parts: ["in_progress"],
-  ready: ["completed"],
+  ready: [],
 };
 
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -117,12 +117,16 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("list");
   const [selectedId, setSelectedId] = useState(initialOrderId);
-  const [pendingComplete, setPendingComplete] = useState<Order | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<{ order: Order; status: OrderStatus } | null>(null);
+
+  function markBusy(id: string, value: boolean) {
+    setBusyIds((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; });
+  }
 
   const refresh = useCallback(async (showProgress = false) => {
     if (showProgress) setRefreshing(true);
@@ -145,7 +149,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
   }, [refresh]);
 
   async function act(id: string, body: unknown) {
-    setBusy(true);
+    markBusy(id, true);
     setMessage("");
     try {
       await request(`/api/orders/${encodeURIComponent(id)}`, body);
@@ -154,8 +158,22 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Não foi possível atualizar a ordem.");
     } finally {
-      setBusy(false);
+      markBusy(id, false);
     }
+  }
+
+  async function dispatchDelivery(id: string, body: { direction: "pickup" | "return"; scheduledDate?: string; schedulePeriod?: string }) {
+    markBusy(id, true); setMessage("");
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}/logistics`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      const result = await readApiResponse<{ delivery: unknown }>(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível chamar o entregador.");
+      await refresh();
+      setMessage(body.direction === "pickup" ? "Coleta solicitada com segurança." : "Entrega ao cliente solicitada com segurança.");
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Não foi possível chamar o entregador."); }
+    finally { markBusy(id, false); }
   }
 
   const counts = {
@@ -168,6 +186,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
   const visible = orders.filter((order) => matchesFilter(order, filter) &&
     `${order.device} ${order.id} ${order.problem} ${ORDER_LABELS[order.status]}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
   const selected = visible.find((order) => order.id === selectedId) || visible[0];
+  const selectedBusy = selected ? busyIds.has(selected.id) : false;
   const boardColumns = [
     { title: "Novas", statuses: ["pending"] },
     { title: "Aguardando cliente", statuses: ["quoted"] },
@@ -184,7 +203,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
       </div><div className={styles.viewToggle}><button type="button" className={view === "list" ? styles.filterActive : ""} onClick={() => setView("list")}>☷ Lista</button><button type="button" className={view === "board" ? styles.filterActive : ""} onClick={() => setView("board")}>▦ Kanban</button></div></div>
       {error && <div className={styles.error} role="alert">{error} <button type="button" onClick={() => void refresh(true)}>Tentar novamente</button></div>}
       {message && <p className={styles.message} role="status">{message}</p>}
-      {view === "board" && <section className={styles.board} aria-label="Kanban de ordens">{boardColumns.map((column) => { const items = visible.filter((order) => (column.statuses as readonly OrderStatus[]).includes(order.status)); return <div className={styles.boardColumn} key={column.title}><header><strong>{column.title}</strong><span>{items.length}</span></header><div>{items.length === 0 ? <p>Nenhuma ordem</p> : items.map((order) => { const next = nextStatuses[order.status]?.[0]; return <article key={order.id}><button type="button" onClick={() => { setSelectedId(order.id); setView("list"); }}><small>O.S. {shortId(order.id)}</small><strong>{order.device}</strong><span>{order.problem}</span>{order.serviceDetails.promisedDate && <time>Prazo: {order.serviceDetails.promisedDate.split("-").reverse().join("/")}</time>}{order.serviceDetails.technicianName && <em>{order.serviceDetails.technicianName}</em>}</button>{next && <button type="button" className={styles.boardAdvance} disabled={busy} onClick={() => next === "completed" ? setPendingComplete(order) : void act(order.id, { action: "status", status: next })}>Avançar para {ORDER_LABELS[next].toLocaleLowerCase("pt-BR")} →</button>}</article>; })}</div></div>; })}</section>}
+      {view === "board" && <section className={styles.board} aria-label="Kanban de ordens">{boardColumns.map((column) => { const items = visible.filter((order) => (column.statuses as readonly OrderStatus[]).includes(order.status)); return <div className={styles.boardColumn} key={column.title}><header><strong>{column.title}</strong><span>{items.length}</span></header><div>{items.length === 0 ? <p>Nenhuma ordem</p> : items.map((order) => { const next = nextStatuses[order.status]?.[0]; const orderBusy = busyIds.has(order.id); return <article key={order.id}><button type="button" onClick={() => { setSelectedId(order.id); setView("list"); }}><small>O.S. {shortId(order.id)}</small><strong>{order.device}</strong><span>{order.problem}</span>{order.serviceDetails.promisedDate && <time>Prazo: {order.serviceDetails.promisedDate.split("-").reverse().join("/")}</time>}{order.serviceDetails.technicianName && <em>{order.serviceDetails.technicianName}</em>}</button>{next && <button type="button" className={styles.boardAdvance} disabled={orderBusy} onClick={() => setPendingStatus({ order, status: next })}>{orderBusy ? "Atualizando..." : `Avançar para ${ORDER_LABELS[next].toLocaleLowerCase("pt-BR")} →`}</button>}</article>; })}</div></div>; })}</section>}
       {view === "list" && <div className={styles.workspace}>
         <section className={styles.orderList} aria-label="Lista de ordens">
           <label className={styles.searchLabel}>Buscar ordem<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Aparelho, número ou status" /></label>
@@ -202,16 +221,20 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
                 {selected.diagnosis && <section><h3>Diagnóstico</h3><p>{selected.diagnosis}</p></section>}
                 {selected.quote.length > 0 && <section><h3>Orçamento</h3><div className={styles.quoteItems}>{selected.quote.map((item, index) => <div key={`${item.name}-${index}`}><span>{item.name}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div><div className={styles.quoteTotal}><span>Total</span><strong>{money(selected.totalCents)}</strong></div></section>}
                 {selected.status === "quoted" && <p className={styles.waitingNote}>Orçamento enviado. Aguardando a aprovação do cliente.</p>}
-                {(selected.status === "pending" || selected.status === "quoted") && !selected.serviceDetails.paymentPreferenceId && <QuoteForm key={selected.id} orderId={selected.id} busy={busy} onSubmit={(body) => act(selected.id, body)} />}
+                {(selected.status === "pending" || selected.status === "quoted") && !selected.serviceDetails.paymentPreferenceId && <QuoteForm key={selected.id} orderId={selected.id} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
                 {selected.status === "quoted" && selected.serviceDetails.paymentPreferenceId && <p className={styles.waitingNote}>O cliente iniciou o checkout. O orçamento está bloqueado para evitar divergência de valores.</p>}
-                {!!nextStatuses[selected.status]?.length && <section><h3>Próxima etapa</h3><div className={styles.statusActions}>{nextStatuses[selected.status]?.map((status) => <button key={status} type="button" className={styles.primaryButton} disabled={busy} onClick={() => status === "completed" ? setPendingComplete(selected) : void act(selected.id, { action: "status", status })}>{busy ? "Atualizando..." : `Marcar como ${ORDER_LABELS[status].toLocaleLowerCase("pt-BR")}`}</button>)}</div></section>}
-                {selected.status === "pending" && <RejectForm busy={busy} onSubmit={(body) => act(selected.id, body)} />}
-                {!(["completed", "cancelled", "rejected"] as OrderStatus[]).includes(selected.status) && <OperationsForm key={`operations-${selected.id}-${selected.serviceDetails.technicianName}-${selected.serviceDetails.promisedDate}`} order={selected} busy={busy} onSubmit={(body) => act(selected.id, body)} />}
+                {(selected.status === "approved" || selected.status === "ready" || selected.serviceDetails.logistics) && <section className={styles.logistics}><h3>Logística segura</h3><p>Coleta com foto e entrega confirmada por PIN. O rastreio é atualizado automaticamente.</p>
+                  {selected.serviceDetails.logistics?.pickup ? <div className={styles.deliveryCard}><strong>Cliente → assistência</strong><span>Status: {selected.serviceDetails.logistics.pickup.status}</span>{selected.serviceDetails.logistics.pickup.error && <small>{selected.serviceDetails.logistics.pickup.error}</small>}{selected.serviceDetails.logistics.pickup.trackingUrl && <a href={selected.serviceDetails.logistics.pickup.trackingUrl} target="_blank" rel="noreferrer">Acompanhar coleta ↗</a>}</div> : selected.status === "approved" && <button type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => void dispatchDelivery(selected.id, { direction: "pickup" })}>{selectedBusy ? "Solicitando..." : "Chamar motoboy para coleta"}</button>}
+                  {selected.serviceDetails.logistics?.return ? <div className={styles.deliveryCard}><strong>Assistência → cliente</strong><span>Status: {selected.serviceDetails.logistics.return.status}</span>{selected.serviceDetails.logistics.return.error && <small>{selected.serviceDetails.logistics.return.error}</small>}{selected.serviceDetails.logistics.return.trackingUrl && <a href={selected.serviceDetails.logistics.return.trackingUrl} target="_blank" rel="noreferrer">Acompanhar entrega ↗</a>}</div> : selected.status === "ready" && <p className={styles.waitingNote}>Aguardando o cliente escolher a data da devolução ou confirmar a retirada presencial.</p>}
+                </section>}
+                {!!nextStatuses[selected.status]?.length && <section><h3>Próxima etapa</h3><div className={styles.statusActions}>{nextStatuses[selected.status]?.map((status) => <button key={status} type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => setPendingStatus({ order: selected, status })}>{selectedBusy ? "Atualizando..." : `Marcar como ${ORDER_LABELS[status].toLocaleLowerCase("pt-BR")}`}</button>)}</div></section>}
+                {selected.status === "pending" && <RejectForm busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
+                {!(["completed", "cancelled", "rejected"] as OrderStatus[]).includes(selected.status) && <OperationsForm key={`operations-${selected.id}-${selected.serviceDetails.technicianName}-${selected.serviceDetails.promisedDate}`} order={selected} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
                 <section><h3>Histórico</h3><ol className={styles.history}>{selected.history.map((item, index) => <li key={`${item.at}-${index}`}><span>{ORDER_LABELS[item.status]}</span><time dateTime={item.at}>{new Date(item.at).toLocaleString("pt-BR")}</time></li>)}</ol></section>
               </div></>}
         </section>
       </div>}
-      <ConfirmDialog open={pendingComplete !== null} title="Concluir ordem de serviço?" message={`A O.S. de ${pendingComplete?.device || "este dispositivo"} será encerrada e o cliente poderá avaliá-la.`} confirmLabel="Concluir ordem" busyLabel="Concluindo..." busy={busy} onCancel={() => { if (!busy) setPendingComplete(null); }} onConfirm={() => { if (pendingComplete) void act(pendingComplete.id, { action: "status", status: "completed" }).then(() => setPendingComplete(null)); }} />
+      <ConfirmDialog open={pendingStatus !== null} title="Confirmar mudança de etapa?" message={pendingStatus ? `A O.S. ${shortId(pendingStatus.order.id)} de ${pendingStatus.order.device} passará de ${ORDER_LABELS[pendingStatus.order.status].toLocaleLowerCase("pt-BR")} para ${ORDER_LABELS[pendingStatus.status].toLocaleLowerCase("pt-BR")}. O cliente será informado sobre a atualização.` : ""} confirmLabel="Confirmar nova etapa" busyLabel="Atualizando..." busy={pendingStatus ? busyIds.has(pendingStatus.order.id) : false} tone="primary" onCancel={() => { if (!pendingStatus || !busyIds.has(pendingStatus.order.id)) setPendingStatus(null); }} onConfirm={() => { if (!pendingStatus) return; const { order, status } = pendingStatus; void act(order.id, { action: "status", status }).then(() => setPendingStatus(null)); }} />
     </div>
   </main>;
 }

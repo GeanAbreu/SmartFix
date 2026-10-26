@@ -15,15 +15,40 @@ export type QuoteItem = {
   quantity: number;
   unitPriceCents: number;
 };
+export type LogisticsEvent = {
+  id: string;
+  status: string;
+  at: string;
+};
+export type LogisticsLeg = {
+  direction: "pickup" | "return";
+  quoteId?: string;
+  quotedFeeCents?: number;
+  quoteExpiresAt?: string;
+  pickupAddress: string;
+  dropoffAddress: string;
+  deliveryId?: string;
+  status: string;
+  trackingUrl?: string;
+  lastEventAt?: string;
+  verification: "photo_and_pin";
+  events: LogisticsEvent[];
+  error?: string;
+};
 export type ServiceDetails = {
   estimatedDays: number;
   warrantyDays: number;
+  warrantyStartsAt?: string;
+  warrantyEndsAt?: string;
+  deliveredAt?: string;
+  completionMethod?: "uber_direct" | "client_confirmation";
   deliveryFeeCents: number;
   couponCode: string;
   discountCents: number;
   scheduledDate: string;
   schedulePeriod: "morning" | "afternoon" | "";
   serviceAddress: string;
+  serviceAddressId?: string;
   paymentMethod: "pix" | "card" | "";
   paymentStatus: "pending" | "confirmed";
   paidAt: string;
@@ -34,6 +59,17 @@ export type ServiceDetails = {
   promisedDate?: string;
   internalNotes?: string;
   rejectionReason?: string;
+  cancellationRequestedAt?: string;
+  cancellationReason?: string;
+  refundStatus?: "pending" | "processed" | "failed";
+  refundId?: string;
+  refundAmountCents?: number;
+  refundedAt?: string;
+  logistics?: {
+    provider: "uber_direct";
+    pickup?: LogisticsLeg;
+    return?: LogisticsLeg;
+  };
 };
 export type RepairOrder = {
   id: string;

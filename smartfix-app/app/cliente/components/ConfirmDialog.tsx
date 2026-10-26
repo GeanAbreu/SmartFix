@@ -9,6 +9,7 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   busyLabel?: string;
   busy?: boolean;
+  tone?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
   confirmLabel = "Confirmar",
   busyLabel = "Processando...",
   busy = false,
+  tone = "danger",
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -37,7 +39,7 @@ export default function ConfirmDialog({
         </div>
         <div className={styles.actions}>
           <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
-          <button type="button" className={styles.confirm} onClick={onConfirm} disabled={busy}>
+          <button type="button" className={tone === "danger" ? styles.confirm : styles.primary} onClick={onConfirm} disabled={busy}>
             {busy ? busyLabel : confirmLabel}
           </button>
         </div>

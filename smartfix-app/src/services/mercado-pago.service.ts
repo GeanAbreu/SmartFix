@@ -56,3 +56,13 @@ export function getPayment(id: string) {
     payment_type_id: string; preference_id?: string;
   }>(`/v1/payments/${encodeURIComponent(id)}`);
 }
+
+export async function refundPayment(input: { paymentId: string; idempotencyKey: string; amountCents?: number }) {
+  const result = await mercadoPago<{ id: number | string; payment_id?: number | string; amount: number; status?: string }>(
+    `/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, {
+      method: "POST",
+      headers: { "X-Idempotency-Key": input.idempotencyKey },
+      body: input.amountCents === undefined ? "{}" : JSON.stringify({ amount: input.amountCents / 100 }),
+    });
+  return { id: String(result.id), amountCents: Math.round(result.amount * 100), status: result.status || "approved" };
+}

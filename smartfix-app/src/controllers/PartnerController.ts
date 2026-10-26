@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
 import { requireSession } from "@/src/middlewares/auth.middleware";
 import { Partner } from "@/src/models";
 import {
   findLocalUserById,
+  updateLocalPartnerProfile,
   usesLocalAuthStore,
 } from "@/src/services/local-auth.service";
 import {
@@ -38,6 +40,7 @@ export class PartnerController {
               "full_name",
               "email",
               "company_name",
+              "phone",
               "is_verified",
             ],
           }));
@@ -61,6 +64,7 @@ export class PartnerController {
             isVerified: isLocalPartner
               ? partner.isVerified
               : partner.is_verified,
+            phone: isLocalPartner ? partner.phone : partner.phone,
           },
         },
       }));
@@ -75,6 +79,26 @@ export class PartnerController {
       }
 
       return noStoreResponse(response);
+    }
+  }
+
+  static async updateMe(request: NextRequest) {
+    try {
+      const session = await requireSession(request);
+      if (session.role !== "partner") throw new AppError("Esta área é exclusiva para parceiros.", 403, "FORBIDDEN");
+      const input = z.object({
+        companyName: z.string().trim().min(3, "Informe o nome da assistência.").max(150),
+        phone: z.string().trim().min(10, "Informe um telefone com DDD.").max(20).refine((value) => value.replace(/\D/g, "").length >= 10, "Informe um telefone com DDD."),
+      }).parse(await request.json());
+      if (usesLocalAuthStore()) await updateLocalPartnerProfile(session.sub, input);
+      else {
+        assertDatabaseConfigured();
+        const [updated] = await Partner.update({ company_name: input.companyName, phone: input.phone }, { where: { id: session.sub } });
+        if (!updated) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
+      }
+      return noStoreResponse(NextResponse.json({ success: true, data: { partner: input } }));
+    } catch (error) {
+      return noStoreResponse(controllerErrorResponse(error));
     }
   }
 }

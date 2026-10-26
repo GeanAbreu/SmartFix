@@ -73,6 +73,7 @@
 .history { display: grid; gap: 12px; margin: 0; padding-left: 20px; }
 .history li { padding-left: 5px; color: #d6e2ec; font-size: 13px; }
 .history time { display: block; margin-top: 4px; color: #8fa6b9; font-size: 11px; }
+.logistics{display:grid;gap:13px}.logistics>p{font-size:13px}.deliveryCard{display:grid;gap:7px;padding:14px;border:1px solid #2d5673;border-radius:10px;background:#091a2a}.deliveryCard span,.deliveryCard small{color:#a9bfd0;font-size:12px}.deliveryCard small{color:#ffb5ad}.deliveryCard a{color:#8fd2ff;font-size:12px;font-weight:700}.deliveryForm{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.deliveryForm label{display:grid;gap:6px;color:#a9bfd0;font-size:12px}.deliveryForm input,.deliveryForm select{min-width:0;padding:10px;border:1px solid #33536e;border-radius:9px;background:#0a1929;color:#fff;font:inherit}
 .emptyDetail { display: grid; justify-items: center; gap: 10px; padding: 70px 20px; text-align: center; }
 .emptyDetail span { color: #75b7e9; font-size: 38px; }
 .emptyDetail h2 { margin: 0; font-size: 20px; }
@@ -83,4 +84,4 @@
 .message { background: #173c5d; color: #d8e7f5; }
 @media (max-width: 1060px) { .workspace { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); } .orderTop { flex-direction: column; } }
 @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } .orderList ul { max-height: 330px; } .orderTop { flex-direction: row; }.toolbar{flex-direction:column}.operationsGrid{grid-template-columns:1fr} }
-@media (max-width: 560px) { .page { padding: 24px 16px 55px; } .header { align-items: flex-start; flex-direction: column; gap: 15px; } .detailHeader { flex-direction: column; padding: 20px; } .detailBody { padding: 0 20px 20px; } .quoteRow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quoteRow label:first-child { grid-column: 1 / -1; } .formActions button, .statusActions button { width: 100%; } }
+@media (max-width: 560px) { .page { padding: 24px 16px 55px; } .header { align-items: flex-start; flex-direction: column; gap: 15px; } .detailHeader { flex-direction: column; padding: 20px; } .detailBody { padding: 0 20px 20px; } .quoteRow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quoteRow label:first-child { grid-column: 1 / -1; } .formActions button, .statusActions button { width: 100%; }.deliveryForm{grid-template-columns:1fr}.deliveryForm button{width:100%} }

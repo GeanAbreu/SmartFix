@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./help.module.css";
 
@@ -16,12 +17,15 @@ type Partner = { id: string; name: string };
 function time(value: string) { return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
 
 export default function HelpCenter() {
+  const searchParams = useSearchParams();
+  const requestedPartnerId = searchParams.get("partnerId") || "";
+  const requestedOrder = searchParams.get("order") || "";
   const [search, setSearch] = useState("");
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [recipient, setRecipient] = useState("smartfix");
+  const [recipient, setRecipient] = useState(requestedPartnerId || "smartfix");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(requestedOrder ? `Olá! Preciso de ajuda com a O.S. ${requestedOrder.slice(0, 8).toUpperCase()}. ` : "");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -42,6 +46,8 @@ export default function HelpCenter() {
     return () => { active = false; };
   }, []);
 
+  // The callback is intentionally keyed only by the selected conversation.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const refresh = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {

@@ -82,6 +82,12 @@
   font-weight: 800;
 }
 
+.actions .primary {
+  background: #ff6b1a;
+  color: #07111f;
+  font-weight: 800;
+}
+
 .actions button:disabled {
   cursor: wait;
   opacity: 0.6;

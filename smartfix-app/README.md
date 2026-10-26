@@ -12,6 +12,14 @@ npm test
 npm run build
 ```
 
+`npm run check` executa as três validações em sequência. O build padrão usa
+Webpack por compatibilidade com ambientes Windows que não permitem ao Turbopack
+criar junctions dentro de `.next`; `npm run build:turbopack` continua disponível
+para validar o empacotador novo.
+
+O checklist de publicação, backup, observabilidade, incidentes e LGPD está em
+[`docs/OPERACAO_PRODUCAO.md`](../docs/OPERACAO_PRODUCAO.md).
+
 ## Notificações de status por WhatsApp
 
 As mudanças de status da ordem disparam uma mensagem para o telefone cadastrado
@@ -30,3 +38,12 @@ em [`.env.example`](.env.example):
 
 Telefones nacionais recebem por padrão o DDI `55`; altere
 `WHATSAPP_DEFAULT_COUNTRY_CODE` para outra operação regional.
+
+## Logística com Uber Direct
+
+Configure as credenciais `UBER_DIRECT_*` descritas em [`.env.example`](.env.example)
+e cadastre `/api/logistics/uber-direct/webhook` como webhook HTTPS no painel do
+Uber Direct. Cada trecho é criado separadamente: coleta do cliente para a
+assistência e devolução da assistência para o cliente. A integração solicita
+foto na coleta, PIN no destino, retorno em caso de insucesso e valida a
+assinatura de todos os eventos antes de atualizar a ordem.

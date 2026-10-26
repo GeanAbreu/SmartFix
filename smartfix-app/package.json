@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
+    "build:turbopack": "next build",
+    "check": "npm run lint && npm test && npm run build",
     "start": "next start",
     "db:check": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts check",
     "db:migrate": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts migrate",

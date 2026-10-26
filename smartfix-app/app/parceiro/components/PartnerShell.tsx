@@ -10,11 +10,12 @@ import styles from "@/app/cliente/components/client-shell.module.css";
 const links = [
   { href: "/parceiro/dashboard", label: "Início" },
   { href: "/parceiro/ordens", label: "Ordens de serviço" },
-  { href: "/parceiro/parceiros", label: "Rede de parceiros" },
   { href: "/parceiro/servicos", label: "Serviços" },
   { href: "/parceiro/mensagens", label: "Mensagens" },
   { href: "/parceiro/financeiro", label: "Financeiro" },
   { href: "/parceiro/notificacoes", label: "Notificações" },
+  { href: "/parceiro/perfil", label: "Minha assistência" },
+  { href: "/parceiro/parceiros", label: "Rede de assistências" },
 ];
 
 function initialsFor(name: string) {
@@ -76,7 +77,7 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
           return <Link key={href} href={href} className={active ? styles.active : undefined} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>{label}</Link>;
         })}
       </nav>
-      <div className={styles.footer}><a href="/api/auth/google?link=true">Vincular Google</a><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}>{loggingOut ? "Saindo..." : "Sair da conta"}</button>{logoutError && <p role="alert">{logoutError}</p>}</div>
+      <div className={styles.footer}><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}>{loggingOut ? "Saindo..." : "Sair da conta"}</button>{logoutError && <p role="alert">{logoutError}</p>}</div>
     </aside>
     <div className={styles.workspace}>
       <div className={styles.mobileBar}><button type="button" aria-label="Abrir menu" aria-expanded={menuOpen} aria-controls="partner-sidebar" onClick={() => setMenuOpen(true)}>☰</button><Link href="/parceiro/dashboard">SMART<span>FIX</span></Link></div>

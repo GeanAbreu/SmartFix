@@ -15,6 +15,7 @@ const links = [
   { href: "/cliente/assistencias", label: "Assistências" },
   { href: "/cliente/avaliacoes", label: "Minhas avaliações" },
   { href: "/cliente/enderecos", label: "Meus endereços" },
+  { href: "/cliente/notificacoes", label: "Notificações" },
   { href: "/cliente/perfil", label: "Meu perfil" },
   { href: "/cliente/ajuda", label: "Ajuda" },
 ];
@@ -82,7 +83,7 @@ export default function ClientShell({ children }: { children: ReactNode }) {
           return <Link key={href} href={href} className={active ? styles.active : undefined} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>{label}</Link>;
         })}
       </nav>
-      <div className={styles.footer}><Link href="/cliente/ajuda" onClick={() => setMenuOpen(false)}>Precisa de ajuda?</Link><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}>{loggingOut ? "Saindo..." : "Sair da conta"}</button>{logoutError && <p role="alert">{logoutError}</p>}</div>
+      <div className={styles.footer}><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}>{loggingOut ? "Saindo..." : "Sair da conta"}</button>{logoutError && <p role="alert">{logoutError}</p>}</div>
     </aside>
     <div className={styles.workspace}>
       <div className={styles.mobileBar}><button type="button" aria-label="Abrir menu" aria-expanded={menuOpen} aria-controls="client-sidebar" onClick={() => setMenuOpen(true)}>☰</button><Link href="/cliente/dashboard">SMART<span>FIX</span></Link></div>

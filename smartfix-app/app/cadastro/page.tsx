@@ -339,6 +339,7 @@ function ShieldIcon() {
 
 export default function CadastroPage() {
   const router = useRouter();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const [tipoUsuario, setTipoUsuario] =
     useState<TipoUsuario>("cliente");
@@ -392,6 +393,47 @@ export default function CadastroPage() {
 
   const isParceiro =
     tipoUsuario === "parceiro";
+
+  const goToStep = (next: 1 | 2 | 3) => {
+    setStep(next);
+    setTimeout(() => document.querySelector(".cadastro-content")?.scrollTo({ top: 0, behavior: "smooth" }), 0);
+  };
+
+  const validateStep = (current: 1 | 2) => {
+    const stepErrors: Record<string, string> = {};
+    if (current === 1) {
+      if (formData.nomeCompleto.trim().length < 3) stepErrors.nomeCompleto = isParceiro ? "Informe a razão social." : "Informe seu nome completo.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) stepErrors.email = "Informe um e-mail válido.";
+      if (formData.telefone.replace(/\D/g, "").length < 10) stepErrors.telefone = "Telefone incompleto.";
+      if (isParceiro ? !validateCNPJ(formData.documento) : !validateCPF(formData.documento)) stepErrors.documento = isParceiro ? "CNPJ inválido." : "CPF inválido.";
+      if (!isParceiro) {
+        if (!formData.dataNascimento) stepErrors.dataNascimento = "Campo obrigatório.";
+        else {
+          const birth = new Date(`${formData.dataNascimento}T00:00:00`);
+          const today = new Date();
+          let age = today.getFullYear() - birth.getFullYear();
+          const monthDiff = today.getMonth() - birth.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+          if (age < 18) stepErrors.dataNascimento = "É necessário ter pelo menos 18 anos.";
+        }
+      }
+      if (formData.senha.length < 8 || !/\d/.test(formData.senha) || !/[^a-zA-Z0-9]/.test(formData.senha)) stepErrors.senha = "Use 8+ caracteres, número e símbolo.";
+      if (formData.confirmarSenha !== formData.senha) stepErrors.confirmarSenha = "As senhas não conferem.";
+    } else {
+      if (formData.cep.length < 9) stepErrors.cep = "Informe um CEP válido.";
+      if (!formData.rua.trim()) stepErrors.rua = "Logradouro obrigatório.";
+      if (!formData.numero.trim()) stepErrors.numero = "Informe o número.";
+      if (!formData.bairro.trim()) stepErrors.bairro = "Bairro obrigatório.";
+      if (!formData.municipio.trim()) stepErrors.municipio = "Município obrigatório.";
+      if (formData.uf.length !== 2) stepErrors.uf = "UF obrigatória.";
+    }
+    setErrors((currentErrors) => ({ ...currentErrors, ...stepErrors }));
+    if (Object.keys(stepErrors).length) {
+      setTimeout(() => document.getElementById(Object.keys(stepErrors)[0])?.focus(), 0);
+      return false;
+    }
+    return true;
+  };
 
   /* =========================================================
      INPUT NORMAL
@@ -783,6 +825,8 @@ export default function CadastroPage() {
     setErrors(newErrors);
 
     if (!valid) {
+      const accountFields = ["nomeCompleto", "email", "telefone", "documento", "dataNascimento", "senha", "confirmarSenha"];
+      goToStep(accountFields.some((field) => newErrors[field]) ? 1 : 2);
       return;
     }
 
@@ -827,6 +871,8 @@ export default function CadastroPage() {
           );
 
           setErrors((current) => ({ ...current, ...backendErrors }));
+          const accountFields = ["nomeCompleto", "email", "telefone", "documento", "dataNascimento", "senha", "confirmarSenha"];
+          goToStep(accountFields.some((field) => backendErrors[field]) ? 1 : 2);
         }
 
         throw new Error(data.message || "Não foi possível realizar o cadastro.");
@@ -1059,6 +1105,7 @@ export default function CadastroPage() {
 
               <button
                 type="button"
+                disabled={step > 1}
                 className={
                   tipoUsuario ===
                     "cliente"
@@ -1088,6 +1135,7 @@ export default function CadastroPage() {
 
               <button
                 type="button"
+                disabled={step > 1}
                 className={
                   tipoUsuario ===
                     "parceiro"
@@ -1139,15 +1187,23 @@ export default function CadastroPage() {
               className="cadastro-form"
             >
 
+              <nav className="cadastro-progress" aria-label="Etapas do cadastro">
+                {["Conta", "Endereço", "Revisão"].map((label, index) => {
+                  const number = (index + 1) as 1 | 2 | 3;
+                  return <button key={label} type="button" className={number === step ? "active" : number < step ? "done" : ""} disabled={number > step} onClick={() => number < step && goToStep(number)} aria-current={number === step ? "step" : undefined}><span>{number < step ? "✓" : number}</span>{label}</button>;
+                })}
+              </nav>
+
               {/* ===============================================
                   DADOS DA CONTA
               =============================================== */}
 
+              {step === 1 && <section className="cadastro-step" aria-labelledby="cadastro-account-title">
               <div className="cadastro-section-title">
                 <span>01</span>
 
                 <div>
-                  <h3>
+                  <h3 id="cadastro-account-title">
                     Dados da conta
                   </h3>
 
@@ -1436,16 +1492,23 @@ export default function CadastroPage() {
 
               </div>
 
+              <div className="cadastro-step-actions">
+                <Link href="/login" className="cadastro-step-cancel">Cancelar</Link>
+                <button type="button" className="cadastro-submit" onClick={() => { if (validateStep(1)) goToStep(2); }}>Continuar para endereço <span className="cadastro-submit-arrow">→</span></button>
+              </div>
+              </section>}
+
               {/* ===============================================
                   ENDEREÇO
               =============================================== */}
 
+              {step === 2 && <section className="cadastro-step" aria-labelledby="cadastro-address-title">
               <div className="cadastro-section-title cadastro-address-title">
 
                 <span>02</span>
 
                 <div>
-                  <h3>
+                  <h3 id="cadastro-address-title">
                     Endereço
                   </h3>
 
@@ -1665,10 +1728,26 @@ export default function CadastroPage() {
 
               </div>
 
+              <div className="cadastro-step-actions">
+                <button type="button" className="cadastro-step-back" onClick={() => goToStep(1)}>← Voltar</button>
+                <button type="button" className="cadastro-submit" disabled={cepLoading} onClick={() => { if (validateStep(2)) goToStep(3); }}>Revisar cadastro <span className="cadastro-submit-arrow">→</span></button>
+              </div>
+              </section>}
+
               {/* ===============================================
                   SUBMIT
               =============================================== */}
 
+              {step === 3 && <section className="cadastro-step" aria-labelledby="cadastro-review-title">
+              <div className="cadastro-section-title">
+                <span>03</span>
+                <div><h3 id="cadastro-review-title">Revise seus dados</h3><p>Confira as informações antes de criar sua conta.</p></div>
+              </div>
+              <div className="cadastro-review">
+                <article><small>TIPO DE CONTA</small><strong>{isParceiro ? "Assistência técnica" : "Cliente"}</strong><button type="button" onClick={() => goToStep(1)}>Alterar</button></article>
+                <article><small>IDENTIFICAÇÃO</small><strong>{formData.nomeCompleto}</strong><p>{formData.email} · {formData.telefone}</p><button type="button" onClick={() => goToStep(1)}>Alterar</button></article>
+                <article><small>ENDEREÇO</small><strong>{formData.rua}, {formData.numero}</strong><p>{formData.bairro} · {formData.municipio}/{formData.uf} · {formData.cep}</p><button type="button" onClick={() => goToStep(2)}>Alterar</button></article>
+              </div>
               <div className="cadastro-submit-area">
 
                 <button
@@ -1711,6 +1790,11 @@ export default function CadastroPage() {
                 </p>
 
               </div>
+
+              <div className="cadastro-step-actions cadastro-review-actions">
+                <button type="button" className="cadastro-step-back" onClick={() => goToStep(2)}>← Voltar</button>
+              </div>
+              </section>}
 
               <div className="cadastro-login-link">
 
