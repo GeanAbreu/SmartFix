@@ -75,7 +75,8 @@
 .history time { display: block; margin-top: 4px; color: #8fa6b9; font-size: 11px; }
 .logistics{display:grid;gap:13px}.logistics>p{font-size:13px}.deliveryCard{display:grid;gap:7px;padding:14px;border:1px solid #2d5673;border-radius:10px;background:#091a2a}.deliveryCard span,.deliveryCard small{color:#a9bfd0;font-size:12px}.deliveryCard small{color:#ffb5ad}.deliveryCard a{color:#8fd2ff;font-size:12px;font-weight:700}.deliveryForm{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.deliveryForm label{display:grid;gap:6px;color:#a9bfd0;font-size:12px}.deliveryForm input,.deliveryForm select{min-width:0;padding:10px;border:1px solid #33536e;border-radius:9px;background:#0a1929;color:#fff;font:inherit}
 .emptyDetail { display: grid; justify-items: center; gap: 10px; padding: 70px 20px; text-align: center; }
-.emptyDetail span { color: #75b7e9; font-size: 38px; }
+.emptyDetail span { width:62px;height:62px;display:grid;place-items:center;padding:16px;border:1px solid #315a78;border-radius:17px;background:#102b43;color:#75b7e9; }
+.emptyDetail span svg { width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round; }
 .emptyDetail h2 { margin: 0; font-size: 20px; }
 .emptyDetail p { margin: 0; color: #aab7c7; }
 .error, .message { margin: 0 0 18px; padding: 13px 15px; border-radius: 9px; font-size: 13px; }

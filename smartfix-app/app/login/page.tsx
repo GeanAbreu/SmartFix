@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import GoogleAuthButton from "@/app/components/GoogleAuthButton";
 import type {
   AuthenticatedUser,
 } from "@/src/types/api";
@@ -677,7 +678,7 @@ export default function LoginPage() {
                   NOVO CADASTRO
               ============================================= */}
 
-              <p><a href="/api/auth/google">Entrar com Google vinculado</a></p>
+              <GoogleAuthButton label="Entrar com Google" />
               <div className="login-register-box">
 
                 <span className="login-register-question">

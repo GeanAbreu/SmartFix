@@ -7,6 +7,7 @@ import type { ApiResponse, ClientProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
 import { summarizeClientOrders } from "@/src/services/client-dashboard.service";
 import { ORDER_LABELS, type RepairOrder } from "@/src/types/workflow";
+import VisualIcon from "@/app/cliente/components/VisualIcon";
 import styles from "./dashboard.module.css";
 
 type ClientData = { client: ClientProfile };
@@ -29,10 +30,10 @@ function statusStyle(order: RepairOrder) {
   return styles.statusActive;
 }
 
-function OrderRow({ order }: { order: RepairOrder }) {
-  return <li className={styles.orderRow}>
+function OrderRow({ order, emphasis = "recent" }: { order: RepairOrder; emphasis?: "attention" | "recent" }) {
+  return <li className={`${styles.orderRow} ${emphasis === "attention" ? styles.attentionRow : styles.recentRow}`}>
     <div className={styles.orderDetails}>
-      <span className={styles.orderIcon} aria-hidden="true">▣</span>
+      <VisualIcon name={emphasis === "attention" ? "order" : "device"} className={styles.orderIcon} />
       <div>
         <h3>{order.device}</h3>
         <p>O.S. {order.id.slice(0, 8)} · {new Date(order.createdAt).toLocaleDateString("pt-BR")}</p>
@@ -205,14 +206,14 @@ export default function ClientDashboard() {
 
       {ordersLoading ? <section className={styles.panel} role="status"><p className={styles.message}>Carregando reparos...</p></section>
       : ordersError ? <section className={styles.panel} role="alert"><p className={styles.message}>{ordersError}</p><button type="button" className={styles.retryButton} onClick={() => void retryOrders()}>Tentar novamente</button></section>
-      : orders.length === 0 ? <section className={styles.panel}><div className={styles.emptyState}><span aria-hidden="true">▣</span><h2>Seu primeiro reparo começa aqui</h2><p>Cadastre um aparelho e envie uma solicitação para uma assistência parceira.</p><Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>Solicitar reparo</Link></div></section>
+      : orders.length === 0 ? <section className={styles.panel}><div className={styles.emptyState}><VisualIcon name="empty"/><h2>Seu primeiro reparo começa aqui</h2><p>Cadastre um aparelho e envie uma solicitação para uma assistência parceira.</p><Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>Solicitar reparo</Link></div></section>
       : <>
-        {summary.attentionCount > 0 && <section className={styles.panel} aria-labelledby="attention-title">
-          <div className={styles.panelHeader}><div><span className={styles.eyebrow}>PRÓXIMOS PASSOS</span><h2 id="attention-title">Precisa da sua atenção</h2></div><Link href="/cliente/ordens">Ver todos</Link></div>
-          <ul className={styles.orderList}>{summary.attention.map((order) => <OrderRow key={order.id} order={order} />)}</ul>
+        {summary.attentionCount > 0 && <section className={`${styles.panel} ${styles.attentionPanel}`} aria-labelledby="attention-title">
+          <div className={styles.panelHeader}><div className={styles.panelTitle}><span className={styles.panelMark} aria-hidden="true">!</span><div><span className={styles.eyebrow}>PRÓXIMOS PASSOS</span><h2 id="attention-title">Precisa da sua atenção</h2></div></div><Link href="/cliente/ordens">Ver todos</Link></div>
+          <ul className={styles.orderList}>{summary.attention.map((order) => <OrderRow key={order.id} order={order} emphasis="attention" />)}</ul>
         </section>}
-        {summary.recent.length > 0 && <section className={styles.panel} aria-labelledby="recent-title">
-          <div className={styles.panelHeader}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2 id="recent-title">Reparos recentes</h2></div><Link href="/cliente/ordens">Ver todos</Link></div>
+        {summary.recent.length > 0 && <section className={`${styles.panel} ${styles.recentPanel}`} aria-labelledby="recent-title">
+          <div className={styles.panelHeader}><div className={styles.panelTitle}><span className={styles.panelMark} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></span><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2 id="recent-title">Reparos recentes</h2></div></div><Link href="/cliente/ordens">Ver todos</Link></div>
           <ul className={styles.orderList}>{summary.recent.map((order) => <OrderRow key={order.id} order={order} />)}</ul>
         </section>}
       </>}

@@ -1,7 +1,7 @@
 import { requirePageRole } from "@/src/services/page-authorization.service";
-import AccountWorkspace from "@/app/components/AccountWorkspace";
+import PartnerNotifications from "./PartnerNotifications";
 export const dynamic = "force-dynamic";
 export default async function Page() {
   await requirePageRole("partner");
-  return <AccountWorkspace mode="notifications" root="/parceiro" />;
+  return <PartnerNotifications />;
 }

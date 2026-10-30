@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import VisualIcon from "@/app/cliente/components/VisualIcon";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
@@ -185,7 +186,7 @@ export default function DeviceManager({ returnPartnerId = "" }: { returnPartnerI
           <div className={styles.grid}>{devices.map((device) => (
             <article key={device.id} className={styles.card}>
               <div className={styles.cardTitle}>
-                <span className={styles.deviceIcon} aria-hidden="true">▣</span>
+                <VisualIcon name="device" className={styles.deviceIcon} />
                 <div>
                   <h3>{device.apelido || device.modelo}</h3>
                   <small>{device.tipo}</small>

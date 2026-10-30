@@ -41,15 +41,26 @@
 .statCard strong { display: block; margin: 10px 0 4px; color: #fff; font-size: 31px; line-height: 1; }
 .statCard p { margin: 0; color: #879aac; font-size: 12px; }
 .panel { margin-bottom: 18px; border: 1px solid rgba(60,130,190,.25); border-radius: 16px; background: #0d1b2d; overflow: hidden; }
+.attentionPanel { border-color:rgba(255,122,31,.3); background:linear-gradient(145deg,rgba(39,28,28,.74),#0d1b2d 45%); }
+.recentPanel { background:linear-gradient(145deg,#10243a,#0d1b2d); }
 .panelHeader { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 22px; border-bottom: 1px solid rgba(60,130,190,.2); }
 .panelHeader h2 { margin: 4px 0 0; font-size: 20px; }
+.panelTitle { display:flex;align-items:center;gap:13px; }
+.panelMark { width:40px;height:40px;display:grid;place-items:center;flex:0 0 40px;border:1px solid #315a78;border-radius:11px;background:#15344e;color:#8fcdf8;font-size:18px;font-weight:850; }
+.attentionPanel .panelMark { border-color:rgba(255,122,31,.38);background:rgba(255,107,26,.1);color:#ff9a62;box-shadow:0 0 24px rgba(255,107,26,.08); }
+.panelMark svg { width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round; }
 .panelHeader > a { color: #7db7e8; font-size: 13px; text-decoration: none; white-space: nowrap; }
 .panelHeader > a:hover { color: #fff; }
 .orderList { list-style: none; margin: 0; padding: 0 22px; }
 .orderRow { min-height: 78px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid rgba(60,130,190,.17); }
+.orderRow { transition:transform .22s var(--ease-out-expo),background-color .2s ease,border-color .2s ease; }
+.orderRow:hover { transform:translateX(3px);background:rgba(26,61,91,.18); }
+.attentionRow:hover { background:rgba(255,107,26,.055); }
 .orderRow:last-child { border-bottom: 0; }
 .orderDetails { min-width: 0; display: flex; align-items: center; gap: 13px; }
 .orderIcon { flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: #183954; color: #80c4f4; font-size: 22px; }
+.orderIcon { border:1px solid #315b7b;box-shadow:inset 0 1px rgba(255,255,255,.04); }
+.attentionRow .orderIcon { border-color:rgba(255,122,31,.38);background:rgba(255,107,26,.1);color:#ff9a62; }
 .orderDetails div { min-width: 0; }
 .orderDetails h3 { overflow: hidden; margin: 0 0 5px; color: #f2f6fa; font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
 .orderDetails p { overflow: hidden; margin: 0; color: #91a5b7; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
@@ -63,7 +74,7 @@
 .message { margin: 0; padding: 24px; color: #b8c8d7; }
 .retryButton { margin: 0 24px 24px; padding: 9px 13px; border: 1px solid #287dbd; border-radius: 8px; background: #173c5d; color: #fff; cursor: pointer; }
 .emptyState { display: grid; justify-items: center; gap: 12px; padding: 48px 22px; text-align: center; }
-.emptyState > span { color: #75b7e9; font-size: 38px; }
+.emptyState > span { width:62px;height:62px;display:grid;place-items:center;border:1px solid #315b7b;border-radius:17px;background:#102b43;color:#75b7e9; }
 .emptyState h2 { margin: 0; font-size: 21px; }
 .emptyState p { max-width: 420px; margin: 0 0 8px; color: #aab7c7; }
 .loadingPage { min-height: 100vh; display: grid; place-items: center; background: #07111f; color: #fff; }

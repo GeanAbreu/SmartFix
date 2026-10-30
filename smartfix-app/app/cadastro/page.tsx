@@ -8,6 +8,7 @@ import {
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GoogleAuthButton from "@/app/components/GoogleAuthButton";
 import type {
   AuthenticatedUser,
 } from "@/src/types/api";
@@ -1179,6 +1180,12 @@ export default function CadastroPage() {
                 </p>
               </div>
             )}
+
+            <GoogleAuthButton
+              label="Continuar com Google"
+              variant="cadastro"
+              hint="Disponível para contas Google já vinculadas à SmartFix."
+            />
 
             <form
               onSubmit={handleSubmit}

@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The Supabase CA path is configured at runtime through DB_SSL_CA_FILE.
+  // Next.js cannot infer dynamic readFileSync paths while tracing serverless
+  // dependencies, so keep the certificate in every Vercel function bundle.
+  outputFileTracingIncludes: {
+    "/*": ["./certs/prod-ca-2021.crt"],
+  },
   serverExternalPackages: [
     "sequelize",
     "pg",
