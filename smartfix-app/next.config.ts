@@ -6,7 +6,15 @@ const nextConfig: NextConfig = {
   // Next.js cannot infer dynamic readFileSync paths while tracing serverless
   // dependencies, so keep the certificate in every Vercel function bundle.
   outputFileTracingIncludes: {
-    "/*": ["./certs/prod-ca-2021.crt"],
+    "/*": [
+      "./certs/prod-ca-2021.crt",
+      // Sequelize resolves the PostgreSQL dialect with a dynamic require.
+      // Include the driver tree explicitly so Vercel packages it with every
+      // server function that imports the shared database configuration.
+      "./node_modules/pg/**/*",
+      "./node_modules/pg-*/**/*",
+      "./node_modules/postgres-*/**/*",
+    ],
   },
   serverExternalPackages: [
     "sequelize",
