@@ -1,4 +1,5 @@
 import { Sequelize } from "sequelize";
+import pg from "pg";
 import { readFileSync } from "node:fs";
 import { AppError } from "@/src/errors/AppError";
 
@@ -30,6 +31,9 @@ export function assertDatabaseConfigured() {
 function createSequelizeInstance() {
   const options = {
     dialect: "postgres",
+    // Evita o carregamento dinâmico do driver pelo Sequelize. Além de tornar
+    // a dependência explícita, isto garante que o pg entre no bundle Vercel.
+    dialectModule: pg,
     logging:
       process.env.NODE_ENV === "development" &&
       process.env.DB_LOGGING === "true"
