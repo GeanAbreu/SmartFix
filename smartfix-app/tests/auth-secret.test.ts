@@ -16,7 +16,7 @@ test("prefere SESSION_SECRET quando configurado", () => {
 test("deriva uma chave de autenticação estável do segredo Supabase", () => {
   const previous = { ...process.env };
   try {
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.SESSION_SECRET = "";
     process.env.SUPABASE_JWT_SECRET =
       "supabase-production-secret-with-more-than-32-characters";
