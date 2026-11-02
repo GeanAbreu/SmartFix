@@ -13,8 +13,13 @@ function configuredDatabaseUrl() {
 
 const databaseUrl = configuredDatabaseUrl();
 const useSsl = process.env.DB_SSL !== "false";
+const usesVercelManagedPostgresUrl =
+  !process.env.DATABASE_URL?.trim() && Boolean(process.env.POSTGRES_URL?.trim());
 const rejectUnauthorized =
   process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
+const sslCaFile =
+  process.env.DB_SSL_CA_FILE ||
+  (usesVercelManagedPostgresUrl ? "certs/prod-ca-2021.crt" : undefined);
 
 function getPoolMax() {
   const configuredValue = Number.parseInt(process.env.DB_POOL_MAX ?? "5", 10);
@@ -52,8 +57,8 @@ function createSequelizeInstance() {
           ssl: {
             require: true,
             rejectUnauthorized,
-            ...(process.env.DB_SSL_CA_FILE
-              ? { ca: readFileSync(process.env.DB_SSL_CA_FILE, "utf8") }
+            ...(sslCaFile
+              ? { ca: readFileSync(sslCaFile, "utf8") }
               : {}),
           },
         }
