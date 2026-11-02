@@ -3,7 +3,15 @@ import pg from "pg";
 import { readFileSync } from "node:fs";
 import { AppError } from "@/src/errors/AppError";
 
-const databaseUrl = process.env.DATABASE_URL?.trim();
+function configuredDatabaseUrl() {
+  return (
+    process.env.DATABASE_URL?.trim() ||
+    process.env.POSTGRES_URL?.trim() ||
+    process.env.POSTGRES_PRISMA_URL?.trim()
+  );
+}
+
+const databaseUrl = configuredDatabaseUrl();
 const useSsl = process.env.DB_SSL !== "false";
 const rejectUnauthorized =
   process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
@@ -19,9 +27,9 @@ function getPoolMax() {
 }
 
 export function assertDatabaseConfigured() {
-  if (!process.env.DATABASE_URL?.trim()) {
+  if (!configuredDatabaseUrl()) {
     throw new AppError(
-      "Banco de dados não configurado. Defina DATABASE_URL no ambiente do servidor e reinicie a aplicação.",
+      "Banco de dados não configurado. Defina DATABASE_URL ou POSTGRES_URL no ambiente do servidor e reinicie a aplicação.",
       503,
       "DATABASE_NOT_CONFIGURED"
     );

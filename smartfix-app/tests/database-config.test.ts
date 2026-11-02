@@ -18,6 +18,10 @@ test("não simula persistência PostgreSQL quando a conexão está ausente", asy
     process.env.DATABASE_URL = "postgresql://localhost/test";
     assert.equal(usesLocalAuthStore(), false);
     process.env.DATABASE_URL = "";
+    process.env.POSTGRES_URL = "postgresql://localhost/test";
+    assert.doesNotThrow(assertDatabaseConfigured);
+    assert.equal(usesLocalAuthStore(), false);
+    process.env.POSTGRES_URL = "";
     Object.assign(process.env, { NODE_ENV: "production" });
     assert.equal(usesLocalAuthStore(), false);
   } finally {

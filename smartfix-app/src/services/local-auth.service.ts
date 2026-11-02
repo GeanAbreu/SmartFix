@@ -75,7 +75,9 @@ const globalForLocalAuth = globalThis as unknown as {
 export function usesLocalAuthStore() {
   return process.env.NODE_ENV === "development" &&
     process.env.SMARTFIX_LOCAL_AUTH === "true" &&
-    !process.env.DATABASE_URL?.trim();
+    !process.env.DATABASE_URL?.trim() &&
+    !process.env.POSTGRES_URL?.trim() &&
+    !process.env.POSTGRES_PRISMA_URL?.trim();
 }
 
 function emptyStore(): LocalAuthStore {

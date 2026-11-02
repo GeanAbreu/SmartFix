@@ -1,5 +1,5 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { AppError } from "@/src/errors/AppError";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { getAuthSecret } from "@/src/services/auth-secret.service";
 import type { SessionRole } from "@/src/types/api";
 
 export const SESSION_COOKIE_NAME = "smartfix_session";
@@ -12,42 +12,14 @@ export type SessionPayload = {
   iat?: number;
 };
 
-const globalForSession = globalThis as unknown as {
-  smartfixDevelopmentSessionSecret?: string;
-};
-
-function getSecret() {
-  const secret = process.env.SESSION_SECRET;
-
-  if (secret && secret.length >= 32) {
-    return secret;
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    globalForSession.smartfixDevelopmentSessionSecret ??=
-      randomBytes(48).toString("hex");
-    return globalForSession.smartfixDevelopmentSessionSecret;
-  }
-
-  if (!secret || secret.length < 32) {
-    throw new AppError(
-      "O serviço de autenticação não está configurado neste ambiente.",
-      503,
-      "SESSION_NOT_CONFIGURED"
-    );
-  }
-
-  return secret;
-}
-
 function sign(encodedPayload: string) {
-  return createHmac("sha256", getSecret())
+  return createHmac("sha256", getAuthSecret())
     .update(encodedPayload)
     .digest("base64url");
 }
 
 export function signServerValue(namespace: string, value: string) {
-  return createHmac("sha256", getSecret())
+  return createHmac("sha256", getAuthSecret())
     .update(`${namespace}:${value}`)
     .digest("base64url");
 }

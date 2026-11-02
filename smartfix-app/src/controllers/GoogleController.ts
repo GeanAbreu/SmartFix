@@ -1,7 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { accountById, actorFrom } from "@/src/services/account.service";
+import {
+  accountByEmail,
+  accountById,
+  actorFrom,
+} from "@/src/services/account.service";
 import { applicationUrl } from "@/src/services/email.service";
 import { openFlow, sealFlow } from "@/src/services/auth-flow.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
@@ -123,7 +127,11 @@ export class GoogleController {
           "INVALID_OAUTH",
         );
       const google = z
-        .object({ sub: z.string().min(1), email_verified: z.literal(true) })
+        .object({
+          sub: z.string().min(1),
+          email: z.email(),
+          email_verified: z.literal(true),
+        })
         .parse(await userResponse.json());
       let identity;
       if (flow.actorId) {
@@ -166,12 +174,30 @@ export class GoogleController {
               item.kind === "google" && item.data.subject === google.sub,
           ),
         );
-      if (!identity)
-        throw new AppError(
-          "Entre com sua senha e vincule o Google no seu perfil antes do primeiro acesso.",
-          403,
-          "GOOGLE_NOT_LINKED",
-        );
+      if (!identity) {
+        const account = await accountByEmail(google.email.toLowerCase());
+        if (!account)
+          throw new AppError(
+            "Cadastre-se com este e-mail antes do primeiro acesso com Google.",
+            403,
+            "GOOGLE_NOT_LINKED",
+          );
+        identity = await withWorkflow((records) => {
+          const existing = records.find(
+            (item) =>
+              item.kind === "google" && item.data.subject === google.sub,
+          );
+          if (existing) return existing;
+          const record = {
+            id: nextWorkflowId(records),
+            kind: "google" as const,
+            ownerId: account.id,
+            data: { subject: google.sub, role: account.role },
+          };
+          records.push(record);
+          return record;
+        }, true);
+      }
       const role = z.enum(["client", "partner"]).parse(identity.data.role);
       const user = await accountById(identity.ownerId, role);
       if (!user)
