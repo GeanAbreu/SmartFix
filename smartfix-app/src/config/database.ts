@@ -21,6 +21,17 @@ const sslCaFile =
   process.env.DB_SSL_CA_FILE ||
   (usesVercelManagedPostgresUrl ? "certs/prod-ca-2021.crt" : undefined);
 
+export function databaseUrlWithDriverSsl(value: string) {
+  if (!useSsl) return value;
+  const url = new URL(value);
+  // O pg converte sslmode da connection string em uma nova configuração SSL,
+  // substituindo o CA fornecido em dialectOptions. A aplicação já configura
+  // SSL explicitamente abaixo, portanto removemos apenas essa duplicidade.
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("uselibpqcompat");
+  return url.toString();
+}
+
 function getPoolMax() {
   const configuredValue = Number.parseInt(process.env.DB_POOL_MAX ?? "5", 10);
 
@@ -72,7 +83,7 @@ function createSequelizeInstance() {
   } as const;
 
   if (databaseUrl) {
-    return new Sequelize(databaseUrl, options);
+    return new Sequelize(databaseUrlWithDriverSsl(databaseUrl), options);
   }
 
   // Instância inerte para permitir build sem segredos. Toda operação HTTP

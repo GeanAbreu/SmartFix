@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { usesLocalAuthStore } from "../src/services/local-auth.service";
-import { assertDatabaseConfigured } from "../src/config/database";
+import {
+  assertDatabaseConfigured,
+  databaseUrlWithDriverSsl,
+} from "../src/config/database";
 import { DatabaseController } from "../src/controllers/DatabaseController";
 
 test("não simula persistência PostgreSQL quando a conexão está ausente", async () => {
@@ -27,4 +30,12 @@ test("não simula persistência PostgreSQL quando a conexão está ausente", asy
   } finally {
     process.env = previous;
   }
+});
+
+test("preserva parâmetros da conexão e delega SSL ao driver configurado", () => {
+  const normalized = new URL(databaseUrlWithDriverSsl(
+    "postgresql://user:password@example.com/postgres?sslmode=require&pgbouncer=true",
+  ));
+  assert.equal(normalized.searchParams.has("sslmode"), false);
+  assert.equal(normalized.searchParams.get("pgbouncer"), "true");
 });
