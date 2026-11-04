@@ -18,6 +18,14 @@ const dispatchInput = z.object({
   schedulePeriod: z.enum(["morning", "afternoon"]).optional(),
 });
 
+function todayAtLogisticsOffset() {
+  const offset = process.env.LOGISTICS_TIMEZONE_OFFSET || "-03:00";
+  const match = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  if (!match) return new Date().toISOString().slice(0, 10);
+  const minutes = (Number(match[2]) * 60 + Number(match[3])) * (match[1] === "+" ? 1 : -1);
+  return new Date(Date.now() + minutes * 60_000).toISOString().slice(0, 10);
+}
+
 type AddressRecord = {
   id: string; cep: string; logradouro: string; numero: string; complemento?: string | null;
   bairro: string; cidade: string; estado: string; principal: boolean;
@@ -95,6 +103,8 @@ export class LogisticsController {
         const schedulePeriod = input.direction === "pickup" ? order.serviceDetails.schedulePeriod : input.schedulePeriod;
         if (!scheduledDate || !schedulePeriod)
           throw new AppError("Informe a data e o turno da entrega.", 422, "LOGISTICS_SCHEDULE_REQUIRED");
+        if (scheduledDate < todayAtLogisticsOffset())
+          throw new AppError("A entrega não pode ser agendada em uma data passada.", 422, "LOGISTICS_SCHEDULE_IN_PAST");
         order.serviceDetails.logistics ??= { provider: "uber_direct" };
         order.serviceDetails.logistics[input.direction] = {
           direction: input.direction, pickupAddress: "", dropoffAddress: "", status: "quoting",

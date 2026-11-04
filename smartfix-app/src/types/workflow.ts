@@ -20,6 +20,24 @@ export type LogisticsEvent = {
   status: string;
   at: string;
 };
+export const LOGISTICS_STATUS_LABELS: Record<string, string> = {
+  quoting: "Calculando frete",
+  creating: "Chamando entregador",
+  pending: "Aguardando entregador",
+  pickup: "Entregador a caminho da coleta",
+  pickup_complete: "Coleta realizada",
+  dropoff: "A caminho do destino",
+  delivered: "Entregue",
+  completed: "Entregue",
+  failed: "Falha no envio",
+  reconciliation_required: "Verificação manual necessária",
+  returned: "Devolvido à origem",
+  canceled: "Cancelado",
+  cancelled: "Cancelado",
+};
+export function logisticsStatusLabel(status: string) {
+  return LOGISTICS_STATUS_LABELS[status.toLowerCase()] || status.replaceAll("_", " ");
+}
 export type LogisticsLeg = {
   direction: "pickup" | "return";
   quoteId?: string;
