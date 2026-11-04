@@ -73,9 +73,9 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const paymentId = params.get("payment_id");
-    if (!paymentId || params.get("payment") !== "success") return;
-    void fetch(`/api/payments/mercado-pago/confirm?paymentId=${encodeURIComponent(paymentId)}`, {
+    const providerOrderId = params.get("order_id");
+    if (!providerOrderId || params.get("payment") !== "success") return;
+    void fetch(`/api/payments/mercado-pago/confirm?orderId=${encodeURIComponent(providerOrderId)}`, {
       credentials: "include", cache: "no-store",
     }).then(async (response) => {
       const result = await readApiResponse<{ confirmed: boolean }>(response);

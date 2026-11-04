@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 
 const api = "https://api.mercadopago.com";
@@ -23,46 +24,75 @@ async function mercadoPago<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function idempotencyKey(value: string) {
+  const hex = createHash("sha256").update(value).digest("hex").slice(0, 32).split("");
+  hex[12] = "4";
+  hex[16] = ((Number.parseInt(hex[16], 16) & 3) | 8).toString(16);
+  return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
+}
+
 export function paymentPublicUrl() {
   const value = process.env.PAYMENT_PUBLIC_URL || process.env.APP_URL;
   if (!value) throw new AppError("Configure PAYMENT_PUBLIC_URL para receber pagamentos.", 503, "PAYMENT_NOT_CONFIGURED");
-  return new URL(value).origin;
+  const url = new URL(value);
+  if (url.protocol !== "https:")
+    throw new AppError("PAYMENT_PUBLIC_URL deve usar HTTPS.", 503, "PAYMENT_NOT_CONFIGURED");
+  return url.origin;
 }
 
 export async function createPreference(input: { orderId: string; title: string; totalCents: number; payerEmail: string }) {
   const origin = paymentPublicUrl();
-  const result = await mercadoPago<{ id: string; init_point: string; sandbox_init_point?: string }>("/checkout/preferences", {
+  const amount = (input.totalCents / 100).toFixed(2);
+  const result = await mercadoPago<{ id: string; checkout_url: string }>("/v1/orders", {
     method: "POST",
-    headers: { "X-Idempotency-Key": `smartfix-${input.orderId}` },
+    headers: { "X-Idempotency-Key": idempotencyKey(`checkout:${input.orderId}`) },
     body: JSON.stringify({
-      items: [{ id: input.orderId, title: input.title, quantity: 1, currency_id: "BRL", unit_price: input.totalCents / 100 }],
+      type: "online",
+      processing_mode: "manual",
+      capture_mode: "automatic_async",
+      total_amount: amount,
+      items: [{ external_code: input.orderId, title: input.title, quantity: 1, unit_price: amount }],
       payer: { email: input.payerEmail },
       external_reference: input.orderId,
-      back_urls: {
-        success: `${origin}/cliente/ordens?payment=success&order=${input.orderId}`,
-        pending: `${origin}/cliente/ordens?payment=pending&order=${input.orderId}`,
-        failure: `${origin}/cliente/ordens?payment=failure&order=${input.orderId}`,
+      config: {
+        online: {
+          success_url: `${origin}/cliente/ordens?payment=success&order=${input.orderId}`,
+          pending_url: `${origin}/cliente/ordens?payment=pending&order=${input.orderId}`,
+          failure_url: `${origin}/cliente/ordens?payment=failure&order=${input.orderId}`,
+          auto_return: "approved",
+        },
       },
-      notification_url: `${origin}/api/payments/mercado-pago/webhook`,
-      statement_descriptor: "SMARTFIX",
     }),
   });
-  return { id: result.id, checkoutUrl: result.init_point || result.sandbox_init_point };
+  const checkoutUrl = result.checkout_url;
+  if (!checkoutUrl)
+    throw new AppError("O Mercado Pago não retornou a URL do checkout.", 502, "PAYMENT_PROVIDER_ERROR");
+  return { id: result.id, checkoutUrl };
 }
 
-export function getPayment(id: string) {
+export function getOrder(id: string) {
   return mercadoPago<{
-    id: number; status: string; external_reference: string | null; transaction_amount: number;
-    payment_type_id: string; preference_id?: string;
-  }>(`/v1/payments/${encodeURIComponent(id)}`);
+    id: string; status: string; status_detail?: string; external_reference: string | null;
+    total_amount: string; total_paid_amount: string; currency: string;
+    transactions?: { payments?: Array<{ id: string; status: string; status_detail?: string;
+      amount: string; paid_amount: string; payment_method?: { type?: string } }> };
+  }>(`/v1/orders/${encodeURIComponent(id)}`);
 }
 
-export async function refundPayment(input: { paymentId: string; idempotencyKey: string; amountCents?: number }) {
-  const result = await mercadoPago<{ id: number | string; payment_id?: number | string; amount: number; status?: string }>(
-    `/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, {
+export async function refundOrder(input: { orderId: string; transactionId: string; idempotencyKey: string;
+  totalCents: number; amountCents?: number }) {
+  const body = input.amountCents === undefined ? {} : {
+    transactions: [{ id: input.transactionId, amount: (input.amountCents / 100).toFixed(2) }],
+  };
+  const result = await mercadoPago<{ id: string; status?: string; status_detail?: string;
+    transactions?: { refunds?: Array<{ id: string; amount: string; status?: string }> } }>(
+    `/v1/orders/${encodeURIComponent(input.orderId)}/refund`, {
       method: "POST",
-      headers: { "X-Idempotency-Key": input.idempotencyKey },
-      body: input.amountCents === undefined ? "{}" : JSON.stringify({ amount: input.amountCents / 100 }),
+      headers: { "X-Idempotency-Key": idempotencyKey(input.idempotencyKey) },
+      body: JSON.stringify(body),
     });
-  return { id: String(result.id), amountCents: Math.round(result.amount * 100), status: result.status || "approved" };
+  const refund = result.transactions?.refunds?.at(-1);
+  return { id: refund?.id || result.id,
+    amountCents: refund ? Math.round(Number(refund.amount) * 100) : input.amountCents ?? input.totalCents,
+    status: refund?.status || result.status_detail || result.status || "processed" };
 }

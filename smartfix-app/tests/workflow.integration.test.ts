@@ -170,15 +170,17 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     process.env.MERCADO_PAGO_ACCESS_TOKEN = "test-token";
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => new Response(JSON.stringify({
-      id: 123,
-      status: "pending",
+      id: "ORDTST123456",
+      status: "created",
+      status_detail: "created",
       external_reference: order.id,
-      transaction_amount: 199.9,
-      payment_type_id: "pix",
+      total_amount: "199.90",
+      total_paid_amount: "0.00",
+      currency: "BRL",
     }), { status: 200, headers: { "Content-Type": "application/json" } });
     try {
       const pendingPayment = await PaymentController.confirm(
-        request(client, "/api/payments/mercado-pago/confirm?paymentId=123"),
+        request(client, "/api/payments/mercado-pago/confirm?orderId=ORDTST123456"),
       );
       assert.equal(pendingPayment.status, 409);
       assert.equal((await pendingPayment.json()).code, "PAYMENT_NOT_APPROVED");

@@ -6,3 +6,6 @@
 # Temporary render and prototype artifacts
 tmp/
 prototypes/
+
+.vercel
+.env*
