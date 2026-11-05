@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loginSchema, registerSchema } from "../src/validations/auth.validation";
+import { CURRENT_TERMS_VERSION } from "../src/constants/legal";
 
 const validClientRegistration = {
   tipoUsuario: "cliente" as const,
@@ -18,6 +19,8 @@ const validClientRegistration = {
   bairro: "Sé",
   municipio: "São Paulo",
   uf: "SP",
+  acceptedTerms: true,
+  termsVersion: CURRENT_TERMS_VERSION,
 };
 
 test("aceita um cadastro de cliente válido", () => {

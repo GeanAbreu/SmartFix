@@ -31,6 +31,8 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       await import("../src/controllers/TrackingController");
     const { PaymentController } =
       await import("../src/controllers/PaymentController");
+    const { ServiceController } =
+      await import("../src/controllers/ServiceController");
     const { ClientController } =
       await import("../src/controllers/ClientController");
     const { RecoveryController } =
@@ -98,6 +100,14 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     );
     assert.equal(approved.status, 200);
     assert.equal((await approved.json()).data.emailStatus, "not_configured");
+    const service = await ServiceController.create(request(partner, "/api/services", {
+      name: "Reparo de smartphone",
+      description: "Diagnóstico e reparo geral",
+      unitPriceCents: 0,
+      estimatedDays: 3,
+      isActive: true,
+    }));
+    assert.equal(service.status, 201);
     const device = await store.createLocalDevice(client.id, {
       tipo: "Smartphone",
       marca: "Apple",

@@ -48,6 +48,26 @@ export type LogisticsWebhookEvent = {
   occurredAt: string;
 };
 
+const LOGISTICS_PROGRESS: Record<string, number> = {
+  quoting: 0, creating: 1, pending: 2, pickup: 3,
+  pickup_complete: 4, dropoff: 5, delivered: 6, completed: 6,
+};
+
+export function shouldApplyLogisticsEvent(
+  current: { status: string; lastEventAt?: string },
+  event: Pick<LogisticsWebhookEvent, "status" | "occurredAt">,
+) {
+  const previousAt = current.lastEventAt ? Date.parse(current.lastEventAt) : 0;
+  const eventAt = Date.parse(event.occurredAt);
+  if (!Number.isFinite(eventAt) || eventAt < previousAt) return false;
+  const previousRank = LOGISTICS_PROGRESS[current.status];
+  const nextRank = LOGISTICS_PROGRESS[event.status];
+  if (previousRank !== undefined && nextRank !== undefined && nextRank < previousRank) return false;
+  if (["delivered", "completed"].includes(current.status) &&
+    !["delivered", "completed"].includes(event.status)) return false;
+  return true;
+}
+
 let tokenCache: { value: string; expiresAt: number } | undefined;
 
 function settings() {

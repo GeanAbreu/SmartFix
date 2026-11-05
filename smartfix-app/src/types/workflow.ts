@@ -72,6 +72,8 @@ export type ServiceDetails = {
   paidAt: string;
   paymentProvider?: "mercado_pago";
   paymentPreferenceId?: string;
+  paymentCheckoutUrl?: string;
+  paymentCheckoutFingerprint?: string;
   paymentId?: string;
   technicianName?: string;
   promisedDate?: string;
@@ -79,10 +81,27 @@ export type ServiceDetails = {
   rejectionReason?: string;
   cancellationRequestedAt?: string;
   cancellationReason?: string;
-  refundStatus?: "pending" | "processed" | "failed";
+  refundStatus?: "pending" | "partial" | "processed" | "failed";
   refundId?: string;
   refundAmountCents?: number;
   refundedAt?: string;
+  logisticsActualFeeCents?: number;
+  logisticsFeeVarianceCents?: number;
+  auditTrail?: Array<{
+    at: string;
+    actorId: string;
+    actorRole: string;
+    action: string;
+    fromStatus?: OrderStatus;
+    toStatus?: OrderStatus;
+  }>;
+  warrantyClaim?: {
+    status: "requested" | "accepted" | "rejected";
+    reason: string;
+    requestedAt: string;
+    decidedAt?: string;
+    response?: string;
+  };
   logistics?: {
     provider: "uber_direct";
     pickup?: LogisticsLeg;

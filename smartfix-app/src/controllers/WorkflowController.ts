@@ -148,6 +148,18 @@ export class WorkflowController {
           });
       if (!device)
         throw new AppError("Dispositivo não encontrado.", 404, "NOT_FOUND");
+      const hasActiveService = usesLocalAuthStore()
+        ? await withWorkflow((records) => records.some((record) =>
+          record.kind === "service" && record.ownerId === input.partnerId && record.data.isActive !== false))
+        : Boolean(await PartnerService.findOne({
+          where: { partner_id: input.partnerId, is_active: true }, attributes: ["id"],
+        }));
+      if (!hasActiveService)
+        throw new AppError(
+          "Esta assistência não possui serviços ativos para receber novas solicitações.",
+          422,
+          "PARTNER_WITHOUT_ACTIVE_SERVICE",
+        );
       const now = new Date().toISOString();
       const order: RepairOrder = {
         ...input,
@@ -204,7 +216,11 @@ export class WorkflowController {
           notify(
             records,
             ownerId,
-            `${updated.device}: ${input.action === "review" ? "avaliação recebida" : input.action === "request_cancellation" ? "cancelamento e reembolso solicitados" : ORDER_LABELS[updated.status]}.`,
+            `${updated.device}: ${input.action === "review" ? "avaliação recebida"
+              : input.action === "request_cancellation" ? "cancelamento e reembolso solicitados"
+              : input.action === "request_warranty" ? "garantia acionada pelo cliente"
+              : input.action === "warranty_decision" ? `garantia ${input.decision === "accepted" ? "aceita" : "recusada"}`
+              : ORDER_LABELS[updated.status]}.`,
             actor.role === "client" ? "/parceiro/ordens" : "/cliente/ordens",
           );
         }

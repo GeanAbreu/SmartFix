@@ -204,6 +204,27 @@ test("cliente pode solicitar cancelamento pago somente antes da coleta", () => {
   assert.ok(current.serviceDetails.cancellationRequestedAt);
   assert.throws(() => applyOrderAction(current, { sub: "client", role: "client" }, { action: "request_cancellation", reason: "Tentativa repetida de cancelar este serviço." }));
 });
+test("congela os dados do checkout e aguarda a coleta antes do reparo", () => {
+  const current = order();
+  current.status = "quoted";
+  current.quote = [{ name: "Serviço", category: "labor", details: "", quantity: 1, unitPriceCents: 1000 }];
+  const checkout = { scheduledDate: "2099-01-01", schedulePeriod: "morning" as const,
+    serviceAddress: "Rua Teste, 123", serviceAddressId: "10", couponCode: "" };
+  prepareOrderPayment(current, "client", checkout);
+  assert.doesNotThrow(() => prepareOrderPayment(current, "client", checkout));
+  assert.throws(() => prepareOrderPayment(current, "client", { ...checkout, couponCode: "SMART10" }),
+    { code: "CHECKOUT_ALREADY_STARTED" });
+  confirmOrderPayment(current, "payment-1", "pix");
+  current.serviceDetails.logistics = { provider: "uber_direct", pickup: {
+    direction: "pickup", pickupAddress: "A", dropoffAddress: "B", deliveryId: "delivery-1",
+    status: "pickup", verification: "photo_and_pin", events: [],
+  } };
+  assert.throws(() => applyOrderAction(current, { sub: "partner", role: "partner" },
+    { action: "status", status: "in_progress" }), { code: "PICKUP_NOT_DELIVERED" });
+  current.serviceDetails.logistics.pickup!.status = "delivered";
+  assert.doesNotThrow(() => applyOrderAction(current, { sub: "partner", role: "partner" },
+    { action: "status", status: "in_progress" }));
+});
 test("estado OAuth adulterado ou expirado não é aceito", () => {
   process.env.SESSION_SECRET = "test-oauth-secret-at-least-32-characters";
   const sealed = sealFlow({ state: "nonce", verifier: "challenge" });

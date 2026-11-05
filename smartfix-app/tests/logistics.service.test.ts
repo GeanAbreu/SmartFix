@@ -29,3 +29,23 @@ test("rejeita webhook logístico incompleto", async () => {
   assert.throws(() => parseLogisticsWebhook(JSON.stringify({ data: { id: "del-1" } })),
     { code: "INVALID_WEBHOOK" });
 });
+
+test("ignora eventos logísticos antigos ou regressivos", async () => {
+  const { shouldApplyLogisticsEvent } = await import("../src/services/logistics.service");
+  assert.equal(shouldApplyLogisticsEvent(
+    { status: "dropoff", lastEventAt: "2026-11-04T15:00:00.000Z" },
+    { status: "pickup_complete", occurredAt: "2026-11-04T16:00:00.000Z" },
+  ), false);
+  assert.equal(shouldApplyLogisticsEvent(
+    { status: "delivered", lastEventAt: "2026-11-04T15:00:00.000Z" },
+    { status: "failed", occurredAt: "2026-11-04T16:00:00.000Z" },
+  ), false);
+  assert.equal(shouldApplyLogisticsEvent(
+    { status: "pickup", lastEventAt: "2026-11-04T15:00:00.000Z" },
+    { status: "pickup_complete", occurredAt: "2026-11-04T14:00:00.000Z" },
+  ), false);
+  assert.equal(shouldApplyLogisticsEvent(
+    { status: "pickup", lastEventAt: "2026-11-04T15:00:00.000Z" },
+    { status: "pickup_complete", occurredAt: "2026-11-04T16:00:00.000Z" },
+  ), true);
+});

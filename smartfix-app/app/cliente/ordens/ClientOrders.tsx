@@ -47,7 +47,8 @@ async function getOrders() {
 }
 
 export default function ClientOrders({ initialQuery }: { initialQuery: string }) {
-  const today = new Date().toLocaleDateString("en-CA");
+  const [renderedAt] = useState(() => Date.now());
+  const today = new Date(renderedAt).toLocaleDateString("en-CA");
   const [orders, setOrders] = useState<ClientOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -149,6 +150,21 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
     finally { setBusyId(null); }
   }
 
+  async function requestWarranty(order: ClientOrder, reason: string) {
+    setBusyId(order.id); setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "request_warranty", reason }),
+      });
+      const result = await readApiResponse<{ order: ClientOrder }>(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível acionar a garantia.");
+      setNotice("Garantia acionada. A assistência foi notificada.");
+      await refresh();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível acionar a garantia."); }
+    finally { setBusyId(null); }
+  }
+
   const counts = useMemo(() => ({
     active: orders.filter((order) => activeStatuses.has(order.status)).length,
     quoted: orders.filter((order) => order.status === "quoted").length,
@@ -196,6 +212,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
             {checkoutId === order.id && order.status === "quoted" ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} /> : <div className={styles.detailActions}>{order.status === "quoted" && <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Confirmar agendamento e pagar · ${money(order.totalCents)}`}</button>}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => setPendingCancel(order)}>Cancelar solicitação</button>}<Link href={`/cliente/ajuda?partnerId=${encodeURIComponent(order.partnerId)}&order=${encodeURIComponent(order.id)}`}>Falar sobre esta ordem →</Link></div>}
             {order.serviceDetails.paymentStatus === "confirmed" && <section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>COMPROVANTE</span><h4>Pagamento confirmado</h4><p>{order.serviceDetails.paymentMethod === "pix" ? "PIX" : "Cartão"} · {dateTime(order.serviceDetails.paidAt)}</p></div><div><strong>{money(order.totalCents)}</strong><small>{order.serviceDetails.scheduledDate.split("-").reverse().join("/")} · {order.serviceDetails.schedulePeriod === "morning" ? "Manhã" : "Tarde"}</small></div><p>{order.serviceDetails.serviceAddress}</p></section>}
             {(order.serviceDetails.logistics || order.status === "ready") && <section className={styles.quote}><h4>Coleta e entrega</h4><p>As entregas usam foto na coleta e PIN no recebimento.</p>{(["pickup", "return"] as const).map((direction) => { const leg = order.serviceDetails.logistics?.[direction]; if (!leg) return null; return <div className={integratedStyles.quoteExtra} key={direction}><span>{direction === "pickup" ? "Cliente → assistência" : "Assistência → cliente"} · {logisticsStatusLabel(leg.status)}</span>{leg.trackingUrl ? <a href={leg.trackingUrl} target="_blank" rel="noreferrer">Acompanhar ↗</a> : <strong>{leg.error || "Preparando"}</strong>}</div>; })}{order.status === "ready" && !order.serviceDetails.logistics?.return?.deliveryId && <form className={integratedStyles.checkoutGrid} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void scheduleReturn(order, String(data.get("scheduledDate")), String(data.get("schedulePeriod"))); }}><label>Data da devolução<input name="scheduledDate" type="date" min={today} required /></label><label>Turno<select name="schedulePeriod" defaultValue="morning"><option value="morning">Manhã · 08h às 12h</option><option value="afternoon">Tarde · 13h às 18h</option></select></label><button className={styles.primaryButton} disabled={busyId !== null}>Agendar entrega</button><button type="button" className={styles.detailsButton} disabled={busyId !== null} onClick={() => setPendingReceipt(order)}>Já retirei presencialmente</button></form>}{order.status === "completed" && order.serviceDetails.warrantyEndsAt && <p>Garantia válida até {date(order.serviceDetails.warrantyEndsAt)}.</p>}</section>}
+            {order.status === "completed" && order.serviceDetails.warrantyEndsAt && new Date(order.serviceDetails.warrantyEndsAt).getTime() >= renderedAt && <section className={styles.quote}><h4>Garantia do reparo</h4>{order.serviceDetails.warrantyClaim ? <p>Solicitação: {order.serviceDetails.warrantyClaim.status === "requested" ? "aguardando análise" : order.serviceDetails.warrantyClaim.status === "accepted" ? "aceita" : "recusada"}. {order.serviceDetails.warrantyClaim.response || ""}</p> : <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestWarranty(order, String(data.get("reason"))); }}><label>Descreva o problema que voltou<textarea name="reason" minLength={10} maxLength={2000} required /></label><button className={styles.primaryButton} disabled={busyId !== null}>Acionar garantia</button></form>}</section>}
             {order.status === "approved" && !order.serviceDetails.logistics?.pickup?.deliveryId && (order.serviceDetails.cancellationRequestedAt ? <p className={styles.nextStep}>Cancelamento e reembolso em análise pela equipe SmartFix.</p> : <form className={integratedStyles.checkout} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestPaidCancellation(order, String(data.get("reason"))); }}><h4>Precisa cancelar?</h4><label>Explique o motivo<textarea name="reason" minLength={10} maxLength={1000} required /></label><button className={styles.cancelButton} disabled={busyId !== null}>Solicitar cancelamento e reembolso</button></form>)}
             <TrackingCode orderId={order.id} device={order.device} />
           </div>}

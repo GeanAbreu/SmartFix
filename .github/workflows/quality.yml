@@ -27,7 +27,13 @@ jobs:
           cache-dependency-path: smartfix-app/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
+      - run: npm run config:check
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/smartfix
+          SESSION_SECRET: ci-only-secret-with-at-least-thirty-two-characters
+          APP_URL: http://localhost:3000
       - run: npm run build
         env:
           SESSION_SECRET: ci-only-secret-with-at-least-thirty-two-characters

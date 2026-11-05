@@ -12,7 +12,7 @@ npm test
 npm run build
 ```
 
-`npm run check` executa as três validações em sequência. O build padrão usa
+`npm run check` executa lint, typecheck, testes e build em sequência. O build padrão usa
 Webpack por compatibilidade com ambientes Windows que não permitem ao Turbopack
 criar junctions dentro de `.next`; `npm run build:turbopack` continua disponível
 para validar o empacotador novo.
@@ -47,3 +47,9 @@ Uber Direct. Cada trecho é criado separadamente: coleta do cliente para a
 assistência e devolução da assistência para o cliente. A integração solicita
 foto na coleta, PIN no destino, retorno em caso de insucesso e valida a
 assinatura de todos os eventos antes de atualizar a ordem.
+
+## Validação das integrações
+
+Use `npm run config:check` para detectar variáveis ausentes, grupos parcialmente configurados e URLs inseguras antes do deploy. O comando não exibe segredos.
+
+Use `npm run integrations:smoke` em um ambiente controlado para validar, de forma somente leitura, as credenciais configuradas de Mercado Pago, Resend, Supabase, Uber Direct e Photon. Esse smoke test não envia mensagens, não cria cobranças e não solicita entregas; Google OAuth e provedores de WhatsApp continuam exigindo seus fluxos de sandbox próprios.

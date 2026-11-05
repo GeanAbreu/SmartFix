@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { NextRequest } from "next/server";
+import { CURRENT_TERMS_VERSION } from "../src/constants/legal";
 
 test("cadastro de cliente e parceiro salva endereço separado e mantém o proprietário", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "smartfix-address-registration-"));
@@ -15,7 +16,8 @@ test("cadastro de cliente e parceiro salva endereço separado e mantém o propri
     const { listLocalAddresses } = await import("../src/services/local-auth.service");
     const common = { nomeCompleto: "Cadastro Teste", telefone: "11999999999", senha: "Senha@123",
       confirmarSenha: "Senha@123", cep: "01001000", rua: "Praça da Sé", numero: "42",
-      complemento: "Sala 1", bairro: "Sé", municipio: "São Paulo", uf: "SP" };
+      complemento: "Sala 1", bairro: "Sé", municipio: "São Paulo", uf: "SP",
+      acceptedTerms: true, termsVersion: CURRENT_TERMS_VERSION };
     for (const registration of [
       { tipoUsuario: "cliente", email: "client@example.test", documento: "52998224725", dataNascimento: "1990-05-20" },
       { tipoUsuario: "parceiro", email: "partner@example.test", documento: "11222333000181", dataNascimento: "" },

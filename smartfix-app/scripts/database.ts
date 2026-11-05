@@ -1,5 +1,5 @@
 import { loadEnvConfig } from "@next/env";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { QueryTypes, Transaction, type Model, type ModelStatic } from "sequelize";
 
@@ -21,7 +21,11 @@ async function main() {
             EXECUTE format('REVOKE ALL ON public.smartfix_migrations FROM %I',r);
           END IF; END LOOP; END $$;`);
       const applied = await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT });
-      const pending = ["20260909_contributions.sql", "20260916_database_persistence.sql", "20260917_normalize_addresses.sql", "20260918_der.sql", "20260919_device_issue.sql", "20260920_partner_services.sql", "20260921_support_chat.sql", "20261002_remove_unused_columns.sql", "20261004_integrate_prototypes.sql", "20261005_remove_device_serial_and_issue_type.sql", "20261007_public_order_tracking.sql", "20261008_tracking_realtime.sql", "20261013_sequential_ids.sql", "20261026_operational_indexes.sql"]
+      const migrationDirectory = path.resolve("../database/migrations");
+      const migrationFiles = (await readdir(migrationDirectory))
+        .filter((name) => /^\d{8}_[a-z0-9_]+\.sql$/i.test(name))
+        .sort((left, right) => left.localeCompare(right));
+      const pending = migrationFiles
         .filter((name) => !applied.some((entry) => entry.name === name));
       if (pending.length) {
       const backup: Record<string, unknown> = {};
@@ -41,7 +45,7 @@ async function main() {
       await writeFile(backupFile, JSON.stringify(backup), { mode: 0o600, flag: "wx" });
       console.log("Backup salvo em .smartfix-data/backups (não versionado).");
       for (const name of pending) {
-        const sql = await readFile(path.resolve("../database/migrations", name), "utf8");
+        const sql = await readFile(path.join(migrationDirectory, name), "utf8");
         // Record each migration in the same transaction as its schema changes.
         const body = sql.replace(/^BEGIN;\s*$/m, "").replace(/^COMMIT;\s*$/m, "");
         await sequelize.transaction(async (transaction) => {

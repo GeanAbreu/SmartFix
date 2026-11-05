@@ -6,13 +6,16 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "build:turbopack": "next build",
-    "check": "npm run lint && npm test && npm run build",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "start": "next start",
     "db:check": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts check",
     "db:migrate": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database.ts migrate",
     "db:import-local": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/import-local.ts",
     "db:smoke": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx scripts/database-smoke.ts",
-    "lint": "eslint app src tests next.config.ts",
+    "config:check": "node --import tsx scripts/integrations.ts",
+    "integrations:smoke": "node --import tsx scripts/integrations.ts --live",
+    "lint": "eslint app src scripts/*.ts tests next.config.ts",
+    "typecheck": "tsc --noEmit",
     "test": "node --require ./scripts/node-user-shim.cjs --conditions=react-server --import tsx --test tests/**/*.test.ts"
   },
   "dependencies": {

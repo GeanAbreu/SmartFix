@@ -181,6 +181,8 @@ export class AuthController {
               body.tipoUsuario === "cliente" ? body.dataNascimento : null,
             companyName:
               body.tipoUsuario === "parceiro" ? body.nomeCompleto : null,
+            termsAcceptedAt: new Date().toISOString(),
+            termsVersion: body.termsVersion,
           },
           {
             apelido: "Principal",
@@ -246,6 +248,8 @@ export class AuthController {
               cpf: document,
               telefone: body.telefone,
               data_nascimento: body.dataNascimento,
+              terms_accepted_at: new Date(),
+              terms_version: body.termsVersion,
             },
             { transaction }
           );
@@ -304,6 +308,8 @@ export class AuthController {
           password_hash: passwordHash,
           phone: body.telefone,
           cnpj: document,
+          terms_accepted_at: new Date(),
+          terms_version: body.termsVersion,
         }, { transaction });
         await ClientAddress.create({
           partner_id: createdPartner.id,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidCnpj, isValidCpf } from "./br-documents";
+import { CURRENT_TERMS_VERSION } from "@/src/constants/legal";
 
 export const loginSchema = z.object({
   identificador: z
@@ -61,6 +62,8 @@ export const registerSchema = z
       .string()
       .trim()
       .regex(/^[A-Za-z]{2}$/, "Informe a UF com 2 letras."),
+    acceptedTerms: z.literal(true, { error: "Você precisa aceitar os Termos e a Política de Privacidade." }),
+    termsVersion: z.literal(CURRENT_TERMS_VERSION),
   })
   .superRefine((data, ctx) => {
     if (data.senha !== data.confirmarSenha) {

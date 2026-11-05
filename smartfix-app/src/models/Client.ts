@@ -10,6 +10,8 @@ export class Client extends Model {
   declare telefone: string | null;
   declare data_nascimento: string | null;
   declare created_at: Date;
+  declare terms_accepted_at: Date;
+  declare terms_version: string;
 }
 
 Client.init(
@@ -55,6 +57,8 @@ Client.init(
       allowNull: false,
       defaultValue: DataTypes.NOW,
     },
+    terms_accepted_at: { type: DataTypes.DATE, allowNull: false },
+    terms_version: { type: DataTypes.STRING(20), allowNull: false },
   },
   {
     sequelize,

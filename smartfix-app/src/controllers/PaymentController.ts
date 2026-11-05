@@ -6,7 +6,7 @@ import { AppError } from "@/src/errors/AppError";
 import { actorFrom, accountById, isAdministrator } from "@/src/services/account.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
 import { createPreference, getOrder, refundOrder } from "@/src/services/mercado-pago.service";
-import { withWorkflow } from "@/src/services/workflow.service";
+import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import type { RepairOrder } from "@/src/types/workflow";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
@@ -37,6 +37,9 @@ async function confirmPayment(providerOrderId: string, expectedClientId?: string
     const method = type === "credit_card" || type === "debit_card" ? "card" : "pix";
     const changed = confirmOrderPayment(order, transaction.id, method);
     record.data = { ...order };
+    if (changed) records.push({ id: nextWorkflowId(records), kind: "notification", ownerId: order.partnerId,
+      data: { message: `${order.device}: pagamento confirmado. A coleta já pode ser organizada.`,
+        href: "/parceiro/ordens", read: false, createdAt: new Date().toISOString() } });
     return changed;
   }, true);
 }
@@ -48,10 +51,12 @@ export class PaymentController {
       if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
       const requests = await withWorkflow((records) => records.filter((item) => item.kind === "order").flatMap((record) => {
         const order = orderFrom(record.data);
-        if (order.serviceDetails.refundStatus !== "pending") return [];
+        if (!["pending", "partial", "failed"].includes(order.serviceDetails.refundStatus || "")) return [];
+        const paidCents = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
+        const alreadyRefundedCents = order.serviceDetails.refundAmountCents || 0;
         return [{ orderId: order.id, device: order.device, reason: order.serviceDetails.cancellationReason || "",
           requestedAt: order.serviceDetails.cancellationRequestedAt, paymentId: order.serviceDetails.paymentId,
-          totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents) }];
+          totalCents: Math.max(0, paidCents - alreadyRefundedCents), alreadyRefundedCents }];
       }).sort((a, b) => (a.requestedAt || "").localeCompare(b.requestedAt || "")));
       return ok({ requests });
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
@@ -73,32 +78,46 @@ export class PaymentController {
         if (order.serviceDetails.refundStatus === "processed")
           return { order, alreadyProcessed: true as const, totalCents: 0 };
         const totalCents = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
-        if (input.amountCents && input.amountCents > totalCents)
-          throw new AppError("O reembolso não pode exceder o valor pago.", 422, "INVALID_REFUND_AMOUNT");
+        const alreadyRefundedCents = order.serviceDetails.refundAmountCents || 0;
+        const remainingCents = totalCents - alreadyRefundedCents;
+        if (remainingCents <= 0)
+          return { order, alreadyProcessed: true as const, totalCents };
+        if (input.amountCents && input.amountCents > remainingCents)
+          throw new AppError("O reembolso não pode exceder o saldo ainda não reembolsado.", 422, "INVALID_REFUND_AMOUNT");
         order.serviceDetails.refundStatus = "pending";
         order.serviceDetails.cancellationReason = input.reason;
         record.data = { ...order };
-        return { order, alreadyProcessed: false as const, totalCents };
+        return { order, alreadyProcessed: false as const, totalCents, alreadyRefundedCents, remainingCents };
       }, true);
       if (prepared.alreadyProcessed) return ok({ refunded: true, order: prepared.order });
-      const amount = input.amountCents;
+      const amount = input.amountCents ?? prepared.remainingCents;
       if (!prepared.order.serviceDetails.paymentPreferenceId)
         throw new AppError("A order do pagamento não foi encontrada.", 409, "PAYMENT_NOT_REFUNDABLE");
       const refund = await refundOrder({ orderId: prepared.order.serviceDetails.paymentPreferenceId,
         transactionId: prepared.order.serviceDetails.paymentId!, totalCents: prepared.totalCents,
-        idempotencyKey: `refund:${id}:${amount ?? "full"}`, amountCents: amount });
+        idempotencyKey: `refund:${id}:${prepared.alreadyRefundedCents}:${amount}`, amountCents: amount });
+      const providerProcessed = ["processed", "refunded", "approved"].includes(refund.status.toLowerCase());
       const order = await withWorkflow((records) => {
         const current = orderFrom(records.find((item) => item.kind === "order" && item.id === id)!.data);
-        current.serviceDetails.refundStatus = "processed";
+        const cumulativeRefundCents = prepared.alreadyRefundedCents + (providerProcessed ? refund.amountCents : 0);
+        current.serviceDetails.refundStatus = !providerProcessed ? "failed"
+          : cumulativeRefundCents >= prepared.totalCents ? "processed" : "partial";
         current.serviceDetails.refundId = refund.id;
-        current.serviceDetails.refundAmountCents = refund.amountCents;
-        current.serviceDetails.refundedAt = new Date().toISOString();
-        if (refund.amountCents >= prepared.totalCents && !current.serviceDetails.logistics?.pickup?.deliveryId) {
+        current.serviceDetails.refundAmountCents = cumulativeRefundCents;
+        if (providerProcessed) current.serviceDetails.refundedAt = new Date().toISOString();
+        if (cumulativeRefundCents >= prepared.totalCents && !current.serviceDetails.logistics?.pickup?.deliveryId) {
           current.status = "cancelled";
-          current.history.push({ status: "cancelled", at: current.serviceDetails.refundedAt });
+          current.history.push({ status: "cancelled", at: current.serviceDetails.refundedAt! });
         }
+        records.push({ id: nextWorkflowId(records), kind: "notification", ownerId: current.clientId,
+          data: { message: providerProcessed
+            ? `${current.device}: reembolso de ${(refund.amountCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} processado.`
+            : `${current.device}: o reembolso precisa de nova análise.`, href: "/cliente/ordens",
+            read: false, createdAt: new Date().toISOString() } });
         return current;
       }, true);
+      if (!providerProcessed)
+        throw new AppError("O provedor não confirmou o reembolso.", 409, "REFUND_NOT_PROCESSED");
       return ok({ refunded: true, refund, order });
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
   }
@@ -116,12 +135,23 @@ export class PaymentController {
         const order = orderFrom(record.data);
         const totalCents = prepareOrderPayment(order, actor.sub, input);
         record.data = { ...order };
-        return { order, totalCents };
+        return { order, totalCents, existingCheckout: order.serviceDetails.paymentPreferenceId &&
+          order.serviceDetails.paymentCheckoutUrl ? {
+            id: order.serviceDetails.paymentPreferenceId,
+            checkoutUrl: order.serviceDetails.paymentCheckoutUrl,
+          } : null };
       }, true);
+      if (prepared.existingCheckout) return ok(prepared.existingCheckout);
+      if (prepared.order.serviceDetails.paymentPreferenceId)
+        throw new AppError("O checkout existente não pode ser recuperado. Contate o suporte.", 409, "CHECKOUT_ALREADY_STARTED");
       const preference = await createPreference({ orderId: input.orderId, title: `Reparo SmartFix — ${prepared.order.device}`, totalCents: prepared.totalCents, payerEmail: account.email });
       await withWorkflow((records) => {
         const record = records.find((item) => item.kind === "order" && item.id === input.orderId);
-        if (record) orderFrom(record.data).serviceDetails.paymentPreferenceId = preference.id;
+        if (record) {
+          const details = orderFrom(record.data).serviceDetails;
+          details.paymentPreferenceId = preference.id;
+          details.paymentCheckoutUrl = preference.checkoutUrl;
+        }
       }, true);
       return ok(preference);
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }

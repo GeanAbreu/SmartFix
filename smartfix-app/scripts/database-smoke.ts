@@ -1,6 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { CURRENT_TERMS_VERSION } from "../src/constants/legal";
 
 loadEnvConfig(process.cwd(), true);
 
@@ -14,7 +15,8 @@ async function main() {
     try {
       const suffix = randomUUID();
       const client = await Client.create({ nome: "Teste transacional SmartFix", email: `${suffix}@example.invalid`,
-        cpf: suffix.replaceAll("-", "").slice(0, 11), senha: "hash-test-only-never-committed" }, { transaction });
+        cpf: suffix.replaceAll("-", "").slice(0, 11), senha: "hash-test-only-never-committed",
+        terms_accepted_at: new Date(), terms_version: CURRENT_TERMS_VERSION }, { transaction });
       const address = await ClientAddress.create({ client_id: client.id, apelido: "Teste", cep: "01001000",
         logradouro: "Rua Teste", numero: "1", bairro: "Centro", cidade: "São Paulo", estado: "SP", principal: true }, { transaction });
       const device = await ClientDevice.create({ client_id: client.id, tipo: "Smartphone", marca: "Apple",
@@ -27,7 +29,8 @@ async function main() {
       assert.equal(await ClientAddress.findOne({ where: { id: address.id, client_id: otherClientId }, transaction }), null);
       assert.equal(await ClientDevice.findOne({ where: { id: device.id, client_id: otherClientId }, transaction }), null);
       const partner = await Partner.create({ full_name: "Parceiro Teste", email: `partner-${suffix}@example.invalid`,
-        cnpj: suffix.replaceAll("-", "").slice(0, 14), password_hash: "hash-test-only-never-committed" }, { transaction });
+        cnpj: suffix.replaceAll("-", "").slice(0, 14), password_hash: "hash-test-only-never-committed",
+        terms_accepted_at: new Date(), terms_version: CURRENT_TERMS_VERSION }, { transaction });
       assert.equal((await Partner.findByPk(partner.id, { transaction }))?.full_name, "Parceiro Teste");
       const partnerAddress = await ClientAddress.create({ partner_id: partner.id, apelido: "Sede",
         cep: "01001000", logradouro: "Rua Teste", numero: "2", bairro: "Centro",
@@ -54,7 +57,8 @@ async function main() {
         partner_id: partner.id, rating: 5, comment: "Cedo", review_date: "2026-09-16" }, { transaction: savepoint }), "23514");
       await rejectWrite((savepoint) => device.destroy({ transaction: savepoint }), "23503");
       const other = await Client.create({ nome: "Outro cliente", email: `other-${suffix}@example.invalid`,
-        cpf: randomUUID().replaceAll("-", "").slice(0, 11), senha: "test-only" }, { transaction });
+        cpf: randomUUID().replaceAll("-", "").slice(0, 11), senha: "test-only",
+        terms_accepted_at: new Date(), terms_version: CURRENT_TERMS_VERSION }, { transaction });
       await rejectWrite((savepoint) => saveRepairOrder({ ...order, id: "9223372036854775802", clientId: other.id }, savepoint), "23503");
       order.status = "completed";
       order.quote = [{ name: "Reparo", category: "labor", details: "", quantity: 2, unitPriceCents: 19990 }];

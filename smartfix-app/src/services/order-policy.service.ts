@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 import { databaseId } from "@/src/validations/database-id";
 import {
@@ -67,12 +68,33 @@ export const orderAction = z.discriminatedUnion("action", [
     rating: z.number().int().min(1).max(5),
     comment: z.string().trim().max(2000).default(""),
   }),
+  z.object({
+    action: z.literal("request_warranty"),
+    reason: z.string().trim().min(10).max(2000),
+  }),
+  z.object({
+    action: z.literal("warranty_decision"),
+    decision: z.enum(["accepted", "rejected"]),
+    response: z.string().trim().min(10).max(2000),
+  }),
 ]);
 export function quoteTotal(items: QuoteItem[], deliveryFeeCents = 0, discountCents = 0) {
   return items.reduce(
     (total, item) => total + item.quantity * item.unitPriceCents,
     deliveryFeeCents,
   ) - discountCents;
+}
+
+function checkoutFingerprint(order: RepairOrder, input: z.infer<typeof checkoutInput>) {
+  return createHash("sha256").update(JSON.stringify({
+    quote: order.quote,
+    deliveryFeeCents: order.serviceDetails.deliveryFeeCents,
+    scheduledDate: input.scheduledDate,
+    schedulePeriod: input.schedulePeriod,
+    serviceAddress: input.serviceAddress,
+    serviceAddressId: input.serviceAddressId || "",
+    couponCode: input.couponCode.trim().toUpperCase(),
+  })).digest("hex");
 }
 export function applyOrderAction(
   order: RepairOrder,
@@ -84,7 +106,8 @@ export function applyOrderAction(
   if (!client && !partner)
     throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
   let status: OrderStatus = order.status;
-  const invalid = () => {
+  const previousStatus = status;
+  const invalid = (): never => {
     throw new AppError(
       "Ação não permitida nesta etapa da ordem.",
       409,
@@ -133,6 +156,23 @@ export function applyOrderAction(
   } else if (input.action === "review") {
     if (!client || status !== "completed" || order.review) invalid();
     order.review = { rating: input.rating, comment: input.comment };
+  } else if (input.action === "request_warranty") {
+    const warrantyEnd = order.serviceDetails.warrantyEndsAt
+      ? Date.parse(order.serviceDetails.warrantyEndsAt) : 0;
+    if (!client || status !== "completed" || warrantyEnd < Date.now() || order.serviceDetails.warrantyClaim)
+      invalid();
+    order.serviceDetails.warrantyClaim = {
+      status: "requested", reason: input.reason, requestedAt: new Date().toISOString(),
+    };
+  } else if (input.action === "warranty_decision") {
+    const warrantyClaim = order.serviceDetails.warrantyClaim;
+    if (!warrantyClaim)
+      throw new AppError("Ação não permitida nesta etapa da ordem.", 409, "INVALID_TRANSITION");
+    if (!partner || status !== "completed" || warrantyClaim.status !== "requested") invalid();
+    warrantyClaim.status = input.decision;
+    warrantyClaim.response = input.response;
+    warrantyClaim.decidedAt = new Date().toISOString();
+    if (input.decision === "accepted") status = "in_progress";
   } else if (input.action === "confirm_receipt") {
     if (!client || status !== "ready" || order.serviceDetails.logistics?.return?.deliveryId) invalid();
     completeOrder(order, new Date().toISOString(), "client_confirmation");
@@ -151,11 +191,25 @@ export function applyOrderAction(
       ready: [],
     };
     if (!partner || !allowed[status]?.includes(input.status)) invalid();
+    if (status === "approved" && input.status === "in_progress") {
+      const pickup = order.serviceDetails.logistics?.pickup;
+      if (pickup?.deliveryId && !["delivered", "completed"].includes(pickup.status))
+        throw new AppError(
+          "O reparo só pode começar depois que o aparelho chegar à assistência.",
+          409,
+          "PICKUP_NOT_DELIVERED",
+        );
+    }
     status = input.status;
   }
   if (order.status !== status)
     order.history.push({ status, at: new Date().toISOString() });
   order.status = status;
+  order.serviceDetails.auditTrail ??= [];
+  order.serviceDetails.auditTrail.push({
+    at: new Date().toISOString(), actorId: actor.sub, actorRole: actor.role,
+    action: input.action, fromStatus: previousStatus, toStatus: status,
+  });
   return order;
 }
 
@@ -183,6 +237,14 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, input:
   today.setHours(0, 0, 0, 0);
   if (Number.isNaN(scheduled.getTime()) || scheduled < today)
     throw new AppError("Escolha uma data de agendamento válida.", 422, "INVALID_SCHEDULE");
+  const fingerprint = checkoutFingerprint(order, input);
+  if (order.serviceDetails.paymentCheckoutFingerprint &&
+    order.serviceDetails.paymentCheckoutFingerprint !== fingerprint)
+    throw new AppError(
+      "O checkout já foi iniciado. Use os mesmos dados ou cancele a tentativa antes de alterá-los.",
+      409,
+      "CHECKOUT_ALREADY_STARTED",
+    );
   order.serviceDetails.scheduledDate = input.scheduledDate;
   order.serviceDetails.schedulePeriod = input.schedulePeriod;
   order.serviceDetails.serviceAddress = input.serviceAddress;
@@ -195,6 +257,7 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, input:
     throw new AppError("O valor total do orçamento deve ser maior que zero.", 422, "INVALID_QUOTE_TOTAL");
   order.serviceDetails.paymentProvider = "mercado_pago";
   order.serviceDetails.paymentStatus = "pending";
+  order.serviceDetails.paymentCheckoutFingerprint = fingerprint;
   return total;
 }
 
@@ -206,5 +269,8 @@ export function confirmOrderPayment(order: RepairOrder, paymentId: string, payme
   order.serviceDetails.paidAt = new Date().toISOString();
   order.status = "approved";
   order.history.push({ status: "approved", at: order.serviceDetails.paidAt });
+  order.serviceDetails.auditTrail ??= [];
+  order.serviceDetails.auditTrail.push({ at: order.serviceDetails.paidAt, actorId: "mercado_pago",
+    actorRole: "system", action: "payment_confirmed", fromStatus: "quoted", toStatus: "approved" });
   return true;
 }

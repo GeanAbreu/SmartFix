@@ -24,6 +24,8 @@ export type LocalAuthUser = {
   zipCode?: string;
   isVerified: boolean;
   createdAt: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 };
 
 export type LocalClientAddress = {

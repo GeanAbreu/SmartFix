@@ -12,6 +12,8 @@ export class Partner extends Model {
   declare is_verified: boolean;
   declare created_at: Date;
   declare updated_at: Date;
+  declare terms_accepted_at: Date;
+  declare terms_version: string;
 }
 
 Partner.init(
@@ -64,6 +66,8 @@ Partner.init(
       allowNull: false,
       defaultValue: DataTypes.NOW,
     },
+    terms_accepted_at: { type: DataTypes.DATE, allowNull: false },
+    terms_version: { type: DataTypes.STRING(20), allowNull: false },
   },
   {
     sequelize,

@@ -6,7 +6,7 @@ import { actorFrom, accountById, isAdministrator } from "@/src/services/account.
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 import { listLocalOwnerAddresses, usesLocalAuthStore } from "@/src/services/local-auth.service";
 import { createDelivery, deliveryWindow, parseLogisticsWebhook, quotePickup,
-  verifyLogisticsWebhook, type LogisticsAddress } from "@/src/services/logistics.service";
+  shouldApplyLogisticsEvent, verifyLogisticsWebhook, type LogisticsAddress } from "@/src/services/logistics.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import { databaseId } from "@/src/validations/database-id";
 import { completeOrder } from "@/src/services/order-policy.service";
@@ -133,6 +133,13 @@ export class LogisticsController {
         const leg = order.serviceDetails.logistics![direction! as "pickup" | "return"]!;
         Object.assign(leg, { quoteId: quote.id, quotedFeeCents: quote.feeCents, quoteExpiresAt: quote.expiresAt,
           pickupAddress: displayAddress(pickupRecord), dropoffAddress: displayAddress(dropoffRecord), status: "creating" });
+        const details = order.serviceDetails;
+        details.logisticsActualFeeCents = (details.logistics?.pickup?.quotedFeeCents || 0) +
+          (details.logistics?.return?.quotedFeeCents || 0);
+        details.logisticsFeeVarianceCents = details.logisticsActualFeeCents - details.deliveryFeeCents;
+        details.auditTrail ??= [];
+        details.auditTrail.push({ at: new Date().toISOString(), actorId: "uber_direct", actorRole: "system",
+          action: "logistics_quote_reconciled" });
       }, true);
       createAttempted = true;
       const delivery = await createDelivery({ direction, quoteId: quote.id, orderId: id, device: prepared.order.device,
@@ -156,7 +163,12 @@ export class LogisticsController {
         const leg = orderFrom(record.data).serviceDetails.logistics?.[direction!];
         if (leg && !leg.deliveryId) { leg.status = createAttempted ? "reconciliation_required" : "failed"; leg.error = createAttempted
           ? "A confirmação do provedor não foi recebida. Verifique o painel do Uber Direct antes de tentar novamente."
-          : error instanceof Error ? error.message : "Falha ao criar entrega."; leg.lastEventAt = new Date().toISOString(); }
+          : error instanceof Error ? error.message : "Falha ao criar entrega."; leg.lastEventAt = new Date().toISOString();
+          records.push({ id: nextWorkflowId(records), kind: "notification",
+            ownerId: direction === "pickup" ? orderFrom(record.data).partnerId : orderFrom(record.data).clientId,
+            data: { message: `${orderFrom(record.data).device}: falha na ${direction === "pickup" ? "coleta" : "devolução"}.`,
+              href: direction === "pickup" ? "/parceiro/ordens" : "/cliente/ordens", read: false,
+              createdAt: new Date().toISOString() } }); }
       }, true).catch(() => undefined);
       return noStoreResponse(controllerErrorResponse(error));
     }
@@ -175,6 +187,7 @@ export class LogisticsController {
         if (!record) return;
         const leg = orderFrom(record.data).serviceDetails.logistics?.[match[2] as "pickup" | "return"];
         if (!leg || leg.deliveryId !== event.deliveryId || leg.events.some((item) => item.id === event.eventId)) return;
+        if (!shouldApplyLogisticsEvent(leg, event)) return;
         leg.status = event.status; leg.lastEventAt = event.occurredAt;
         if (event.trackingUrl) leg.trackingUrl = event.trackingUrl;
         leg.events.push({ id: event.eventId, status: event.status, at: event.occurredAt });

@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import Link from "next/link";
+import { CURRENT_TERMS_VERSION } from "@/src/constants/legal";
 import { useRouter } from "next/navigation";
 import GoogleAuthButton from "@/app/components/GoogleAuthButton";
 import type {
@@ -370,6 +371,7 @@ export default function CadastroPage() {
 
   const [isLoading, setIsLoading] =
     useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [cepLoading, setCepLoading] =
     useState(false);
@@ -825,6 +827,11 @@ export default function CadastroPage() {
 
     setErrors(newErrors);
 
+    if (!acceptedTerms) {
+      setErrors((current) => ({ ...current, acceptedTerms: "Aceite os Termos e a Política de Privacidade." }));
+      return;
+    }
+
     if (!valid) {
       const accountFields = ["nomeCompleto", "email", "telefone", "documento", "dataNascimento", "senha", "confirmarSenha"];
       goToStep(accountFields.some((field) => newErrors[field]) ? 1 : 2);
@@ -856,6 +863,8 @@ export default function CadastroPage() {
           bairro: formData.bairro,
           municipio: formData.municipio,
           uf: formData.uf,
+          acceptedTerms,
+          termsVersion: CURRENT_TERMS_VERSION,
         }),
       });
 
@@ -1760,7 +1769,7 @@ export default function CadastroPage() {
                 <button
                   type="submit"
                   disabled={
-                    isLoading
+                    isLoading || !acceptedTerms
                   }
                   className="cadastro-submit"
                 >
@@ -1783,9 +1792,12 @@ export default function CadastroPage() {
 
                 </button>
 
-                <p>
-                  Ao criar sua conta, você
-                  concorda com nossos{" "}
+                <label>
+                  <input type="checkbox" checked={acceptedTerms} onChange={(event) => {
+                    setAcceptedTerms(event.target.checked);
+                    setErrors((current) => ({ ...current, acceptedTerms: "" }));
+                  }} />{" "}
+                  Li e aceito os{" "}
                   <Link href="/termos">
                     Termos de Uso
                   </Link>{" "}
@@ -1794,7 +1806,8 @@ export default function CadastroPage() {
                     Política de Privacidade
                   </Link>
                   .
-                </p>
+                </label>
+                {errors.acceptedTerms && <p role="alert">{errors.acceptedTerms}</p>}
 
               </div>
 
