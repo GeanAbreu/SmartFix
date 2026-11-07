@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
-import { requireSession } from "@/src/middlewares/auth.middleware";
 import { Client } from "@/src/models";
 import {
   findLocalUserById,
@@ -29,9 +28,9 @@ export class ClientController {
   }
   static async me(request: NextRequest) {
     try {
-      const session = await requireSession(request);
+      const actor = await actorFrom(request);
 
-      if (session.role !== "client") {
+      if (actor.role !== "client") {
         return noStoreResponse(NextResponse.json(
           {
             success: false,
@@ -43,9 +42,9 @@ export class ClientController {
       }
 
       const client = usesLocalAuthStore()
-        ? await findLocalUserById(session.sub)
+        ? await findLocalUserById(actor.sub)
         : (assertDatabaseConfigured(),
-          await Client.findByPk(session.sub, {
+          await Client.findByPk(actor.sub, {
             attributes: ["id", "nome", "email", "telefone", "cpf"],
           }));
 

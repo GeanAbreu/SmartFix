@@ -108,7 +108,7 @@ export class ServiceController {
           throw new AppError("Assistência não encontrada.", 404, "NOT_FOUND");
       } else {
         assertDatabaseConfigured();
-        if (!await Partner.findOne({ where: { id, is_verified: true }, attributes: ["id"] }))
+        if (!await Partner.findOne({ where: { id, is_verified: true, is_active: true }, attributes: ["id"] }))
           throw new AppError("Assistência não encontrada.", 404, "NOT_FOUND");
       }
       return ok({ services: await listServices(id, true) });

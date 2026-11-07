@@ -11,7 +11,8 @@ async function main() {
   const { Workflow } = await import("../src/models/Workflow");
   try {
     assertDatabaseConfigured();
-    if (process.argv[2] === "migrate") {
+    const shouldMigrate = process.argv[2] === "migrate";
+    if (shouldMigrate) {
       await sequelize.query(`CREATE TABLE IF NOT EXISTS public.smartfix_migrations (
         name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
         ALTER TABLE public.smartfix_migrations ENABLE ROW LEVEL SECURITY;
@@ -20,13 +21,26 @@ async function main() {
           IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=r) THEN
             EXECUTE format('REVOKE ALL ON public.smartfix_migrations FROM %I',r);
           END IF; END LOOP; END $$;`);
-      const applied = await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT });
-      const migrationDirectory = path.resolve("../database/migrations");
-      const migrationFiles = (await readdir(migrationDirectory))
-        .filter((name) => /^\d{8}_[a-z0-9_]+\.sql$/i.test(name))
-        .sort((left, right) => left.localeCompare(right));
-      const pending = migrationFiles
-        .filter((name) => !applied.some((entry) => entry.name === name));
+    }
+    const migrationDirectory = path.resolve("../database/migrations");
+    const migrationFiles = (await readdir(migrationDirectory))
+      .filter((name) => /^\d{8}_[a-z0-9_]+\.sql$/i.test(name))
+      .sort((left, right) => left.localeCompare(right));
+    const [registry] = await sequelize.query<{ present: string | null }>(
+      "SELECT to_regclass('public.smartfix_migrations')::text AS present",
+      { type: QueryTypes.SELECT },
+    );
+    const applied = registry.present
+      ? await sequelize.query<{ name: string }>("SELECT name FROM public.smartfix_migrations", { type: QueryTypes.SELECT })
+      : [];
+    const pending = migrationFiles
+      .filter((name) => !applied.some((entry) => entry.name === name));
+    if (!shouldMigrate && pending.length) {
+      console.error(`Migrations pendentes (${pending.length}):\n- ${pending.join("\n- ")}`);
+      process.exitCode = 1;
+      return;
+    }
+    if (shouldMigrate) {
       if (pending.length) {
       const backup: Record<string, unknown> = {};
       // Snapshot under one repeatable-read transaction, before any schema changes.

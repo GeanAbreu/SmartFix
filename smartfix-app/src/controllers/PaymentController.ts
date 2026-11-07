@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { databaseId } from "@/src/validations/database-id";
 import { AppError } from "@/src/errors/AppError";
-import { actorFrom, accountById, isAdministrator } from "@/src/services/account.service";
+import { actorFrom, accountById } from "@/src/services/account.service";
+import { requireAdministrator } from "@/src/services/admin.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
 import { createPreference, getOrder, refundOrder } from "@/src/services/mercado-pago.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
@@ -48,7 +49,8 @@ export class PaymentController {
   static async refundRequests(request: NextRequest) {
     try {
       const actor = await actorFrom(request);
-      if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      const access = await requireAdministrator(actor);
+      if (!access.permissions.includes("finance")) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
       const requests = await withWorkflow((records) => records.filter((item) => item.kind === "order").flatMap((record) => {
         const order = orderFrom(record.data);
         if (!["pending", "partial", "failed"].includes(order.serviceDetails.refundStatus || "")) return [];
@@ -66,7 +68,8 @@ export class PaymentController {
     try {
       databaseId.parse(id);
       const actor = await actorFrom(request);
-      if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      const access = await requireAdministrator(actor);
+      if (!access.permissions.includes("finance")) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
       const input = z.object({ amountCents: z.number().int().positive().optional(),
         reason: z.string().trim().min(10).max(1000) }).parse(await request.json());
       const prepared = await withWorkflow((records) => {

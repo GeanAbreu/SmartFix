@@ -13,4 +13,22 @@ test("todas as migrations seguem o padrão descoberto automaticamente", async ()
   const runner = await readFile(path.resolve("scripts/database.ts"), "utf8");
   assert.match(runner, /readdir\(migrationDirectory\)/);
   assert.doesNotMatch(runner, /20261104_terms_audit\.sql/);
+  assert.match(runner, /SELECT to_regclass\('public\.smartfix_migrations'\)::text AS present/);
+  assert.match(runner, /!shouldMigrate && pending\.length/);
+  assert.ok(
+    runner.indexOf("Migrations pendentes") < runner.indexOf("const models"),
+    "o check deve interromper antes de consultar models incompatíveis",
+  );
+});
+
+test("migrations opcionais do Supabase não exigem papéis no PostgreSQL local", async () => {
+  const migration = await readFile(
+    path.resolve("../database/migrations/20261105_admin_console.sql"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(migration, /FROM\s+anon\s*,\s*authenticated/i);
+  assert.match(migration, /SELECT\s+1\s+FROM\s+pg_roles\s+WHERE\s+rolname\s*=\s*browser_role/i);
+  assert.match(migration, /format\([\s\S]*FROM %I[\s\S]*browser_role/i);
+  assert.match(migration, /repair_orders_status_check[\s\S]*'rejected'/i);
 });

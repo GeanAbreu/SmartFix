@@ -5,8 +5,8 @@ import { AppError } from "@/src/errors/AppError";
 import {
   actorFrom,
   accountById,
-  isAdministrator,
 } from "@/src/services/account.service";
+import { requireAdministrator } from "@/src/services/admin.service";
 import {
   applyOrderAction,
   orderAction,
@@ -64,10 +64,11 @@ function notify(
     data: { message, href, read: false, createdAt: new Date().toISOString() },
   });
 }
-async function partners() {
+async function partners(activeOnly = false) {
   if (usesLocalAuthStore()) return listLocalPartners();
   return (
     await Partner.findAll({
+      ...(activeOnly ? { where: { is_active: true } } : {}),
       attributes: [
         "id",
         "company_name",
@@ -130,7 +131,7 @@ export class WorkflowController {
           "FORBIDDEN",
         );
       const input = orderInput.parse(await request.json());
-      const partner = (await partners()).find(
+      const partner = (await partners(true)).find(
         (item) => item.id === input.partnerId && item.isVerified,
       );
       if (!partner)
@@ -262,13 +263,12 @@ export class WorkflowController {
     try {
       const actor = await actorFrom(request);
       const admin = request.nextUrl.searchParams.get("admin") === "true";
-      if (admin && !isAdministrator(actor.sub))
-        throw new AppError(
-          "Acesso administrativo necessário.",
-          403,
-          "FORBIDDEN",
-        );
-      const all = await partners();
+      if (admin) {
+        const access = await requireAdministrator(actor);
+        if (!access.permissions.includes("partners"))
+          throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      }
+      const all = await partners(!admin);
       const approved = all.filter((partner) => partner.isVerified);
       const summaries = new Map<string, { rating: number | null; reviewCount: number; serviceCount: number; startingPriceCents: number | null; fastestDays: number | null }>();
       for (const partner of approved) summaries.set(partner.id, { rating: null, reviewCount: 0, serviceCount: 0, startingPriceCents: null, fastestDays: null });
@@ -285,7 +285,7 @@ export class WorkflowController {
           const ids = approved.map((partner) => partner.id);
           const [services, reviews] = await Promise.all([
             PartnerService.findAll({ where: { partner_id: ids, is_active: true }, attributes: ["partner_id", "unit_price_cents", "estimated_days"] }),
-            Review.findAll({ where: { partner_id: ids }, attributes: ["partner_id", "rating"] }),
+            Review.findAll({ where: { partner_id: ids, moderation_status: "published" }, attributes: ["partner_id", "rating"] }),
           ]);
           for (const partner of approved) {
             const partnerServices = services.filter((service) => String(service.partner_id) === String(partner.id));
@@ -307,12 +307,9 @@ export class WorkflowController {
     try {
       databaseId.parse(id);
       const actor = await actorFrom(request);
-      if (!isAdministrator(actor.sub))
-        throw new AppError(
-          "Acesso administrativo necessário.",
-          403,
-          "FORBIDDEN",
-        );
+      const access = await requireAdministrator(actor);
+      if (!access.permissions.includes("partners"))
+        throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
       const input = z
         .object({
           verified: z.boolean(),

@@ -12,6 +12,8 @@ export class Client extends Model {
   declare created_at: Date;
   declare terms_accepted_at: Date;
   declare terms_version: string;
+  declare is_active: boolean;
+  declare blocked_reason: string | null;
 }
 
 Client.init(
@@ -59,6 +61,8 @@ Client.init(
     },
     terms_accepted_at: { type: DataTypes.DATE, allowNull: false },
     terms_version: { type: DataTypes.STRING(20), allowNull: false },
+    is_active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    blocked_reason: { type: DataTypes.TEXT, allowNull: true },
   },
   {
     sequelize,

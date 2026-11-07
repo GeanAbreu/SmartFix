@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AppError } from "@/src/errors/AppError";
-import { requireSession } from "@/src/middlewares/auth.middleware";
+import { actorFrom } from "@/src/services/account.service";
 import {
   createDevice,
   deleteDevice,
@@ -11,11 +11,11 @@ import { deviceInputSchema } from "@/src/validations/device.validation";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
 async function clientIdFrom(request: NextRequest) {
-  const session = await requireSession(request);
-  if (session.role !== "client") {
+  const actor = await actorFrom(request);
+  if (actor.role !== "client") {
     throw new AppError("Esta área é exclusiva para clientes.", 403, "FORBIDDEN");
   }
-  return session.sub;
+  return actor.sub;
 }
 
 export class DeviceController {

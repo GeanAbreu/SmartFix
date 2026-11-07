@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
-import { requireSession } from "@/src/middlewares/auth.middleware";
 import { Client, ClientAddress, Partner } from "@/src/models";
 import {
   hashPassword,
@@ -25,6 +24,7 @@ import {
 import type { SessionRole } from "@/src/types/api";
 import { loginSchema, registerSchema } from "@/src/validations/auth.validation";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
+import { actorFrom } from "@/src/services/account.service";
 
 const DUMMY_PASSWORD_HASH =
   "$2b$12$avgDZOzHlIY8jamWlAjrU.HMvG3n92dzjsa.RzSqU.EbOO8bQv3RO";
@@ -365,13 +365,14 @@ export class AuthController {
       let name = "";
       let email = "";
       let storedPassword = "";
+      let active = true;
       let updateLegacyPassword: (() => Promise<unknown>) | null = null;
 
       if (isEmail) {
         const normalizedEmail = identifier.toLowerCase();
         const client = await Client.unscoped().findOne({
           where: { email: normalizedEmail },
-          attributes: ["id", "nome", "email", "senha"],
+          attributes: ["id", "nome", "email", "senha", "is_active"],
         });
 
         if (client) {
@@ -380,12 +381,13 @@ export class AuthController {
           name = client.nome;
           email = client.email;
           storedPassword = client.senha;
+          active = client.is_active;
           updateLegacyPassword = async () =>
             client.update({ senha: await hashPassword(body.senha) });
         } else {
           const partner = await Partner.unscoped().findOne({
             where: { email: normalizedEmail },
-            attributes: ["id", "full_name", "email", "password_hash"],
+            attributes: ["id", "full_name", "email", "password_hash", "is_active"],
           });
 
           if (!partner) {
@@ -402,13 +404,14 @@ export class AuthController {
           name = partner.full_name;
           email = partner.email;
           storedPassword = partner.password_hash;
+          active = partner.is_active;
           updateLegacyPassword = async () =>
             partner.update({ password_hash: await hashPassword(body.senha) });
         }
       } else if (document.length <= 11) {
         const client = await Client.unscoped().findOne({
           where: { cpf: document },
-          attributes: ["id", "nome", "email", "senha"],
+          attributes: ["id", "nome", "email", "senha", "is_active"],
         });
 
         if (!client) {
@@ -425,12 +428,13 @@ export class AuthController {
         name = client.nome;
         email = client.email;
         storedPassword = client.senha;
+        active = client.is_active;
         updateLegacyPassword = async () =>
           client.update({ senha: await hashPassword(body.senha) });
       } else {
         const partner = await Partner.unscoped().findOne({
           where: { cnpj: document },
-          attributes: ["id", "full_name", "email", "password_hash"],
+          attributes: ["id", "full_name", "email", "password_hash", "is_active"],
         });
 
         if (!partner) {
@@ -447,6 +451,7 @@ export class AuthController {
         name = partner.full_name;
         email = partner.email;
         storedPassword = partner.password_hash;
+        active = partner.is_active;
         updateLegacyPassword = async () =>
           partner.update({ password_hash: await hashPassword(body.senha) });
       }
@@ -460,6 +465,10 @@ export class AuthController {
 
       if (!validPassword) {
         throw new AppError("Credenciais inválidas.", 401, "INVALID_CREDENTIALS");
+      }
+
+      if (!active) {
+        throw new AppError("Esta conta foi bloqueada pela administração SmartFix.", 403, "ACCOUNT_BLOCKED");
       }
 
       if (passwordNeedsRehash(storedPassword) && updateLegacyPassword) {
@@ -484,7 +493,7 @@ export class AuthController {
 
   static async session(request: NextRequest) {
     try {
-      const session = await requireSession(request);
+      const session = await actorFrom(request);
 
       if (usesLocalAuthStore()) {
         const user = await findLocalUserById(session.sub);

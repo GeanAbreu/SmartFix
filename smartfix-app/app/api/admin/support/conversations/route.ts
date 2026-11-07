@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
-import { actorFrom, isAdministrator } from "@/src/services/account.service";
+import { actorFrom } from "@/src/services/account.service";
+import { requireAdministrator } from "@/src/services/admin.service";
 import { AppError } from "@/src/errors/AppError";
 import { controllerErrorResponse, noStoreResponse } from "@/src/controllers/controller.utils";
 
@@ -10,7 +11,8 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   try {
     const actor = await actorFrom(request);
-    if (!isAdministrator(actor.sub)) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
+    const access = await requireAdministrator(actor);
+    if (!access.permissions.includes("support")) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
     const conversations = await sequelize.query<{
       clientId: string; clientName: string; lastMessageAt: string; lastMessage: string;

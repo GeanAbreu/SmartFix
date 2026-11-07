@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
-import { requireSession } from "@/src/middlewares/auth.middleware";
 import { Partner } from "@/src/models";
+import { actorFrom } from "@/src/services/account.service";
 import {
   findLocalUserById,
   updateLocalPartnerProfile,
@@ -18,9 +18,9 @@ import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 export class PartnerController {
   static async me(request: NextRequest) {
     try {
-      const session = await requireSession(request);
+      const actor = await actorFrom(request);
 
-      if (session.role !== "partner") {
+      if (actor.role !== "partner") {
         return noStoreResponse(NextResponse.json(
           {
             success: false,
@@ -32,9 +32,9 @@ export class PartnerController {
       }
 
       const partner = usesLocalAuthStore()
-        ? await findLocalUserById(session.sub)
+        ? await findLocalUserById(actor.sub)
         : (assertDatabaseConfigured(),
-          await Partner.findByPk(session.sub, {
+          await Partner.findByPk(actor.sub, {
             attributes: [
               "id",
               "full_name",
@@ -84,16 +84,16 @@ export class PartnerController {
 
   static async updateMe(request: NextRequest) {
     try {
-      const session = await requireSession(request);
-      if (session.role !== "partner") throw new AppError("Esta área é exclusiva para parceiros.", 403, "FORBIDDEN");
+      const actor = await actorFrom(request);
+      if (actor.role !== "partner") throw new AppError("Esta área é exclusiva para parceiros.", 403, "FORBIDDEN");
       const input = z.object({
         companyName: z.string().trim().min(3, "Informe o nome da assistência.").max(150),
         phone: z.string().trim().min(10, "Informe um telefone com DDD.").max(20).refine((value) => value.replace(/\D/g, "").length >= 10, "Informe um telefone com DDD."),
       }).parse(await request.json());
-      if (usesLocalAuthStore()) await updateLocalPartnerProfile(session.sub, input);
+      if (usesLocalAuthStore()) await updateLocalPartnerProfile(actor.sub, input);
       else {
         assertDatabaseConfigured();
-        const [updated] = await Partner.update({ company_name: input.companyName, phone: input.phone }, { where: { id: session.sub } });
+        const [updated] = await Partner.update({ company_name: input.companyName, phone: input.phone }, { where: { id: actor.sub } });
         if (!updated) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
       }
       return noStoreResponse(NextResponse.json({ success: true, data: { partner: input } }));

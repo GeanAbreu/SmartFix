@@ -44,12 +44,12 @@ export class DiscoveryController {
         if (!location) throw new AppError("Não encontramos coordenadas para este CEP. Use sua localização ou busque por cidade.", 422, "LOCATION_NOT_FOUND");
         origin = { ...location, label: `${address.apelido || "Meu endereço"} · ${address.cidade}/${address.estado}` };
       } else origin = input.origin!;
-      const partners = await Partner.findAll({ where: { is_verified: true }, attributes: ["id", "company_name", "full_name"] });
+      const partners = await Partner.findAll({ where: { is_verified: true, is_active: true }, attributes: ["id", "company_name", "full_name"] });
       const addresses = partners.length ? await ClientAddress.findAll({
         where: { partner_id: { [Op.in]: partners.map((p) => p.id) } }, order: [["principal", "DESC"], ["id", "ASC"]],
       }) : [];
       const ratings = await sequelize.query<{ partner_id: string; rating: string; count: string }>(
-        "SELECT partner_id, AVG(rating) AS rating, COUNT(*) AS count FROM reviews GROUP BY partner_id", { type: QueryTypes.SELECT });
+        "SELECT partner_id, AVG(rating) AS rating, COUNT(*) AS count FROM reviews WHERE moderation_status = 'published' GROUP BY partner_id", { type: QueryTypes.SELECT });
       const results: NearbyPartner[] = [];
       let unavailableLocations = 0;
       for (const partner of partners) {
@@ -74,9 +74,9 @@ export class DiscoveryController {
     try {
       await client(request);
       databaseId.parse(id);
-      if (!await Partner.findOne({ where: { id, is_verified: true }, attributes: ["id"] }))
+      if (!await Partner.findOne({ where: { id, is_verified: true, is_active: true }, attributes: ["id"] }))
         throw new AppError("Assistência não encontrada.", 404, "NOT_FOUND");
-      return ok({ reviews: await Review.findAll({ where: { partner_id: id },
+      return ok({ reviews: await Review.findAll({ where: { partner_id: id, moderation_status: "published" },
         attributes: ["id", "rating", "comment", "review_date"], order: [["review_date", "DESC"], ["id", "DESC"]], limit: 10 }) });
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
   }

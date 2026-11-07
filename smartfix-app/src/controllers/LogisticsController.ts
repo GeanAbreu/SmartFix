@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ClientAddress } from "@/src/models";
 import { AppError } from "@/src/errors/AppError";
-import { actorFrom, accountById, isAdministrator } from "@/src/services/account.service";
+import { actorFrom, accountById } from "@/src/services/account.service";
+import { requireAdministrator } from "@/src/services/admin.service";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 import { listLocalOwnerAddresses, usesLocalAuthStore } from "@/src/services/local-auth.service";
 import { createDelivery, deliveryWindow, parseLogisticsWebhook, quotePickup,
@@ -60,7 +61,8 @@ export class LogisticsController {
   static async incidents(request: NextRequest) {
     try {
       const actor = await actorFrom(request);
-      if (!isAdministrator(actor.sub)) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
+      const access = await requireAdministrator(actor);
+      if (!access.permissions.includes("logistics")) throw new AppError("Acesso administrativo necessário.", 403, "FORBIDDEN");
       const incidents = await withWorkflow((records) => records.filter((item) => item.kind === "order").flatMap((record) => {
         const order = orderFrom(record.data);
         return (["pickup", "return"] as const).flatMap((direction) => {

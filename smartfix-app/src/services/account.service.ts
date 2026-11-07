@@ -29,7 +29,7 @@ export async function accountById(id: string, role: SessionRole) {
   assertDatabaseConfigured();
   if (role === "client") {
     const user = await Client.unscoped().findByPk(id);
-    return user
+    return user && user.is_active !== false
       ? {
           id,
           role,
@@ -41,7 +41,7 @@ export async function accountById(id: string, role: SessionRole) {
       : null;
   }
   const user = await Partner.unscoped().findByPk(id);
-  return user
+  return user && user.is_active !== false
     ? {
         id,
         role,

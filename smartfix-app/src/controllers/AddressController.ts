@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
 import { AppError } from "@/src/errors/AppError";
-import { requireSession } from "@/src/middlewares/auth.middleware";
 import { ClientAddress } from "@/src/models";
+import { actorFrom } from "@/src/services/account.service";
 import { assertAddressCanBeDeleted } from "@/src/services/address-policy.service";
 import {
   createLocalAddress,
@@ -16,11 +16,11 @@ import { addressInputSchema, type AddressInput } from "@/src/validations/address
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 
 async function clientIdFrom(request: NextRequest) {
-  const session = await requireSession(request);
-  if (session.role !== "client") {
+  const actor = await actorFrom(request);
+  if (actor.role !== "client") {
     throw new AppError("Esta área é exclusiva para clientes.", 403, "FORBIDDEN");
   }
-  return session.sub;
+  return actor.sub;
 }
 
 function normalize(input: AddressInput) {

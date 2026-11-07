@@ -14,6 +14,11 @@ export class Partner extends Model {
   declare updated_at: Date;
   declare terms_accepted_at: Date;
   declare terms_version: string;
+  declare is_active: boolean;
+  declare blocked_reason: string | null;
+  declare trade_license: string | null;
+  declare document_url: string | null;
+  declare approval_reason: string | null;
 }
 
 Partner.init(
@@ -68,6 +73,11 @@ Partner.init(
     },
     terms_accepted_at: { type: DataTypes.DATE, allowNull: false },
     terms_version: { type: DataTypes.STRING(20), allowNull: false },
+    is_active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    blocked_reason: { type: DataTypes.TEXT, allowNull: true },
+    trade_license: { type: DataTypes.TEXT, allowNull: true },
+    document_url: { type: DataTypes.TEXT, allowNull: true },
+    approval_reason: { type: DataTypes.TEXT, allowNull: true },
   },
   {
     sequelize,

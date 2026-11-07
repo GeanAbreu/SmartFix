@@ -42,9 +42,10 @@ fluxo produtivo atual. Consulte o [escopo completo](docs/Escopo_Projeto.md).
 
 ### Administração
 
-A área administrativa controla o credenciamento das assistências e participa dos
-atendimentos direcionados à SmartFix. O acesso administrativo é concedido apenas aos
-IDs configurados em `ADMIN_USER_IDS`.
+A área administrativa controla usuários, credenciamento, ordens, avaliações,
+financeiro, logística, suporte e auditoria. Os IDs configurados em
+`ADMIN_USER_IDS` são proprietários de contingência; eles podem conceder no painel
+papéis persistidos com permissões limitadas para as demais contas.
 
 ## Funcionalidades principais
 
@@ -201,7 +202,7 @@ PostgreSQL antes de uma publicação.
 | `npm test` | executa a suíte automatizada |
 | `npm run lint` | verifica a qualidade estática do código |
 | `npm run db:migrate` | cria o controle e aplica migrations pendentes |
-| `npm run db:check` | confere modelos, tabelas, RLS e acesso do servidor |
+| `npm run db:check` | aponta migrations pendentes e confere modelos, tabelas, RLS e acesso do servidor |
 | `npm run db:smoke` | executa verificações de integridade no banco configurado |
 | `npm run db:import-local` | importa dados do armazenamento local para PostgreSQL |
 

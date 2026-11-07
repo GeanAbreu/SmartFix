@@ -3,7 +3,8 @@ import { QueryTypes } from "sequelize";
 import { z } from "zod";
 import { databaseId } from "@/src/validations/database-id";
 import sequelize, { assertDatabaseConfigured } from "@/src/config/database";
-import { actorFrom, isAdministrator } from "@/src/services/account.service";
+import { actorFrom } from "@/src/services/account.service";
+import { requireAdministrator } from "@/src/services/admin.service";
 import { AppError } from "@/src/errors/AppError";
 import { controllerErrorResponse, noStoreResponse } from "@/src/controllers/controller.utils";
 
@@ -15,7 +16,8 @@ const schema = z.object({ body: z.string().trim().min(1).max(2000) });
 export async function GET(request: NextRequest, context: Context) {
   try {
     const actor = await actorFrom(request);
-    if (!isAdministrator(actor.sub)) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
+    const access = await requireAdministrator(actor);
+    if (!access.permissions.includes("support")) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
     const clientId = databaseId.parse((await context.params).clientId);
     const messages = await sequelize.query<{
@@ -31,7 +33,8 @@ export async function GET(request: NextRequest, context: Context) {
 export async function POST(request: NextRequest, context: Context) {
   try {
     const actor = await actorFrom(request);
-    if (!isAdministrator(actor.sub)) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
+    const access = await requireAdministrator(actor);
+    if (!access.permissions.includes("support")) throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
     const clientId = databaseId.parse((await context.params).clientId);
     const { body } = schema.parse(await request.json());
