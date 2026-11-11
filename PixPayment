@@ -1,0 +1,78 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import QRCode from "qrcode";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Pagamento PIX" },
+      { name: "description", content: "Tela de pagamento PIX via Mercado Pago." },
+    ],
+  }),
+  component: Index,
+});
+
+type Pix = { status: string; qrCode: string; qrCodeBase64: string; expiresAt: string; amountCents: number };
+
+// Simulação (sem Mercado Pago real)
+async function fakeGenerate(): Promise<Pix> {
+  const qrCode =
+    "00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865406150.005802BR5913LOJA EXEMPLO6009SAO PAULO62070503***6304ABCD";
+  const dataUrl = await QRCode.toDataURL(qrCode, { width: 448, margin: 1 });
+  return {
+    status: "pending",
+    qrCode,
+    qrCodeBase64: dataUrl.split(",")[1] ?? "",
+    expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+    amountCents: 15000,
+  };
+}
+
+function PixPayment() {
+  const [pix, setPix] = useState<Pix | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (!pix) return;
+    await navigator.clipboard?.writeText(pix.qrCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (!pix)
+    return (
+      <button onClick={async () => setPix(await fakeGenerate())} className="w-full rounded-lg bg-primary py-3 font-semibold text-primary-foreground">
+        Pagar com PIX
+      </button>
+    );
+  if (pix.status === "paid")
+    return <p className="rounded-lg bg-secondary p-4 text-secondary-foreground">Pagamento confirmado!</p>;
+
+  return (
+    <div className="space-y-3 text-center">
+      <p className="font-semibold">R$ {(pix.amountCents / 100).toFixed(2).replace(".", ",")}</p>
+      <img alt="QR Code PIX" className="mx-auto h-56 w-56 rounded-lg bg-white p-2" src={`data:image/png;base64,${pix.qrCodeBase64}`} />
+      <p className="break-all rounded-lg border bg-muted p-3 text-xs text-muted-foreground">{pix.qrCode}</p>
+      <button onClick={copy} className="w-full rounded-lg bg-primary py-3 font-semibold text-primary-foreground">
+        {copied ? "Copiado!" : "Copiar código PIX"}
+      </button>
+      <button onClick={() => setPix({ ...pix, status: "paid" })} className="w-full rounded-lg border bg-muted py-2 text-sm">
+        Simular pagamento aprovado
+      </button>
+      <p className="text-xs text-muted-foreground">
+        Válido até {new Date(pix.expiresAt).toLocaleString("pt-BR")}. Aguardando pagamento…
+      </p>
+    </div>
+  );
+}
+
+function Index() {
+  return (
+    <main className="mx-auto min-h-screen max-w-sm px-4 py-10">
+      <section className="rounded-2xl border bg-card p-6">
+        <h1 className="mb-5 border-b pb-5 text-xl font-bold">Pedido #1234</h1>
+        <PixPayment />
+      </section>
+    </main>
+  );
+}
