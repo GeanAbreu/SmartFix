@@ -12,7 +12,6 @@ const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/cliente/dashboard", label: "Início", icon: "home" },
   { href: "/cliente/solicitar-reparo", label: "Solicitar reparo", icon: "add" },
   { href: "/cliente/ordens", label: "Meus reparos", icon: "orders" },
-  { href: "/cliente/dispositivos", label: "Meus dispositivos", icon: "devices" },
   { href: "/cliente/assistencias", label: "Assistências", icon: "location" },
   { href: "/cliente/avaliacoes", label: "Minhas avaliações", icon: "reviews" },
   { href: "/cliente/enderecos", label: "Meus endereços", icon: "address" },

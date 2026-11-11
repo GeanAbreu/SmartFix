@@ -6,7 +6,7 @@ import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./help.module.css";
 
 const faqs = [
-  { question: "Como solicito um reparo?", answer: "Acesse Solicitar reparo, escolha seu dispositivo e descreva o problema. Depois, acompanhe a solicitação em Meus reparos." },
+  { question: "Como solicito um reparo?", answer: "Acesse Solicitar reparo, informe marca, modelo, cor, defeito, descrição e fotos do aparelho. Depois, acompanhe a solicitação em Meus reparos." },
   { question: "Como acompanho o reparo?", answer: "Acesse Meus reparos para consultar as atualizações da sua solicitação." },
   { question: "Quando recebo o orçamento?", answer: "A assistência prepara o orçamento após o diagnóstico. O reparo começa somente depois da sua aprovação." },
   { question: "Posso cancelar a solicitação?", answer: "Você pode cancelar até aprovar o orçamento. Solicite o cancelamento pelo chat com a SmartFix ou com a assistência responsável." },

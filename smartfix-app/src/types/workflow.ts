@@ -114,6 +114,13 @@ export type RepairOrder = {
   partnerId: string;
   deviceId: string;
   device: string;
+  deviceDetails?: {
+    type: string;
+    brand: string;
+    model: string;
+    color: string;
+    photos: string[];
+  };
   problem: string;
   symptoms: string[];
   checklist: string[];

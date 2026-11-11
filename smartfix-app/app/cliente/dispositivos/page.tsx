@@ -1,10 +1,8 @@
-import { requirePageRole } from "@/src/services/page-authorization.service";
-import DeviceManager from "./DeviceManager";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientDevicesPage({ searchParams }: { searchParams: Promise<{ partnerId?: string }> }) {
-  await requirePageRole("client");
   const { partnerId } = await searchParams;
-  return <DeviceManager returnPartnerId={typeof partnerId === "string" && /^[0-9a-f-]{36}$/i.test(partnerId) ? partnerId : ""} />;
+  redirect(typeof partnerId === "string" ? `/cliente/solicitar-reparo?partnerId=${encodeURIComponent(partnerId)}` : "/cliente/solicitar-reparo");
 }

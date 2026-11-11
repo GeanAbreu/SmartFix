@@ -206,7 +206,7 @@ export default function ClientDashboard() {
 
       {ordersLoading ? <section className={styles.panel} role="status"><p className={styles.message}>Carregando reparos...</p></section>
       : ordersError ? <section className={styles.panel} role="alert"><p className={styles.message}>{ordersError}</p><button type="button" className={styles.retryButton} onClick={() => void retryOrders()}>Tentar novamente</button></section>
-      : orders.length === 0 ? <section className={styles.panel}><div className={styles.emptyState}><VisualIcon name="empty"/><h2>Seu primeiro reparo começa aqui</h2><p>Cadastre um aparelho e envie uma solicitação para uma assistência parceira.</p><Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>Solicitar reparo</Link></div></section>
+      : orders.length === 0 ? <section className={styles.panel}><div className={styles.emptyState}><VisualIcon name="empty"/><h2>Seu primeiro reparo começa aqui</h2><p>Informe os dados do aparelho e envie uma solicitação para uma assistência parceira.</p><Link href="/cliente/solicitar-reparo" className={styles.primaryAction}>Solicitar reparo</Link></div></section>
       : <>
         {summary.attentionCount > 0 && <section className={`${styles.panel} ${styles.attentionPanel}`} aria-labelledby="attention-title">
           <div className={styles.panelHeader}><div className={styles.panelTitle}><span className={styles.panelMark} aria-hidden="true">!</span><div><span className={styles.eyebrow}>PRÓXIMOS PASSOS</span><h2 id="attention-title">Precisa da sua atenção</h2></div></div><Link href="/cliente/ordens">Ver todos</Link></div>

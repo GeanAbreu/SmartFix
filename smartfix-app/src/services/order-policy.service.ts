@@ -12,6 +12,13 @@ import {
 
 export const orderInput = z.object({
   deviceId: databaseId,
+  deviceDetails: z.object({
+    type: z.string().trim().min(1).max(100),
+    brand: z.string().trim().min(1).max(100),
+    model: z.string().trim().min(1).max(150),
+    color: z.string().trim().min(1).max(80),
+    photos: z.array(z.string().max(2_100_000)).min(1).max(3),
+  }).optional(),
   partnerId: databaseId,
   problem: z.string().trim().min(10).max(3000),
   symptoms: z

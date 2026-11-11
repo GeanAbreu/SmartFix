@@ -13,7 +13,6 @@ export default async function Page({
   return (
     <RepairRequest
       accountId={session.sub}
-      initialDeviceId={typeof params.deviceId === "string" ? params.deviceId : ""}
       initialPartnerId={typeof params.partnerId === "string" ? params.partnerId : ""}
     />
   );

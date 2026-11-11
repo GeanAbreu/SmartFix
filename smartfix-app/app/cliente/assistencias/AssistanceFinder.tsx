@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/components/RepairWorkspace";
-import type { ClientAddress, ClientDevice } from "@/src/types/api";
+import type { ClientAddress } from "@/src/types/api";
 import type { DiscoveryResult, GeoPoint, NearbyPartner } from "@/src/types/discovery";
 import styles from "./assistencias.module.css";
 const AssistanceMap = dynamic(() => import("./AssistanceMap"), { ssr: false, loading: () => <p className={styles.empty}>Carregando mapa…</p> });
@@ -16,12 +16,10 @@ const distance = (km: number) => km < .1 ? "Menos de 100 m" : `${km.toLocaleStri
 function Rating({ partner }: { partner: NearbyPartner }) {
   return <span className={styles.rating}>{partner.rating === null ? "Sem avaliações" : <>★ {partner.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <small>({partner.reviewCount} {partner.reviewCount === 1 ? "avaliação" : "avaliações"})</small></>}</span>;
 }
-export default function AssistanceFinder({ deviceId, partnerId, accountId }: { deviceId: string; partnerId: string; accountId: string }) {
+export default function AssistanceFinder({ partnerId, accountId }: { deviceId: string; partnerId: string; accountId: string }) {
   const searchKey = `${SEARCH_KEY}:${accountId}`;
   const router = useRouter();
   const [addresses, setAddresses] = useState<ClientAddress[]>([]);
-  const [devices, setDevices] = useState<ClientDevice[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState(deviceId);
   const [source, setSource] = useState<Origin | null>(null);
   const [radius, setRadius] = useState(10);
   const [query, setQuery] = useState("");
@@ -55,12 +53,10 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
   }, [searchKey]);
   useEffect(() => {
     let active = true;
-    void Promise.all([api<{ addresses: ClientAddress[] }>("/api/clients/addresses"), api<{ devices: ClientDevice[] }>("/api/clients/devices")])
-      .then(([a, d]) => {
+    void api<{ addresses: ClientAddress[] }>("/api/clients/addresses")
+      .then((a) => {
         if (!active) return;
-        setAddresses(a.addresses); setDevices(d.devices);
-        setSelectedDevice(d.devices.some((v) => v.id === deviceId) ? deviceId : d.devices[0]?.id || "");
-        // A return from device registration keeps the chosen search region.
+        setAddresses(a.addresses);
         if (partnerId) {
           try { const saved = JSON.parse(sessionStorage.getItem(searchKey) || "null");
             if (saved?.origin && [5, 10, 25, 50, 100].includes(saved.radius)) { void search(saved.origin, saved.radius); return; }
@@ -70,7 +66,7 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
         if (main) void search({ addressId: main.id }, 10); else setLoading(false);
       }).catch((caught: Error) => { if (active) { setError(caught.message); setLoading(false); } });
     return () => { active = false; };
-  }, [deviceId, partnerId, search, searchKey]);
+  }, [partnerId, search, searchKey]);
   useEffect(() => {
     if (selected) dialog.current?.showModal(); else dialog.current?.close();
   }, [selected]);
@@ -147,8 +143,7 @@ export default function AssistanceFinder({ deviceId, partnerId, accountId }: { d
           {servicesLoading ? <p role="status">Carregando serviços…</p> : servicesError ? <p role="alert">{servicesError}</p> : services.length === 0 ? <p>Esta assistência ainda não informou serviços.</p> :
             <ul>{services.map((service) => <li key={service.id}><div><strong>{service.name}</strong>{service.description && <p>{service.description}</p>}<small>Prazo estimado: {service.estimatedDays} {service.estimatedDays === 1 ? "dia" : "dias"}</small></div><span>A partir de {(service.unitPriceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></li>)}</ul>}
         </section>
-        <section className={styles.requestBox}><h3>Vamos cuidar do seu aparelho?</h3>{devices.length ? <><label>Aparelho para reparo<select value={selectedDevice} onChange={(e) => setSelectedDevice(e.target.value)}>{devices.map((d) => <option key={d.id} value={d.id}>{d.apelido || `${d.marca} ${d.modelo}`}</option>)}</select></label>
-          <button className={styles.primary} disabled={!selectedDevice} onClick={() => router.push(`/cliente/solicitar-reparo?partnerId=${selected.id}&deviceId=${encodeURIComponent(selectedDevice)}`)}>Solicitar reparo →</button></> : <><p>Cadastre um aparelho para solicitar um reparo. Depois, você volta para esta assistência.</p><Link className={styles.primary} href={`/cliente/dispositivos?partnerId=${selected.id}`}>Cadastrar novo dispositivo →</Link></>}</section>
+        <section className={styles.requestBox}><h3>Vamos cuidar do seu aparelho?</h3><p>Informe os dados do aparelho ao abrir a ordem de serviço.</p><button className={styles.primary} onClick={() => router.push(`/cliente/solicitar-reparo?partnerId=${selected.id}`)}>Solicitar reparo →</button></section>
         <h3>Avaliações de clientes</h3><p className={styles.hint}>Até 10 avaliações mais recentes de reparos concluídos.</p>
         {reviewsLoading ? <p role="status">Carregando avaliações…</p> : reviewError ? <p role="alert">{reviewError}</p> : !reviews.length ? <p className={styles.hint}>Esta assistência ainda não recebeu avaliações.</p> : reviews.map((review) => <article className={styles.review} key={review.id}><strong>★ {review.rating}/5</strong><time dateTime={review.review_date}>{new Date(`${review.review_date}T12:00:00`).toLocaleDateString("pt-BR")}</time><p>{review.comment || "Avaliação sem comentário."}</p></article>)}
       </>}
