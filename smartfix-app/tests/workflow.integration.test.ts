@@ -177,7 +177,6 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     });
     assert.equal(quoted.status, 200);
     assert.equal((await quoted.json()).data.whatsappStatus, "not_configured");
-    process.env.MERCADO_PAGO_ACCESS_TOKEN = "test-token";
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => new Response(JSON.stringify({
       id: "ORDTST123456",
@@ -190,10 +189,10 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     }), { status: 200, headers: { "Content-Type": "application/json" } });
     try {
       const pendingPayment = await PaymentController.confirm(
-        request(client, "/api/payments/mercado-pago/confirm?orderId=ORDTST123456"),
+        request(client, `/api/payments/mercado-pago/confirm?paymentId=ORDTST123456&orderId=${order.id}`),
       );
       assert.equal(pendingPayment.status, 409);
-      assert.equal((await pendingPayment.json()).code, "PAYMENT_NOT_APPROVED");
+      assert.equal((await pendingPayment.json()).code, "PARTNER_PAYMENT_NOT_CONNECTED");
     } finally {
       globalThis.fetch = originalFetch;
     }

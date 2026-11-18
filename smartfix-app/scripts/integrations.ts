@@ -9,7 +9,8 @@ const checks: Check[] = [
   { name: "PostgreSQL", variables: ["DATABASE_URL"] },
   { name: "Supabase Realtime", variables: ["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY"], optional: true },
   { name: "Resend", variables: ["RESEND_API_KEY", "MAIL_FROM"], optional: true },
-  { name: "Mercado Pago", variables: ["MERCADO_PAGO_ACCESS_TOKEN", "MERCADO_PAGO_WEBHOOK_SECRET", "PAYMENT_PUBLIC_URL"], optional: true },
+  { name: "Mercado Pago Marketplace", variables: ["MERCADO_PAGO_CLIENT_ID", "MERCADO_PAGO_CLIENT_SECRET",
+    "MERCADO_PAGO_WEBHOOK_SECRET", "PAYMENT_CREDENTIALS_ENCRYPTION_KEY", "PAYMENT_PUBLIC_URL"], optional: true },
   { name: "Uber Direct", variables: ["UBER_DIRECT_CLIENT_ID", "UBER_DIRECT_CLIENT_SECRET", "UBER_DIRECT_CUSTOMER_ID", "UBER_DIRECT_WEBHOOK_SECRET"], optional: true },
   { name: "Google OAuth", variables: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"], optional: true },
 ];
@@ -74,10 +75,6 @@ async function providerRequest(name: string, request: () => Promise<Response>) {
 
 async function liveSmoke() {
   const tasks: Promise<void>[] = [];
-  if (configured("MERCADO_PAGO_ACCESS_TOKEN")) tasks.push(providerRequest("Mercado Pago", () => fetch(
-    "https://api.mercadopago.com/users/me",
-    { headers: { Authorization: `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(12_000) },
-  )));
   if (configured("RESEND_API_KEY")) tasks.push((async () => {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",

@@ -19,6 +19,10 @@ export class Partner extends Model {
   declare trade_license: string | null;
   declare document_url: string | null;
   declare approval_reason: string | null;
+  declare mercado_pago_access_token: string | null;
+  declare mercado_pago_refresh_token: string | null;
+  declare mercado_pago_user_id: string | null;
+  declare mercado_pago_token_expires_at: Date | null;
 }
 
 Partner.init(
@@ -78,6 +82,10 @@ Partner.init(
     trade_license: { type: DataTypes.TEXT, allowNull: true },
     document_url: { type: DataTypes.TEXT, allowNull: true },
     approval_reason: { type: DataTypes.TEXT, allowNull: true },
+    mercado_pago_access_token: { type: DataTypes.TEXT, allowNull: true },
+    mercado_pago_refresh_token: { type: DataTypes.TEXT, allowNull: true },
+    mercado_pago_user_id: { type: DataTypes.TEXT, allowNull: true },
+    mercado_pago_token_expires_at: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,
@@ -87,7 +95,7 @@ Partner.init(
     createdAt: "created_at",
     updatedAt: "updated_at",
     defaultScope: {
-      attributes: { exclude: ["password_hash"] },
+      attributes: { exclude: ["password_hash", "mercado_pago_access_token", "mercado_pago_refresh_token"] },
     },
   }
 );

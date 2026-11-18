@@ -75,6 +75,8 @@ export type ServiceDetails = {
   paymentCheckoutUrl?: string;
   paymentCheckoutFingerprint?: string;
   paymentId?: string;
+  marketplaceFeeCents?: number;
+  partnerGrossCents?: number;
   technicianName?: string;
   promisedDate?: string;
   internalNotes?: string;

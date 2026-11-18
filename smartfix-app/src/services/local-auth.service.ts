@@ -408,6 +408,50 @@ export function setLocalPrimaryAddress(clientId: string, addressId: string) {
   }, true);
 }
 
+export function createLocalPartnerAddress(partnerId: string, input: Omit<LocalClientAddress, "id" | "clientId" | "partnerId">) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const owned = addresses.filter((address) => address.partnerId === partnerId);
+    const principal = input.principal || owned.length === 0;
+    if (principal) owned.forEach((address) => { address.principal = false; });
+    const address: LocalClientAddress = { ...input, id: nextLocalId(addresses), clientId: null, partnerId, principal };
+    addresses.push(address);
+    return { ...address };
+  }, true);
+}
+
+export function updateLocalPartnerAddress(partnerId: string, addressId: string, input: Omit<LocalClientAddress, "id" | "clientId" | "partnerId">) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const address = addresses.find((candidate) => candidate.id === addressId && candidate.partnerId === partnerId);
+    if (!address) throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    if (input.principal) addresses.forEach((candidate) => { if (candidate.partnerId === partnerId) candidate.principal = false; });
+    Object.assign(address, { ...input, principal: address.principal || input.principal });
+    return { ...address };
+  }, true);
+}
+
+export function deleteLocalPartnerAddress(partnerId: string, addressId: string) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const index = addresses.findIndex((candidate) => candidate.id === addressId && candidate.partnerId === partnerId);
+    if (index < 0) throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    const count = addresses.filter((candidate) => candidate.partnerId === partnerId).length;
+    assertAddressCanBeDeleted(addresses[index].principal, count);
+    addresses.splice(index, 1);
+  }, true);
+}
+
+export function setLocalPrimaryPartnerAddress(partnerId: string, addressId: string) {
+  return withStore((store) => {
+    const addresses = localAddresses(store);
+    const address = addresses.find((candidate) => candidate.id === addressId && candidate.partnerId === partnerId);
+    if (!address) throw new AppError("Endereço não encontrado.", 404, "ADDRESS_NOT_FOUND");
+    addresses.forEach((candidate) => { if (candidate.partnerId === partnerId) candidate.principal = candidate.id === addressId; });
+    return { ...address, principal: true };
+  }, true);
+}
+
 function localDevices(store: LocalAuthStore) {
   store.devices ??= [];
   return store.devices;

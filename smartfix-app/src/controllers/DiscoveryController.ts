@@ -52,13 +52,22 @@ export class DiscoveryController {
         "SELECT partner_id, AVG(rating) AS rating, COUNT(*) AS count FROM reviews WHERE moderation_status = 'published' GROUP BY partner_id", { type: QueryTypes.SELECT });
       const results: NearbyPartner[] = [];
       let unavailableLocations = 0;
+      const locationByCep = new Map<string, GeoPoint | null>();
       for (const partner of partners) {
-        const address = addresses.find((a) => a.partner_id === partner.id);
-        if (!address) { unavailableLocations++; continue; }
-        let location: GeoPoint | undefined;
-        try { [location] = await locate(address.cep); } catch { /* Report omitted locations, never invent coordinates. */ }
-        if (!location) { unavailableLocations++; continue; }
-        const distance = distanceKm(origin, location);
+        const partnerAddresses = addresses.filter((address) => String(address.partner_id) === String(partner.id));
+        const located: Array<{ address: ClientAddress; location: GeoPoint; distance: number }> = [];
+        for (const address of partnerAddresses) {
+          const cep = address.cep.replace(/\D/g, "");
+          if (!locationByCep.has(cep)) {
+            try { locationByCep.set(cep, (await locate(cep))[0] || null); }
+            catch { locationByCep.set(cep, null); }
+          }
+          const location = locationByCep.get(cep);
+          if (location) located.push({ address, location, distance: distanceKm(origin, location) });
+        }
+        const nearest = located.sort((a, b) => a.distance - b.distance)[0];
+        if (!nearest) { unavailableLocations++; continue; }
+        const { address, location, distance } = nearest;
         if (distance > input.radius) continue;
         const rating = ratings.find((r) => r.partner_id === partner.id);
         results.push({ id: partner.id, name: partner.company_name || partner.full_name,

@@ -297,7 +297,7 @@ export class WorkflowController {
       return ok({
         partners: admin
           ? all
-          : approved.map(({ id, name }) => ({ id, name, ...summaries.get(id) })),
+          : approved.map(({ id, name, document }) => ({ id, name, document: document || "", ...summaries.get(id) })),
       });
     } catch (error) {
       return failure(error);

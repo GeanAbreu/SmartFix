@@ -6,6 +6,7 @@ import { readApiResponse } from "@/src/services/api-response.service";
 import { ORDER_LABELS, logisticsStatusLabel, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import styles from "./orders.module.css";
+import { diagnosisDeadlineLabel } from "@/src/services/diagnosis-deadline";
 
 type Order = RepairOrder & { totalCents: number };
 type Filter = "all" | "attention" | "active" | "finished";
@@ -20,6 +21,12 @@ const nextStatuses: Partial<Record<OrderStatus, OrderStatus[]>> = {
 
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const shortId = (id: string) => id.slice(0, 8).toUpperCase();
+
+function DiagnosisDeadline({ order }: { order: Order }) {
+  if (order.status !== "pending") return null;
+  const deadline = diagnosisDeadlineLabel(order.createdAt);
+  return <p className={`${styles.diagnosisDeadline} ${deadline.overdue ? styles.deadlineOverdue : ""}`}><strong>{deadline.overdue ? "Prazo de 1 hora excedido" : "Responder em até 1 hora"}</strong><span>{deadline.overdue ? "Envie o diagnóstico ou recuse a solicitação agora." : `Diagnóstico ou recusa até ${deadline.formatted}.`}</span></p>;
+}
 
 async function request<T>(url: string, body?: unknown): Promise<T> {
   const response = await fetch(url, body === undefined
@@ -214,7 +221,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
         </section>
         <section className={styles.details} aria-label="Detalhes da ordem">
           {!selected ? <div className={styles.emptyDetail}><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"/></svg></span><h2>Selecione uma ordem</h2><p>Os detalhes e as próximas ações aparecerão aqui.</p></div>
-            : <><div className={styles.detailHeader}><div><span className={styles.eyebrow}>O.S. {shortId(selected.id)}</span><h2>{selected.device}</h2><p>Recebida em {new Date(selected.createdAt).toLocaleDateString("pt-BR")}</p></div><span className={`${styles.status} ${styles[selected.status]}`}>{ORDER_LABELS[selected.status]}</span></div>
+            : <><div className={styles.detailHeader}><div><span className={styles.eyebrow}>O.S. {shortId(selected.id)}</span><h2>{selected.device}</h2><p>Recebida em {new Date(selected.createdAt).toLocaleString("pt-BR")}</p></div><span className={`${styles.status} ${styles[selected.status]}`}>{ORDER_LABELS[selected.status]}</span></div><DiagnosisDeadline order={selected} />
               <div className={styles.detailBody}>
                 <section className={styles.clientInfo}><h3>Cliente e atendimento</h3><div><span><small>Cliente</small><strong>{selected.clientName || "Cliente"}</strong></span><span><small>Telefone</small><strong>{selected.clientPhone || "Não informado"}</strong></span><span><small>E-mail</small><strong>{selected.clientEmail || "Não informado"}</strong></span><span><small>Coleta / atendimento</small><strong>{selected.serviceDetails.scheduledDate ? `${selected.serviceDetails.scheduledDate.split("-").reverse().join("/")} · ${selected.serviceDetails.schedulePeriod === "morning" ? "Manhã" : "Tarde"}` : "Ainda não agendado"}</strong></span><span className={styles.wideInfo}><small>Endereço</small><strong>{selected.serviceDetails.serviceAddress || "Definido após aprovação do orçamento"}</strong></span><span><small>Pagamento</small><strong>{selected.serviceDetails.paymentStatus === "confirmed" ? "Confirmado" : "Pendente"}</strong></span></div></section>
                 {selected.deviceDetails && <section><h3>Informações do aparelho</h3><div className={styles.deviceFacts}><span><small>Tipo</small><strong>{selected.deviceDetails.type}</strong></span><span><small>Marca</small><strong>{selected.deviceDetails.brand}</strong></span><span><small>Modelo</small><strong>{selected.deviceDetails.model}</strong></span><span><small>Cor</small><strong>{selected.deviceDetails.color}</strong></span></div><div className={styles.devicePhotos}>{selected.deviceDetails.photos.map((photo, index) => <div key={index}><Image src={photo} alt={`Foto ${index + 1} de ${selected.device}`} fill sizes="180px" unoptimized /></div>)}</div></section>}

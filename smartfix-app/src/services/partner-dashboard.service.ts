@@ -16,7 +16,7 @@ export function summarizePartnerFinance(orders: RepairOrder[]) {
   const receivedCents = confirmedOrders.reduce((sum, order) => sum + totalFor(order), 0);
   const pendingCents = pendingOrders.reduce((sum, order) => sum + totalFor(order), 0);
   return {
-    receivedCents,
+    receivedCents: confirmedOrders.reduce((sum, order) => sum + (order.serviceDetails.partnerGrossCents ?? totalFor(order)), 0),
     pendingCents,
     grossCents: receivedCents + pendingCents,
     paidOrders: confirmedOrders.length,

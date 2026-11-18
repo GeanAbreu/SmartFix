@@ -25,14 +25,14 @@ async function readResponse<T>(response: Response): Promise<ApiResponse<T>> {
   return payload as ApiResponse<T>;
 }
 
-async function fetchAddresses() {
-  const response = await fetch("/api/clients/addresses", { cache: "no-store" });
+async function fetchAddresses(endpoint: string) {
+  const response = await fetch(endpoint, { cache: "no-store" });
   const result = await readResponse<AddressListData>(response);
   if (!result.success) throw new Error(result.message);
   return result.data.addresses;
 }
 
-export default function AddressManager() {
+export default function AddressManager({ endpoint = "/api/clients/addresses", partnerMode = false }: { endpoint?: string; partnerMode?: boolean }) {
   const [addresses, setAddresses] = useState<ClientAddress[]>([]);
   const [form, setForm] = useState<AddressForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,24 +48,24 @@ export default function AddressManager() {
   const loadAddresses = useCallback(async () => {
     setLoading(true);
     try {
-      setAddresses(await fetchAddresses());
+      setAddresses(await fetchAddresses(endpoint));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível carregar os endereços.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     let active = true;
-    void fetchAddresses()
+    void fetchAddresses(endpoint)
       .then((result) => { if (active) setAddresses(result); })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar os endereços.");
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [endpoint]);
 
   function openNew() {
     setEditingId(null);
@@ -133,7 +133,7 @@ export default function AddressManager() {
     setError("");
     try {
       const response = await fetch(
-        editingId ? `/api/clients/addresses/${editingId}` : "/api/clients/addresses",
+        editingId ? `${endpoint}/${editingId}` : endpoint,
         {
           method: editingId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -167,7 +167,7 @@ export default function AddressManager() {
     setDeleting(true);
     setError("");
     try {
-      const response = await fetch(`/api/clients/addresses/${pendingDelete.id}`, { method: "DELETE" });
+      const response = await fetch(`${endpoint}/${pendingDelete.id}`, { method: "DELETE" });
       const result = await readResponse<Record<string, never>>(response);
       if (!result.success) throw new Error(result.message);
       setPendingDelete(null);
@@ -183,26 +183,27 @@ export default function AddressManager() {
 
   async function setPrimary(addressId: string) {
     setError("");
-    const response = await fetch(`/api/clients/addresses/${addressId}/primary`, { method: "PATCH" });
+    const response = await fetch(`${endpoint}/${addressId}/primary`, { method: "PATCH" });
     const result = await readResponse<{ address: ClientAddress }>(response);
     if (!result.success) { setError(result.message); return; }
     setMessage(result.message ?? "Endereço principal atualizado.");
     await loadAddresses();
   }
 
+  const Root = partnerMode ? "section" : "main";
   return (
-    <main className={styles.page}>
+    <Root className={`${styles.page} ${partnerMode ? styles.embedded : ""}`}>
       <section className={styles.hero}>
-        <div><p>Meu Perfil / Endereços</p><h1>Meus Endereços</h1><span>Gerencie locais de coleta e entrega dos seus aparelhos.</span></div>
+        <div><p>{partnerMode ? "MINHA ASSISTÊNCIA / LOJAS" : "Meu Perfil / Endereços"}</p><h1>{partnerMode ? "Endereços das lojas" : "Meus Endereços"}</h1><span>{partnerMode ? "Mantenha ao menos um endereço para sua assistência aparecer corretamente nas buscas." : "Gerencie locais de coleta e entrega dos seus aparelhos."}</span></div>
         <button type="button" onClick={openNew}>+ Novo endereço</button>
       </section>
 
       <section className={styles.content}>
-        <div className={styles.heading}><div><h2>Endereços cadastrados</h2><p>Cadastre mais de um endereço e escolha o principal.</p></div></div>
+        <div className={styles.heading}><div><h2>{partnerMode ? "Lojas cadastradas" : "Endereços cadastrados"}</h2><p>Cadastre mais de um endereço e escolha o principal.</p></div></div>
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && <p className={styles.error} role="alert">{error}</p>}
         {loading ? <div className={styles.empty}>Carregando endereços...</div> : addresses.length === 0 ? (
-          <div className={styles.empty}><strong>Nenhum endereço cadastrado</strong><p>Adicione um endereço para usar coleta e entrega.</p><button type="button" onClick={openNew}>Cadastrar endereço</button></div>
+          <div className={styles.empty}><strong>Nenhum endereço cadastrado</strong><p>{partnerMode ? "Cadastre a primeira loja para corrigir sua localização nas buscas." : "Adicione um endereço para usar coleta e entrega."}</p><button type="button" onClick={openNew}>Cadastrar endereço</button></div>
         ) : (
           <div className={styles.grid}>{addresses.map((address) => (
             <article key={address.id} className={`${styles.card} ${address.principal ? styles.primary : ""}`}>
@@ -256,6 +257,6 @@ export default function AddressManager() {
         onCancel={() => { if (!deleting) setPendingDelete(null); }}
         onConfirm={() => void confirmDelete()}
       />
-    </main>
+    </Root>
   );
 }
