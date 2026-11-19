@@ -38,11 +38,7 @@ export const quoteItemInput = z.object({
   unitPriceCents: z.number().int().min(0).max(10_000_000),
 });
 export const checkoutInput = z.object({
-  scheduledDate: z.iso.date(),
-  schedulePeriod: z.enum(["morning", "afternoon"]),
-  serviceAddress: z.string().trim().min(8).max(500),
-  serviceAddressId: databaseId.optional(),
-  couponCode: z.string().trim().max(30).default(""),
+  payment: z.literal("mercado_pago").optional(),
 });
 export const orderAction = z.discriminatedUnion("action", [
   z.object({
@@ -50,7 +46,6 @@ export const orderAction = z.discriminatedUnion("action", [
     diagnosis: z.string().trim().min(3).max(3000),
     estimatedDays: z.number().int().min(1).max(365),
     warrantyDays: z.number().int().min(0).max(3650),
-    deliveryFeeCents: z.number().int().min(0).max(10_000_000).default(0),
     items: z.array(quoteItemInput).min(1).max(30),
   }),
   z.object({
@@ -92,15 +87,9 @@ export function quoteTotal(items: QuoteItem[], deliveryFeeCents = 0, discountCen
   ) - discountCents;
 }
 
-function checkoutFingerprint(order: RepairOrder, input: z.infer<typeof checkoutInput>) {
+function checkoutFingerprint(order: RepairOrder) {
   return createHash("sha256").update(JSON.stringify({
     quote: order.quote,
-    deliveryFeeCents: order.serviceDetails.deliveryFeeCents,
-    scheduledDate: input.scheduledDate,
-    schedulePeriod: input.schedulePeriod,
-    serviceAddress: input.serviceAddress,
-    serviceAddressId: input.serviceAddressId || "",
-    couponCode: input.couponCode.trim().toUpperCase(),
   })).digest("hex");
 }
 export function applyOrderAction(
@@ -122,14 +111,14 @@ export function applyOrderAction(
     );
   };
   if (input.action === "quote") {
-    if (!partner || !["pending", "quoted"].includes(status)) invalid();
-    if (order.serviceDetails.paymentPreferenceId)
+    if (partner && status === "quoted")
       throw new AppError(
-        "O orçamento não pode ser alterado depois que o checkout foi iniciado.",
+        "O orçamento desta O.S. já foi enviado e não pode ser reenviado.",
         409,
-        "CHECKOUT_ALREADY_STARTED",
+        "QUOTE_ALREADY_SENT",
       );
-    if (quoteTotal(input.items, input.deliveryFeeCents) <= 0)
+    if (!partner || status !== "pending") invalid();
+    if (quoteTotal(input.items) <= 0)
       throw new AppError(
         "O valor total do orçamento deve ser maior que zero.",
         422,
@@ -139,7 +128,7 @@ export function applyOrderAction(
     order.diagnosis = input.diagnosis;
     order.serviceDetails.estimatedDays = input.estimatedDays;
     order.serviceDetails.warrantyDays = input.warrantyDays;
-    order.serviceDetails.deliveryFeeCents = input.deliveryFeeCents;
+    order.serviceDetails.deliveryFeeCents = 0;
     status = "quoted";
   } else if (input.action === "operations") {
     if (!partner || ["completed", "cancelled", "rejected"].includes(status)) invalid();
@@ -236,30 +225,21 @@ export function completeOrder(order: RepairOrder, at: string, method: "uber_dire
   return true;
 }
 
-export function prepareOrderPayment(order: RepairOrder, clientId: string, input: z.infer<typeof checkoutInput>) {
+export function prepareOrderPayment(order: RepairOrder, clientId: string, _input: z.infer<typeof checkoutInput>) {
+  void _input;
   if (order.clientId !== clientId || order.status !== "quoted")
     throw new AppError("Ação não permitida nesta etapa da ordem.", 409, "INVALID_TRANSITION");
-  const scheduled = new Date(`${input.scheduledDate}T12:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (Number.isNaN(scheduled.getTime()) || scheduled < today)
-    throw new AppError("Escolha uma data de agendamento válida.", 422, "INVALID_SCHEDULE");
-  const fingerprint = checkoutFingerprint(order, input);
+  const fingerprint = checkoutFingerprint(order);
   if (order.serviceDetails.paymentCheckoutFingerprint &&
     order.serviceDetails.paymentCheckoutFingerprint !== fingerprint)
     throw new AppError(
-      "O checkout já foi iniciado. Use os mesmos dados ou cancele a tentativa antes de alterá-los.",
+      "O checkout já foi iniciado para este orçamento.",
       409,
       "CHECKOUT_ALREADY_STARTED",
     );
-  order.serviceDetails.scheduledDate = input.scheduledDate;
-  order.serviceDetails.schedulePeriod = input.schedulePeriod;
-  order.serviceDetails.serviceAddress = input.serviceAddress;
-  order.serviceDetails.serviceAddressId = input.serviceAddressId;
-  order.serviceDetails.couponCode = input.couponCode.toUpperCase();
-  order.serviceDetails.discountCents = order.serviceDetails.couponCode === "SMART10"
-    ? Math.round(quoteTotal(order.quote) * 0.1) : 0;
-  const total = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
+  order.serviceDetails.couponCode = "";
+  order.serviceDetails.discountCents = 0;
+  const total = quoteTotal(order.quote);
   if (total <= 0)
     throw new AppError("O valor total do orçamento deve ser maior que zero.", 422, "INVALID_QUOTE_TOTAL");
   order.serviceDetails.paymentProvider = "mercado_pago";

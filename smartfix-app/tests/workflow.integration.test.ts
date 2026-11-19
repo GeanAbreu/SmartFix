@@ -199,8 +199,7 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     const { prepareOrderPayment, confirmOrderPayment } = await import("../src/services/order-policy.service");
     await withWorkflow((records) => {
       const current = records.find((record) => record.id === order.id)!.data as unknown as import("../src/types/workflow").RepairOrder;
-      prepareOrderPayment(current, client.id, { scheduledDate: "2099-01-01", schedulePeriod: "morning",
-        serviceAddress: "Rua Teste, 123", couponCode: "SMART10" });
+      prepareOrderPayment(current, client.id, {});
       confirmOrderPayment(current, "payment-test", "pix");
     }, true);
     const attempts = await Promise.all([
@@ -220,9 +219,9 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     const completedOrders = (await (await controller.list(request(client, "/api/orders"))).json()).data.orders;
     assert.equal(completedOrders[0].partnerName, partner.name);
     assert.equal(completedOrders[0].status, "completed");
-    assert.equal(completedOrders[0].totalCents, 17991);
+    assert.equal(completedOrders[0].totalCents, 19990);
     assert.equal(completedOrders[0].serviceDetails.paymentStatus, "confirmed");
-    assert.equal(completedOrders[0].serviceDetails.scheduledDate, "2099-01-01");
+    assert.equal(completedOrders[0].serviceDetails.scheduledDate, "");
     assert.equal(completedOrders[0].review, null);
     assert.equal(
       (

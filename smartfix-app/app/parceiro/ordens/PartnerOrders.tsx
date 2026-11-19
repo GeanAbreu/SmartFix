@@ -52,10 +52,10 @@ function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean
   function updatePreview(form: HTMLFormElement) {
     const data = new FormData(form);
     const items = itemIds.reduce((total, id) => total + Number(data.get(`quantity-${id}`) || 0) * Number(data.get(`price-${id}`) || 0), 0);
-    setPreviewTotal(Math.round((items + Number(data.get("deliveryFee") || 0)) * 100));
+    setPreviewTotal(Math.round(items * 100));
     try {
       localStorage.setItem(`smartfix-quote-draft:${orderId}`, JSON.stringify({
-        diagnosis: String(data.get("diagnosis") || ""), estimatedDays: String(data.get("estimatedDays") || ""), warrantyDays: String(data.get("warrantyDays") || ""), deliveryFee: String(data.get("deliveryFee") || ""), savedAt: new Date().toISOString(),
+        diagnosis: String(data.get("diagnosis") || ""), estimatedDays: String(data.get("estimatedDays") || ""), warrantyDays: String(data.get("warrantyDays") || ""), savedAt: new Date().toISOString(),
       }));
     } catch { /* Draft storage is optional. */ }
   }
@@ -77,7 +77,7 @@ function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean
     }));
     void onSubmit({ action: "quote", diagnosis: String(data.get("diagnosis") || "").trim(),
       estimatedDays: Number(data.get("estimatedDays")), warrantyDays: Number(data.get("warrantyDays")),
-      deliveryFeeCents: Math.round(Number(data.get("deliveryFee")) * 100), items });
+      items });
   }
 
   return <form key={orderId} ref={formRef} className={styles.quoteForm} onSubmit={submit} onInput={(event) => updatePreview(event.currentTarget)}>
@@ -88,7 +88,6 @@ function QuoteForm({ orderId, busy, onSubmit }: { orderId: string; busy: boolean
     <div className={styles.quoteRow}>
       <label>Prazo estimado (dias)<input name="estimatedDays" type="number" min={1} max={365} defaultValue={3} required /></label>
       <label>Garantia (dias)<input name="warrantyDays" type="number" min={0} max={3650} defaultValue={90} required /></label>
-      <label>Coleta e entrega (R$)<input name="deliveryFee" type="number" min={0} max={100000} step="0.01" defaultValue="0.00" required /></label>
     </div>
     {itemIds.map((id, index) => <div className={styles.quoteItemEditor} key={id}><div className={styles.quoteRow}>
       <label>Serviço ou peça<input name={`name-${id}`} maxLength={150} required placeholder="Ex.: Tela OLED" /><input name={`details-${id}`} maxLength={500} placeholder="Detalhes opcionais" /></label>
@@ -162,7 +161,9 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
     try {
       await request(`/api/orders/${encodeURIComponent(id)}`, body);
       await refresh();
-      setMessage("Ordem atualizada com sucesso.");
+      setMessage((body as { action?: string })?.action === "quote"
+        ? "Orçamento enviado com sucesso. Esta O.S. não aceita um novo orçamento."
+        : "Ordem atualizada com sucesso.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Não foi possível atualizar a ordem.");
     } finally {
@@ -231,7 +232,7 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
                 {selected.quote.length > 0 && <section><h3>Orçamento</h3><div className={styles.quoteItems}>{selected.quote.map((item, index) => <div key={`${item.name}-${index}`}><span>{item.name}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div><div className={styles.quoteTotal}><span>Total</span><strong>{money(selected.totalCents)}</strong></div></section>}
                 {selected.status === "quoted" && <p className={styles.waitingNote}>Orçamento enviado. Aguardando a aprovação do cliente.</p>}
                 {selected.serviceDetails.warrantyClaim?.status === "requested" && <form className={styles.operationsForm} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void act(selected.id, { action: "warranty_decision", decision: data.get("decision"), response: data.get("response") }); }}><div><h3>Garantia acionada</h3><p>{selected.serviceDetails.warrantyClaim.reason}</p></div><label>Decisão<select name="decision" defaultValue="accepted"><option value="accepted">Aceitar retorno em garantia</option><option value="rejected">Recusar com justificativa</option></select></label><label>Resposta ao cliente<textarea name="response" minLength={10} maxLength={2000} required /></label><button type="submit" className={styles.primaryButton} disabled={selectedBusy}>Responder garantia</button></form>}
-                {(selected.status === "pending" || selected.status === "quoted") && !selected.serviceDetails.paymentPreferenceId && <QuoteForm key={selected.id} orderId={selected.id} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
+                {selected.status === "pending" && <QuoteForm key={selected.id} orderId={selected.id} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
                 {selected.status === "quoted" && selected.serviceDetails.paymentPreferenceId && <p className={styles.waitingNote}>O cliente iniciou o checkout. O orçamento está bloqueado para evitar divergência de valores.</p>}
                 {(selected.status === "approved" || selected.status === "ready" || selected.serviceDetails.logistics) && <section className={styles.logistics}><h3>Logística segura</h3><p>Coleta com foto e entrega confirmada por PIN. O rastreio é atualizado automaticamente.</p>
                   {selected.serviceDetails.logistics?.pickup ? <div className={styles.deliveryCard}><strong>Cliente → assistência</strong><span>Status: {logisticsStatusLabel(selected.serviceDetails.logistics.pickup.status)}</span>{selected.serviceDetails.logistics.pickup.error && <small>{selected.serviceDetails.logistics.pickup.error}</small>}{selected.serviceDetails.logistics.pickup.trackingUrl && <a href={selected.serviceDetails.logistics.pickup.trackingUrl} target="_blank" rel="noreferrer">Acompanhar coleta ↗</a>}{selected.serviceDetails.logistics.pickup.status === "failed" && <button type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => void dispatchDelivery(selected.id, { direction: "pickup" })}>{selectedBusy ? "Tentando novamente..." : "Tentar coleta novamente"}</button>}</div> : selected.status === "approved" && selected.serviceDetails.paymentStatus === "confirmed" ? <button type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => void dispatchDelivery(selected.id, { direction: "pickup" })}>{selectedBusy ? "Solicitando..." : "Chamar motoboy para coleta"}</button> : selected.status === "approved" ? <p className={styles.waitingNote}>Aguardando a confirmação do pagamento para solicitar a coleta.</p> : null}

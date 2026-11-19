@@ -36,8 +36,7 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   const current = order();
   const client = { sub: "client", role: "client" };
   const partner = { sub: "partner", role: "partner" };
-  assert.throws(() => prepareOrderPayment(current, "other", { scheduledDate: "2099-01-01",
-    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" }));
+  assert.throws(() => prepareOrderPayment(current, "other", {}));
   assert.equal(orderAction.safeParse({ action: "status", status: "completed" }).success, false);
   const quote = orderAction.parse({
     action: "quote",
@@ -47,10 +46,10 @@ test("orçamento, transições e avaliação respeitam o proprietário e o papel
   });
   applyOrderAction(current, partner, quote);
   assert.equal(quoteTotal(current.quote), 2002);
-  assert.throws(() => prepareOrderPayment(current, partner.sub, { scheduledDate: "2099-01-01",
-    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" }));
-  prepareOrderPayment(current, client.sub, { scheduledDate: "2099-01-01",
-    schedulePeriod: "morning", serviceAddress: "Rua Teste, 123", couponCode: "" });
+  assert.equal(current.serviceDetails.deliveryFeeCents, 0);
+  assert.throws(() => applyOrderAction(current, partner, quote), { code: "QUOTE_ALREADY_SENT" });
+  assert.throws(() => prepareOrderPayment(current, partner.sub, {}));
+  prepareOrderPayment(current, client.sub, {});
   assert.equal(confirmOrderPayment(current, "payment-1", "pix"), true);
   assert.throws(() => applyOrderAction(current, partner, quote));
   assert.throws(() => applyOrderAction(current, client, { action: "cancel" }));
@@ -147,6 +146,7 @@ test("impede orçamento sem valor e alteração depois do início do checkout", 
   );
   const locked = order();
   locked.serviceDetails.paymentPreferenceId = "pref-1";
+  locked.status = "quoted";
   assert.throws(
     () => applyOrderAction(locked, partner, orderAction.parse({
       action: "quote",
@@ -156,7 +156,7 @@ test("impede orçamento sem valor e alteração depois do início do checkout", 
       deliveryFeeCents: 0,
       items: [{ name: "Serviço", category: "labor", details: "", quantity: 1, unitPriceCents: 1000 }],
     })),
-    { code: "CHECKOUT_ALREADY_STARTED" },
+    { code: "QUOTE_ALREADY_SENT" },
   );
 });
 test("recusa exige motivo e ordens encerradas não aceitam gestão interna", () => {
@@ -208,12 +208,9 @@ test("congela os dados do checkout e aguarda a coleta antes do reparo", () => {
   const current = order();
   current.status = "quoted";
   current.quote = [{ name: "Serviço", category: "labor", details: "", quantity: 1, unitPriceCents: 1000 }];
-  const checkout = { scheduledDate: "2099-01-01", schedulePeriod: "morning" as const,
-    serviceAddress: "Rua Teste, 123", serviceAddressId: "10", couponCode: "" };
+  const checkout = {};
   prepareOrderPayment(current, "client", checkout);
   assert.doesNotThrow(() => prepareOrderPayment(current, "client", checkout));
-  assert.throws(() => prepareOrderPayment(current, "client", { ...checkout, couponCode: "SMART10" }),
-    { code: "CHECKOUT_ALREADY_STARTED" });
   confirmOrderPayment(current, "payment-1", "pix");
   current.serviceDetails.logistics = { provider: "uber_direct", pickup: {
     direction: "pickup", pickupAddress: "A", dropoffAddress: "B", deliveryId: "delivery-1",
