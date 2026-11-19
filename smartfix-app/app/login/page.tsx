@@ -524,12 +524,14 @@ export default function LoginPage() {
                     }
                     placeholder="seu@email.com ou 000.000.000-00"
                     autoComplete="username"
+                    aria-invalid={Boolean(errors.identificador)}
+                    aria-describedby={errors.identificador ? "identificador-error" : undefined}
                   />
 
                 </div>
 
                 {errors.identificador && (
-                  <span className="login-reference-error">
+                  <span id="identificador-error" className="login-reference-error" role="alert">
                     {
                       errors.identificador
                     }
@@ -576,6 +578,8 @@ export default function LoginPage() {
                     }
                     placeholder="Digite sua senha"
                     autoComplete="current-password"
+                    aria-invalid={Boolean(errors.senha)}
+                    aria-describedby={errors.senha ? "senha-error" : undefined}
                   />
 
                   <button
@@ -605,7 +609,7 @@ export default function LoginPage() {
                 </div>
 
                 {errors.senha && (
-                  <span className="login-reference-error">
+                  <span id="senha-error" className="login-reference-error" role="alert">
                     {
                       errors.senha
                     }

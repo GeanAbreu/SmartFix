@@ -1,12 +1,12 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 import { Partner } from "@/src/models";
 import { usesLocalAuthStore } from "./local-auth.service";
 
 const api = "https://api.mercadopago.com";
-const oauthAuthorizationEndpoint = "https://auth.mercadopago.com.br/authorization";
-export const MARKETPLACE_FEE_PERCENT = 14;
+const oauthAuthorizationEndpoint = "https://auth.mercadopago.com/authorization";
+export const MARKETPLACE_FEE_PERCENT = 10;
 
 export type OAuthCredentials = { accessToken: string; refreshToken: string; userId: string; expiresAt: Date };
 
@@ -62,32 +62,41 @@ export function paymentPublicUrl() {
 function redirectUri() { return `${paymentPublicUrl()}/api/partners/mercado-pago/callback`; }
 function stateSecret() { return process.env.MERCADO_PAGO_OAUTH_STATE_SECRET || requiredEnvironment("SESSION_SECRET"); }
 
-export function createOAuthState(partnerId: string) {
-  const payload = Buffer.from(JSON.stringify({ partnerId, expiresAt: Date.now() + 10 * 60_000 })).toString("base64url");
-  const signature = createHmac("sha256", stateSecret()).update(payload).digest("base64url");
-  return `${payload}.${signature}`;
+export function createOAuthState(partnerId: string, codeVerifier: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(stateSecret()).digest(), iv);
+  const payload = Buffer.concat([cipher.update(JSON.stringify({ partnerId, codeVerifier,
+    expiresAt: Date.now() + 10 * 60_000 }), "utf8"), cipher.final()]);
+  return `${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${payload.toString("base64url")}`;
 }
 
 export function readOAuthState(state: string) {
   try {
-    const [payload, signature] = state.split(".");
-    const expected = createHmac("sha256", stateSecret()).update(payload).digest("base64url");
-    if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new Error("signature");
-    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { partnerId: string; expiresAt: number };
-    if (!parsed.partnerId || parsed.expiresAt < Date.now()) throw new Error("expired");
-    return parsed.partnerId;
+    const parts = state.split(".");
+    if (parts.length !== 3) throw new Error("invalid state");
+    const [iv, tag, payload] = parts.map((part) => Buffer.from(part, "base64url"));
+    const decipher = createDecipheriv("aes-256-gcm", createHash("sha256").update(stateSecret()).digest(), iv);
+    decipher.setAuthTag(tag);
+    const parsed = JSON.parse(Buffer.concat([decipher.update(payload), decipher.final()]).toString("utf8")) as
+      { partnerId: string; codeVerifier: string; expiresAt: number };
+    if (!parsed.partnerId || parsed.codeVerifier.length < 43 || parsed.expiresAt < Date.now()) throw new Error("expired");
+    return parsed;
   } catch {
     throw new AppError("A autorização do Mercado Pago expirou. Tente conectar novamente.", 400, "INVALID_OAUTH_STATE");
   }
 }
 
 export function mercadoPagoAuthorizationUrl(partnerId: string) {
+  const codeVerifier = randomBytes(48).toString("base64url");
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
   const url = new URL(oauthAuthorizationEndpoint);
   url.searchParams.set("client_id", requiredEnvironment("MERCADO_PAGO_CLIENT_ID"));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("platform_id", "mp");
   url.searchParams.set("redirect_uri", redirectUri());
-  url.searchParams.set("state", createOAuthState(partnerId));
+  url.searchParams.set("state", createOAuthState(partnerId, codeVerifier));
+  url.searchParams.set("code_challenge", codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
   return url.toString();
 }
 
@@ -101,10 +110,10 @@ async function oauthToken(body: URLSearchParams): Promise<OAuthCredentials> {
     expiresAt: new Date(Date.now() + Number(result.expires_in) * 1000) };
 }
 
-export function exchangeAuthorizationCode(code: string) {
+export function exchangeAuthorizationCode(code: string, codeVerifier: string) {
   return oauthToken(new URLSearchParams({ client_id: requiredEnvironment("MERCADO_PAGO_CLIENT_ID"),
     client_secret: requiredEnvironment("MERCADO_PAGO_CLIENT_SECRET"), grant_type: "authorization_code", code,
-    redirect_uri: redirectUri() }));
+    redirect_uri: redirectUri(), code_verifier: codeVerifier }));
 }
 
 export function refreshAuthorization(refreshToken: string) {

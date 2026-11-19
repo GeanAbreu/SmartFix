@@ -2,6 +2,7 @@
 **/node_modules/
 **/dist/
 **/.next/
+**/.next-*/
 
 # Temporary render and prototype artifacts
 tmp/

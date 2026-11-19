@@ -25,6 +25,9 @@ const nextConfig: NextConfig = {
     const scriptSource = process.env.NODE_ENV === "development"
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
       : "script-src 'self' 'unsafe-inline'";
+    const connectSource = process.env.NODE_ENV === "development"
+      ? "connect-src 'self' ws: http://localhost:* https://viacep.com.br https://*.supabase.co wss://*.supabase.co"
+      : "connect-src 'self' https://viacep.com.br https://*.supabase.co wss://*.supabase.co";
     const securityHeaders = [
       {
         key: "Content-Security-Policy",
@@ -38,7 +41,7 @@ const nextConfig: NextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
-          "connect-src 'self' https: wss:",
+          connectSource,
           "upgrade-insecure-requests",
         ].join("; "),
       },

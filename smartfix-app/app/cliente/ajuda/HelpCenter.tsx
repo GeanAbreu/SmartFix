@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./help.module.css";
@@ -89,7 +90,7 @@ export default function HelpCenter() {
         <label className={styles.search}><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque por uma dúvida" aria-label="Buscar perguntas frequentes" /></label>
         <div className={styles.faqs}>{filteredFaqs.length === 0 ? <p className={styles.empty}>Nenhuma pergunta encontrada.</p> : filteredFaqs.map(({ question, answer }) => <div key={question} className={styles.faq}><button type="button" aria-expanded={openFaq === question} onClick={() => setOpenFaq(openFaq === question ? null : question)}><span>{question}</span><b aria-hidden="true">{openFaq === question ? "−" : "+"}</b></button>{openFaq === question && <p>{answer}</p>}</div>)}</div>
       </section>
-      <section className={styles.panel} aria-labelledby="contact-title"><div className={styles.heading}><span className={styles.icon}>☎</span><div><p className={styles.eyebrow}>OUTROS CANAIS</p><h2 id="contact-title">Contato</h2></div></div><p className={styles.description}>Os canais oficiais serão publicados aqui assim que estiverem definidos.</p><dl className={styles.contacts}><div><dt>Telefone local</dt><dd>A definir</dd></div><div><dt>Telefone interlocal</dt><dd>A definir</dd></div><div><dt>E-mail</dt><dd>A definir</dd></div></dl></section>
+      <section className={styles.panel} aria-labelledby="contact-title"><div className={styles.heading}><span className={styles.icon}>☎</span><div><p className={styles.eyebrow}>OUTROS CANAIS</p><h2 id="contact-title">Contato</h2></div></div><p className={styles.description}>Fale com a equipe SmartFix em dias úteis, das 08h às 18h.</p><dl className={styles.contacts}><div><dt>E-mail</dt><dd><a href="mailto:contato@smartfix.com.br">contato@smartfix.com.br</a></dd></div><div><dt>Atendimento pelo site</dt><dd><Link href="/#contato">Enviar mensagem</Link></dd></div></dl></section>
     </div>
     <section className={`${styles.panel} ${styles.chat}`} aria-labelledby="chat-title"><div className={styles.chatHeader}><span className={styles.icon}>✉</span><div><p className={styles.eyebrow}>ATENDIMENTO HUMANO</p><h2 id="chat-title">Converse pelo site</h2></div></div>
       <div className={styles.recipient}><label htmlFor="chat-recipient">Falar com</label><select id="chat-recipient" value={recipient} onChange={(event) => { setRecipient(event.target.value); setMessages([]); setError(""); setLoading(true); }}><option value="smartfix">Equipe SmartFix</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>Assistência: {partner.name}</option>)}</select>{partners.length === 0 && <small>Assistências aparecem aqui quando estiverem vinculadas a um reparo seu.</small>}</div>

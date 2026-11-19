@@ -119,10 +119,11 @@ export class PartnerController {
     const target = new URL("/parceiro/perfil", request.nextUrl.origin);
     try {
       const actor = await actorFrom(request);
-      const statePartnerId = readOAuthState(z.string().min(20).parse(request.nextUrl.searchParams.get("state")));
-      if (actor.role !== "partner" || actor.sub !== statePartnerId)
+      const state = readOAuthState(z.string().min(20).parse(request.nextUrl.searchParams.get("state")));
+      if (actor.role !== "partner" || actor.sub !== state.partnerId)
         throw new AppError("A autorização não pertence a esta conta.", 403, "FORBIDDEN");
-      const credentials = await exchangeAuthorizationCode(z.string().min(5).parse(request.nextUrl.searchParams.get("code")));
+      const credentials = await exchangeAuthorizationCode(
+        z.string().min(5).parse(request.nextUrl.searchParams.get("code")), state.codeVerifier);
       await savePartnerAuthorization(actor.sub, credentials);
       target.searchParams.set("mercadoPago", "connected");
     } catch {

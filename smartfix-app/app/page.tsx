@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { readApiResponse } from "@/src/services/api-response.service";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("inicio");
-  const [formSent, setFormSent] = useState(false);
+  const [contactStatus, setContactStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [contactMessage, setContactMessage] = useState("");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,26 +70,36 @@ export default function LandingPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    setContactStatus("sending");
+    setContactMessage("");
 
-    const data = new FormData(e.currentTarget);
-    const subject = String(data.get("assunto") ?? "Contato pelo site SmartFix");
-    const message = [
-      String(data.get("mensagem") ?? ""),
-      "",
-      `Nome: ${String(data.get("nome") ?? "")}`,
-      `E-mail: ${String(data.get("email") ?? "")}`,
-      `Telefone: ${String(data.get("telefone") ?? "")}`,
-    ].join("\n");
-
-    window.location.href = `mailto:contato@smartfix.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
-
-    setFormSent(true);
-
-    setTimeout(() => {
-      setFormSent(false);
-    }, 5000);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(data.get("nome") ?? ""),
+          email: String(data.get("email") ?? ""),
+          phone: String(data.get("telefone") ?? ""),
+          subject: String(data.get("assunto") ?? ""),
+          message: String(data.get("mensagem") ?? ""),
+          website: String(data.get("website") ?? ""),
+        }),
+      });
+      const result = await readApiResponse<null>(response);
+      if (!result.success) throw new Error(result.message);
+      if (!response.ok) throw new Error("Não foi possível enviar a mensagem. Tente novamente.");
+      form.reset();
+      setContactStatus("sent");
+      setContactMessage("Mensagem enviada. Nossa equipe responderá pelo e-mail informado.");
+    } catch (error) {
+      setContactStatus("error");
+      setContactMessage(error instanceof Error ? error.message : "Não foi possível enviar a mensagem. Tente novamente.");
+    }
   };
 
   return (
@@ -181,7 +193,9 @@ export default function LandingPage() {
               menuOpen ? "open" : ""
             }`}
             onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Abrir menu"
+            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
           >
             <span></span>
             <span></span>
@@ -192,6 +206,8 @@ export default function LandingPage() {
         {/* MENU MOBILE */}
 
         <div
+          id="mobile-navigation"
+          aria-hidden={!menuOpen}
           className={`mobile-menu ${
             menuOpen ? "mobile-menu-open" : ""
           }`}
@@ -797,7 +813,17 @@ export default function LandingPage() {
             <form
               className="contact-form"
               onSubmit={handleSubmit}
+              aria-busy={contactStatus === "sending"}
             >
+
+              <input
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{ position: "absolute", left: "-10000px" }}
+              />
 
               <div className="form-row">
 
@@ -881,13 +907,17 @@ export default function LandingPage() {
               <button
                 type="submit"
                 className="btn btn-primary submit-button"
+                disabled={contactStatus === "sending"}
               >
-                Enviar mensagem →
+                {contactStatus === "sending" ? "Enviando…" : "Enviar mensagem →"}
               </button>
 
-              {formSent && (
-                <div className="success-message">
-                  Seu aplicativo de e-mail foi aberto. Revise e envie a mensagem.
+              {contactMessage && (
+                <div
+                  className={`success-message ${contactStatus === "error" ? "contact-error-message" : ""}`}
+                  role={contactStatus === "error" ? "alert" : "status"}
+                >
+                  {contactMessage}
                 </div>
               )}
 

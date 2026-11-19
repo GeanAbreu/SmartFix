@@ -1605,6 +1605,12 @@ a {
   font-size: 13px;
 }
 
+.contact-error-message {
+  color: #ffd9d9;
+  background: rgba(210, 48, 48, 0.12);
+  border-color: rgba(255, 105, 105, 0.35);
+}
+
 /* ======================================
    FOOTER
 ====================================== */
