@@ -44,11 +44,21 @@ test("resume somente valores orçados e separa pagamentos confirmados", () => {
   const unquoted = order("new", "pending", "2026-09-12T10:00:00Z");
 
   assert.deepEqual(summarizePartnerFinance([paid, open, unquoted]), {
-    receivedCents: 77000,
-    pendingCents: 20000,
+    receivedCents: 69300,
+    pendingCents: 18000,
     grossCents: 97000,
     paidOrders: 1,
     pendingOrders: 1,
     averageTicketCents: 77000,
   });
+});
+
+test("exibe o repasse líquido salvo pelo provedor sem recalcular o split", () => {
+  const paid = order("paid", "completed", "2026-09-10T10:00:00Z");
+  paid.quote = [{ name: "Reparo", category: "labor", details: "", quantity: 1, unitPriceCents: 10001 }];
+  paid.serviceDetails.paymentStatus = "confirmed";
+  paid.serviceDetails.marketplaceFeeCents = 1000;
+  paid.serviceDetails.partnerGrossCents = 9001;
+
+  assert.equal(summarizePartnerFinance([paid]).receivedCents, 9001);
 });

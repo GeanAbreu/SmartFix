@@ -189,10 +189,10 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
     }), { status: 200, headers: { "Content-Type": "application/json" } });
     try {
       const pendingPayment = await PaymentController.confirm(
-        request(client, `/api/payments/mercado-pago/confirm?paymentId=ORDTST123456&orderId=${order.id}`),
+        request(client, "/api/payments/mercado-pago/confirm?orderId=ORDTST123456"),
       );
-      assert.equal(pendingPayment.status, 409);
-      assert.equal((await pendingPayment.json()).code, "PARTNER_PAYMENT_NOT_CONNECTED");
+      assert.equal(pendingPayment.status, 404);
+      assert.equal((await pendingPayment.json()).code, "NOT_FOUND");
     } finally {
       globalThis.fetch = originalFetch;
     }

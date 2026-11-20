@@ -3,11 +3,12 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { AppError } from "@/src/errors/AppError";
 import { Partner } from "@/src/models";
 import { usesLocalAuthStore } from "./local-auth.service";
+import { marketplaceFeeCents } from "./payment-split.service";
+
+export { MARKETPLACE_FEE_PERCENT, marketplaceFeeCents } from "./payment-split.service";
 
 const api = "https://api.mercadopago.com";
 const oauthAuthorizationEndpoint = "https://auth.mercadopago.com/authorization";
-export const MARKETPLACE_FEE_PERCENT = 10;
-
 export type OAuthCredentials = { accessToken: string; refreshToken: string; userId: string; expiresAt: Date };
 
 function requiredEnvironment(name: string) {
@@ -49,6 +50,13 @@ async function mercadoPago<T>(path: string, accessToken: string, init?: RequestI
     throw new AppError("Não foi possível concluir a operação no Mercado Pago. Tente novamente.", 502, "PAYMENT_PROVIDER_ERROR");
   }
   return response.json() as Promise<T>;
+}
+
+function idempotencyKey(value: string) {
+  const hex = createHash("sha256").update(value).digest("hex").slice(0, 32).split("");
+  hex[12] = "4";
+  hex[16] = ((Number.parseInt(hex[16], 16) & 3) | 8).toString(16);
+  return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
 }
 
 export function paymentPublicUrl() {
@@ -145,39 +153,51 @@ export async function partnerAccessToken(partnerId: string) {
   return refreshed.accessToken;
 }
 
-export function marketplaceFeeCents(totalCents: number) { return Math.round(totalCents * MARKETPLACE_FEE_PERCENT / 100); }
-
 export async function createPreference(input: { orderId: string; title: string; totalCents: number; payerEmail: string; accessToken: string }) {
   const origin = paymentPublicUrl();
-  const result = await mercadoPago<{ id: string; init_point?: string }>("/checkout/preferences", input.accessToken, {
-    method: "POST", headers: { "X-Idempotency-Key": `smartfix-checkout-${input.orderId}` },
+  const amount = (input.totalCents / 100).toFixed(2);
+  const fee = (marketplaceFeeCents(input.totalCents) / 100).toFixed(2);
+  const result = await mercadoPago<{ id: string; checkout_url?: string }>("/v1/orders", input.accessToken, {
+    method: "POST", headers: { "X-Idempotency-Key": idempotencyKey(`checkout:${input.orderId}`) },
     body: JSON.stringify({
-      items: [{ id: input.orderId, title: input.title, currency_id: "BRL", quantity: 1, unit_price: input.totalCents / 100 }],
-      payer: { email: input.payerEmail }, marketplace_fee: marketplaceFeeCents(input.totalCents) / 100,
+      type: "online", processing_mode: "manual", capture_mode: "automatic_async",
+      total_amount: amount, marketplace_fee: fee,
+      items: [{ external_code: input.orderId, title: input.title, quantity: 1, unit_price: amount }],
+      payer: { email: input.payerEmail },
       external_reference: input.orderId,
-      notification_url: `${origin}/api/payments/mercado-pago/webhook?order=${encodeURIComponent(input.orderId)}`,
-      back_urls: {
-        success: `${origin}/cliente/ordens?payment=success&order=${encodeURIComponent(input.orderId)}`,
-        pending: `${origin}/cliente/ordens?payment=pending&order=${encodeURIComponent(input.orderId)}`,
-        failure: `${origin}/cliente/ordens?payment=failure&order=${encodeURIComponent(input.orderId)}`,
-      }, auto_return: "approved",
+      config: { online: {
+        success_url: `${origin}/cliente/ordens?payment=success&order=${encodeURIComponent(input.orderId)}`,
+        pending_url: `${origin}/cliente/ordens?payment=pending&order=${encodeURIComponent(input.orderId)}`,
+        failure_url: `${origin}/cliente/ordens?payment=failure&order=${encodeURIComponent(input.orderId)}`,
+        auto_return: "approved",
+      } },
     }),
   });
-  if (!result.init_point) throw new AppError("O Mercado Pago não retornou a URL do checkout.", 502, "PAYMENT_PROVIDER_ERROR");
-  return { id: result.id, checkoutUrl: result.init_point, marketplaceFeeCents: marketplaceFeeCents(input.totalCents) };
+  if (!result.checkout_url) throw new AppError("O Mercado Pago não retornou a URL do checkout.", 502, "PAYMENT_PROVIDER_ERROR");
+  return { id: result.id, checkoutUrl: result.checkout_url, marketplaceFeeCents: marketplaceFeeCents(input.totalCents) };
 }
 
-export function getPayment(id: string, accessToken: string) {
-  return mercadoPago<{ id: number | string; status: string; status_detail?: string; external_reference: string | null;
-    transaction_amount: number; currency_id: string; payment_type_id?: string }>(`/v1/payments/${encodeURIComponent(id)}`, accessToken);
+export function getPaymentOrder(id: string, accessToken: string) {
+  return mercadoPago<{ id: string; status: string; status_detail?: string; external_reference: string | null;
+    total_amount: string; total_paid_amount: string; currency: string;
+    transactions?: { payments?: Array<{ id: string; status: string; status_detail?: string;
+      amount: string; paid_amount: string; payment_method?: { type?: string } }> } }>(
+    `/v1/orders/${encodeURIComponent(id)}`, accessToken);
 }
 
-export async function refundPayment(input: { paymentId: string; accessToken: string; amountCents?: number }) {
-  const body = input.amountCents === undefined ? {} : { amount: input.amountCents / 100 };
-  const result = await mercadoPago<{ id: number | string; amount: number; status?: string }>(
-    `/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, input.accessToken, {
-      method: "POST", headers: { "X-Idempotency-Key": `smartfix-refund-${input.paymentId}-${input.amountCents ?? "total"}` },
+export async function refundPayment(input: { orderId: string; paymentId: string; accessToken: string;
+  totalCents: number; amountCents?: number }) {
+  const body = input.amountCents === undefined ? {} : {
+    transactions: [{ id: input.paymentId, amount: (input.amountCents / 100).toFixed(2) }],
+  };
+  const result = await mercadoPago<{ id: string; status?: string; status_detail?: string;
+    transactions?: { refunds?: Array<{ id: string; amount: string; status?: string }> } }>(
+    `/v1/orders/${encodeURIComponent(input.orderId)}/refund`, input.accessToken, {
+      method: "POST", headers: { "X-Idempotency-Key": idempotencyKey(`refund:${input.orderId}:${input.amountCents ?? "total"}`) },
       body: JSON.stringify(body),
     });
-  return { id: String(result.id), amountCents: Math.round(Number(result.amount) * 100), status: result.status || "approved" };
+  const refund = result.transactions?.refunds?.at(-1);
+  return { id: refund?.id || result.id,
+    amountCents: refund ? Math.round(Number(refund.amount) * 100) : input.amountCents ?? input.totalCents,
+    status: refund?.status || result.status_detail || result.status || "processed" };
 }

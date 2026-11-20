@@ -36,19 +36,22 @@ test("cria preferência marketplace com split de 10%", async (t) => {
   const previousPublicUrl = process.env.PAYMENT_PUBLIC_URL;
   process.env.PAYMENT_PUBLIC_URL = "https://smartfix.example/path-ignored";
   const fetchMock = t.mock.method(globalThis, "fetch", async (url: string | URL | Request, init?: RequestInit) => {
-    assert.equal(String(url), "https://api.mercadopago.com/checkout/preferences");
+    assert.equal(String(url), "https://api.mercadopago.com/v1/orders");
     assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer seller-access-token");
+    assert.match(new Headers(init?.headers).get("X-Idempotency-Key") || "", /^[0-9a-f-]{36}$/);
     const body = JSON.parse(String(init?.body));
-    assert.equal(body.marketplace_fee, 12.35);
+    assert.equal(body.marketplace_fee, "12.35");
+    assert.equal(body.total_amount, "123.45");
+    assert.equal(body.items[0].unit_price, "123.45");
     assert.equal(body.external_reference, "123");
-    assert.equal(body.notification_url, "https://smartfix.example/api/payments/mercado-pago/webhook?order=123");
-    return Response.json({ id: "preference-1", init_point: "https://www.mercadopago.com/checkout/v1/redirect?pref_id=preference-1" });
+    assert.equal(body.config.online.success_url, "https://smartfix.example/cliente/ordens?payment=success&order=123");
+    return Response.json({ id: "order-1", checkout_url: "https://www.mercadopago.com.br/checkout/v1/redirect?order_id=order-1" });
   });
   try {
     const { createPreference } = await import("../src/services/mercado-pago.service");
     assert.deepEqual(await createPreference({ orderId: "123", title: "Reparo SmartFix", totalCents: 12_345,
       payerEmail: "cliente@example.com", accessToken: "seller-access-token" }), {
-      id: "preference-1", checkoutUrl: "https://www.mercadopago.com/checkout/v1/redirect?pref_id=preference-1",
+      id: "order-1", checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect?order_id=order-1",
       marketplaceFeeCents: 1235,
     });
     assert.equal(fetchMock.mock.callCount(), 1);

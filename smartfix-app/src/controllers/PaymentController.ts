@@ -6,7 +6,7 @@ import { AppError } from "@/src/errors/AppError";
 import { actorFrom, accountById } from "@/src/services/account.service";
 import { requireAdministrator } from "@/src/services/admin.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
-import { createPreference, getPayment, marketplaceFeeCents, partnerAccessToken, refundPayment } from "@/src/services/mercado-pago.service";
+import { createPreference, getPaymentOrder, marketplaceFeeCents, partnerAccessToken, refundPayment } from "@/src/services/mercado-pago.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import type { RepairOrder } from "@/src/types/workflow";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
@@ -14,29 +14,33 @@ import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 function ok(data: unknown) { return noStoreResponse(NextResponse.json({ success: true, data })); }
 function orderFrom(data: Record<string, unknown>) { return data as unknown as RepairOrder; }
 
-async function confirmPayment(paymentId: string, orderId: string, expectedClientId?: string) {
-  databaseId.parse(orderId);
-  const partnerId = await withWorkflow((records) => {
-    const record = records.find((item) => item.kind === "order" && item.id === orderId);
+async function confirmPayment(providerOrderId: string, expectedClientId?: string) {
+  const checkout = await withWorkflow((records) => {
+    const record = records.find((item) => item.kind === "order" &&
+      orderFrom(item.data).serviceDetails.paymentPreferenceId === providerOrderId);
     if (!record) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
     const order = orderFrom(record.data);
     if (expectedClientId && order.clientId !== expectedClientId) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
-    return order.partnerId;
+    return { orderId: order.id, partnerId: order.partnerId };
   });
-  const payment = await getPayment(paymentId, await partnerAccessToken(partnerId));
-  if (payment.status !== "approved" || !payment.external_reference) return false;
-  if (databaseId.parse(payment.external_reference) !== orderId)
+  const payment = await getPaymentOrder(providerOrderId, await partnerAccessToken(checkout.partnerId));
+  if (payment.status !== "processed" || payment.status_detail !== "accredited" || !payment.external_reference) return false;
+  if (databaseId.parse(payment.external_reference) !== checkout.orderId)
     throw new AppError("O pagamento não pertence a esta O.S.", 409, "PAYMENT_ORDER_MISMATCH");
   return withWorkflow((records) => {
-    const record = records.find((item) => item.kind === "order" && item.id === orderId);
+    const record = records.find((item) => item.kind === "order" && item.id === checkout.orderId);
     if (!record) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
     const order = orderFrom(record.data);
     if (expectedClientId && order.clientId !== expectedClientId) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
     const total = quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents);
-    if (payment.currency_id !== "BRL" || Math.round(Number(payment.transaction_amount) * 100) !== total)
+    if (payment.currency !== "BRL" || Math.round(Number(payment.total_paid_amount) * 100) !== total)
       throw new AppError("O valor confirmado pelo provedor é inválido.", 409, "PAYMENT_AMOUNT_MISMATCH");
-    const method = payment.payment_type_id === "credit_card" || payment.payment_type_id === "debit_card" ? "card" : "pix";
-    const changed = confirmOrderPayment(order, String(payment.id), method);
+    const transaction = payment.transactions?.payments?.find((item) =>
+      item.status === "processed" && item.status_detail === "accredited");
+    if (!transaction) throw new AppError("A transação aprovada não foi encontrada.", 409, "PAYMENT_NOT_APPROVED");
+    const type = transaction.payment_method?.type;
+    const method = type === "credit_card" || type === "debit_card" ? "card" : "pix";
+    const changed = confirmOrderPayment(order, transaction.id, method);
     order.serviceDetails.marketplaceFeeCents = marketplaceFeeCents(total);
     order.serviceDetails.partnerGrossCents = total - order.serviceDetails.marketplaceFeeCents;
     record.data = { ...order };
@@ -96,7 +100,10 @@ export class PaymentController {
       }, true);
       if (prepared.alreadyProcessed) return ok({ refunded: true, order: prepared.order });
       const amount = input.amountCents ?? prepared.remainingCents;
+      if (!prepared.order.serviceDetails.paymentPreferenceId)
+        throw new AppError("A order do pagamento não foi encontrada.", 409, "PAYMENT_NOT_REFUNDABLE");
       const refund = await refundPayment({ paymentId: prepared.order.serviceDetails.paymentId!,
+        orderId: prepared.order.serviceDetails.paymentPreferenceId, totalCents: prepared.totalCents,
         accessToken: await partnerAccessToken(prepared.order.partnerId), amountCents: amount });
       const providerProcessed = ["processed", "refunded", "approved"].includes(refund.status.toLowerCase());
       const order = await withWorkflow((records) => {
@@ -136,6 +143,14 @@ export class PaymentController {
         if (!record) throw new AppError("Ordem não encontrada.", 404, "NOT_FOUND");
         const order = orderFrom(record.data);
         const totalCents = prepareOrderPayment(order, actor.sub, input);
+        // Preferences API identifiers/URLs stored by older releases cannot be
+        // confirmed through Orders API. Discard only that legacy checkout and
+        // preserve the frozen quote so the customer can safely try again.
+        if (order.serviceDetails.paymentPreferenceId &&
+          !order.serviceDetails.paymentPreferenceId.toUpperCase().startsWith("ORD")) {
+          delete order.serviceDetails.paymentPreferenceId;
+          delete order.serviceDetails.paymentCheckoutUrl;
+        }
         record.data = { ...order };
         return { order, totalCents, existingCheckout: order.serviceDetails.paymentPreferenceId &&
           order.serviceDetails.paymentCheckoutUrl ? {
@@ -167,9 +182,8 @@ export class PaymentController {
     try {
       const actor = await actorFrom(request);
       if (actor.role !== "client") throw new AppError("Acesso negado.", 403, "FORBIDDEN");
-      const paymentId = z.string().trim().min(1).max(100).parse(request.nextUrl.searchParams.get("paymentId"));
-      const orderId = databaseId.parse(request.nextUrl.searchParams.get("orderId"));
-      const confirmed = await confirmPayment(paymentId, orderId, actor.sub);
+      const orderId = z.string().trim().min(10).max(100).parse(request.nextUrl.searchParams.get("orderId"));
+      const confirmed = await confirmPayment(orderId, actor.sub);
       if (!confirmed)
         throw new AppError("O pagamento ainda não foi aprovado pelo provedor.", 409, "PAYMENT_NOT_APPROVED");
       return ok({ confirmed });
@@ -191,8 +205,7 @@ export class PaymentController {
       const expected = createHmac("sha256", secret).update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${parts.ts};`).digest("hex");
       const valid = expected.length === parts.v1.length && timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
       if (!valid) throw new AppError("Assinatura inválida.", 401, "INVALID_WEBHOOK");
-      const orderId = request.nextUrl.searchParams.get("order") || "";
-      if (topic === "payment") await confirmPayment(dataId, orderId);
+      if (topic === "order") await confirmPayment(dataId);
       return ok({ received: true });
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
   }

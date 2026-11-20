@@ -24,7 +24,7 @@ export default function OrderCheckout({ order, busy, onCancel }: {
       });
       const result = await readApiResponse<{ checkoutUrl: string }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível iniciar o pagamento.");
-      window.location.assign(result.data.checkoutUrl);
+      window.location.href = result.data.checkoutUrl;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível iniciar o pagamento.");
       setRedirecting(false);

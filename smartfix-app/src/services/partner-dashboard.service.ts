@@ -1,4 +1,5 @@
 import type { RepairOrder } from "@/src/types/workflow";
+import { partnerNetCents } from "./payment-split.service";
 
 export type DashboardNotification = {
   id: string;
@@ -13,15 +14,18 @@ export function summarizePartnerFinance(orders: RepairOrder[]) {
     (sum, item) => sum + item.quantity * item.unitPriceCents,
     order.serviceDetails.deliveryFeeCents - order.serviceDetails.discountCents,
   );
-  const receivedCents = confirmedOrders.reduce((sum, order) => sum + totalFor(order), 0);
-  const pendingCents = pendingOrders.reduce((sum, order) => sum + totalFor(order), 0);
+  const grossReceivedCents = confirmedOrders.reduce((sum, order) => sum + totalFor(order), 0);
+  const grossPendingCents = pendingOrders.reduce((sum, order) => sum + totalFor(order), 0);
+  const netFor = (order: RepairOrder) => order.serviceDetails.partnerGrossCents ?? partnerNetCents(totalFor(order));
+  const receivedCents = confirmedOrders.reduce((sum, order) => sum + netFor(order), 0);
+  const pendingCents = pendingOrders.reduce((sum, order) => sum + netFor(order), 0);
   return {
-    receivedCents: confirmedOrders.reduce((sum, order) => sum + (order.serviceDetails.partnerGrossCents ?? totalFor(order)), 0),
+    receivedCents,
     pendingCents,
-    grossCents: receivedCents + pendingCents,
+    grossCents: grossReceivedCents + grossPendingCents,
     paidOrders: confirmedOrders.length,
     pendingOrders: pendingOrders.length,
-    averageTicketCents: confirmedOrders.length ? Math.round(receivedCents / confirmedOrders.length) : 0,
+    averageTicketCents: confirmedOrders.length ? Math.round(grossReceivedCents / confirmedOrders.length) : 0,
   };
 }
 
