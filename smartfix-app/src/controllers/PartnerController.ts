@@ -116,7 +116,7 @@ export class PartnerController {
   }
 
   static async mercadoPagoCallback(request: NextRequest) {
-    const target = new URL("/parceiro/perfil", request.nextUrl.origin);
+    const target = new URL("/parceiro/financeiro", request.nextUrl.origin);
     try {
       const actor = await actorFrom(request);
       const state = readOAuthState(z.string().min(20).parse(request.nextUrl.searchParams.get("state")));

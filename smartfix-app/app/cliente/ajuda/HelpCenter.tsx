@@ -7,11 +7,24 @@ import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./help.module.css";
 
 const faqs = [
-  { question: "Como solicito um reparo?", answer: "Acesse Solicitar reparo, informe marca, modelo, cor, defeito, descrição e fotos do aparelho. Depois, acompanhe a solicitação em Meus reparos." },
-  { question: "Como acompanho o reparo?", answer: "Acesse Meus reparos para consultar as atualizações da sua solicitação." },
-  { question: "Quando recebo o orçamento?", answer: "A assistência prepara o orçamento após o diagnóstico. O reparo começa somente depois da sua aprovação." },
-  { question: "Posso cancelar a solicitação?", answer: "Você pode cancelar até aprovar o orçamento. Solicite o cancelamento pelo chat com a SmartFix ou com a assistência responsável." },
-  { question: "Qual é a garantia do serviço?", answer: "A assistência informa as condições de garantia de cada serviço. Confira essas condições antes de aprovar o orçamento." },
+  { question: "Como solicito um reparo?", answer: "Acesse Solicitar reparo, escolha o aparelho e a assistência, descreva o defeito e informe sintomas e acessórios. Fotos nítidas e uma descrição completa ajudam a assistência a preparar o diagnóstico." },
+  { question: "O que acontece depois da solicitação?", answer: "A assistência analisa o pedido e prepara o diagnóstico e o orçamento. Você recebe as atualizações em Meus reparos e nas notificações. Nenhum reparo começa sem sua aprovação e a confirmação do pagamento." },
+  { question: "Como avalio um orçamento?", answer: "Confira cada peça e serviço, quantidades, valores, frete, desconto, prazo estimado e garantia. Se algo não estiver claro, fale com a assistência antes de aprovar. Uma alteração no orçamento exige uma nova confirmação." },
+  { question: "Como faço o pagamento?", answer: "Depois de aprovar o orçamento, use o botão de pagamento na O.S. Você será direcionado ao ambiente seguro do Mercado Pago. A assistência só pode iniciar o reparo após a confirmação do pagamento." },
+  { question: "Por que o botão de pagamento está indisponível?", answer: "A assistência precisa conectar a própria conta Mercado Pago e a O.S. deve ter um orçamento válido. Fale com a assistência pelo chat; você não precisa enviar dados de cartão nem realizar pagamentos fora da plataforma." },
+  { question: "Como acompanho o reparo?", answer: "Em Meus reparos, consulte o status, o histórico, o orçamento, o pagamento e a logística. Os status informam se a assistência está diagnosticando, reparando, aguardando peças ou preparando a devolução." },
+  { question: "Como funcionam coleta e entrega?", answer: "Quando a logística estiver disponível, o endereço e o turno aparecem na O.S. Acompanhe o link de rastreio e mantenha alguém no local. O entregador pode solicitar confirmação e registro da coleta ou entrega." },
+  { question: "Posso cancelar a solicitação?", answer: "Você pode cancelar antes de aprovar o orçamento. Depois da aprovação ou do início do serviço, fale com a assistência e com a SmartFix para avaliar peças já compradas, logística e eventual reembolso." },
+  { question: "Como funciona o reembolso?", answer: "Quando aplicável, a solicitação é analisada pela SmartFix e processada no mesmo fluxo de pagamento. O prazo para o valor aparecer depende do meio de pagamento e do banco emissor." },
+  { question: "Qual é a garantia do serviço?", answer: "O prazo e as condições aparecem no orçamento e na O.S. Se o mesmo problema retornar dentro da garantia, abra a solicitação pela ordem concluída e descreva o que aconteceu." },
+  { question: "Como protejo meus dados?", answer: "Pague somente pelo checkout da O.S. A SmartFix e a assistência nunca devem pedir senha, código de verificação ou dados completos do cartão por mensagem. Em caso de suspeita, fale com a equipe SmartFix." },
+] as const;
+
+const journey = [
+  ["1", "Solicite", "Cadastre o aparelho, explique o problema e escolha uma assistência."],
+  ["2", "Revise", "Leia diagnóstico, itens, prazo, garantia e valor antes de aprovar."],
+  ["3", "Pague", "Finalize no Mercado Pago e aguarde a confirmação na própria O.S."],
+  ["4", "Acompanhe", "Veja reparo, logística, conclusão e garantia em Meus reparos."],
 ] as const;
 type Message = { id: string; senderRole: "client" | "admin" | "partner"; body: string; createdAt: string };
 type Partner = { id: string; name: string };
@@ -85,12 +98,13 @@ export default function HelpCenter() {
 
   return <main className={styles.page}><div className={styles.container}>
     <header className={styles.intro}><p className={styles.eyebrow}>CENTRAL DE AJUDA</p><h1>Como podemos ajudar?</h1><p>Encontre respostas, consulte os contatos ou converse com um atendente.</p></header>
+    <section className={styles.journey} aria-label="Etapas do reparo">{journey.map(([step, title, text]) => <article key={step}><span>{step}</span><div><h2>{title}</h2><p>{text}</p></div></article>)}</section>
     <div className={styles.layout}><div className={styles.leftColumn}>
       <section className={styles.panel} aria-labelledby="faq-title"><div className={styles.heading}><span className={styles.icon}>?</span><div><p className={styles.eyebrow}>RESPOSTAS RÁPIDAS</p><h2 id="faq-title">Perguntas frequentes</h2></div></div>
         <label className={styles.search}><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque por uma dúvida" aria-label="Buscar perguntas frequentes" /></label>
         <div className={styles.faqs}>{filteredFaqs.length === 0 ? <p className={styles.empty}>Nenhuma pergunta encontrada.</p> : filteredFaqs.map(({ question, answer }) => <div key={question} className={styles.faq}><button type="button" aria-expanded={openFaq === question} onClick={() => setOpenFaq(openFaq === question ? null : question)}><span>{question}</span><b aria-hidden="true">{openFaq === question ? "−" : "+"}</b></button>{openFaq === question && <p>{answer}</p>}</div>)}</div>
       </section>
-      <section className={styles.panel} aria-labelledby="contact-title"><div className={styles.heading}><span className={styles.icon}>☎</span><div><p className={styles.eyebrow}>OUTROS CANAIS</p><h2 id="contact-title">Contato</h2></div></div><p className={styles.description}>Fale com a equipe SmartFix em dias úteis, das 08h às 18h.</p><dl className={styles.contacts}><div><dt>E-mail</dt><dd><a href="mailto:contato@smartfix.com.br">contato@smartfix.com.br</a></dd></div><div><dt>Atendimento pelo site</dt><dd><Link href="/#contato">Enviar mensagem</Link></dd></div></dl></section>
+      <section className={styles.panel} aria-labelledby="contact-title"><div className={styles.heading}><span className={styles.icon}>☎</span><div><p className={styles.eyebrow}>OUTROS CANAIS</p><h2 id="contact-title">Contato</h2></div></div><p className={styles.description}>Fale com a equipe SmartFix em dias úteis, das 08h às 18h (horário de Brasília). Para agilizar, informe o número da O.S. e descreva o que já tentou.</p><dl className={styles.contacts}><div><dt>E-mail</dt><dd><a href="mailto:contato@smartfix.com.br">contato@smartfix.com.br</a></dd></div><div><dt>Atendimento pelo site</dt><dd><Link href="/#contato">Enviar mensagem</Link></dd></div></dl><p className={styles.safety}>Nunca envie senha, código de verificação ou dados completos do cartão.</p></section>
     </div>
     <section className={`${styles.panel} ${styles.chat}`} aria-labelledby="chat-title"><div className={styles.chatHeader}><span className={styles.icon}>✉</span><div><p className={styles.eyebrow}>ATENDIMENTO HUMANO</p><h2 id="chat-title">Converse pelo site</h2></div></div>
       <div className={styles.recipient}><label htmlFor="chat-recipient">Falar com</label><select id="chat-recipient" value={recipient} onChange={(event) => { setRecipient(event.target.value); setMessages([]); setError(""); setLoading(true); }}><option value="smartfix">Equipe SmartFix</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>Assistência: {partner.name}</option>)}</select>{partners.length === 0 && <small>Assistências aparecem aqui quando estiverem vinculadas a um reparo seu.</small>}</div>
