@@ -6,7 +6,7 @@ import { AppError } from "@/src/errors/AppError";
 import { actorFrom, accountById } from "@/src/services/account.service";
 import { requireAdministrator } from "@/src/services/admin.service";
 import { checkoutInput, confirmOrderPayment, prepareOrderPayment, quoteTotal } from "@/src/services/order-policy.service";
-import { createPreference, getPaymentOrder, marketplaceFeeCents, partnerAccessToken, refundPayment } from "@/src/services/mercado-pago.service";
+import { createPreference, getPaymentOrder, isPaymentCheckoutReusable, marketplaceFeeCents, partnerAccessToken, refundPayment } from "@/src/services/mercado-pago.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import type { RepairOrder } from "@/src/types/workflow";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
@@ -162,7 +162,7 @@ export class PaymentController {
       let previousProviderOrderId: string | undefined;
       if (prepared.existingCheckout) {
         const providerOrder = await getPaymentOrder(prepared.existingCheckout.id, accessToken);
-        if (!["canceled", "failed"].includes(providerOrder.status)) return ok(prepared.existingCheckout);
+        if (isPaymentCheckoutReusable(providerOrder)) return ok(prepared.existingCheckout);
 
         // Orders do Checkout Pro expiram (por padrão, após um dia). A URL
         // continua abrindo, mas o Mercado Pago desabilita o botão de pagar.

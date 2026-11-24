@@ -42,6 +42,7 @@ test("cria preferência marketplace com split de 10%", async (t) => {
     const body = JSON.parse(String(init?.body));
     assert.equal(body.marketplace_fee, "12.35");
     assert.equal(body.total_amount, "123.45");
+    assert.equal(body.expiration_time, "P1D");
     assert.equal(body.items[0].unit_price, "123.45");
     assert.equal(body.external_reference, "123");
     assert.equal(body.config.online.success_url, "https://smartfix.example/cliente/ordens?payment=success&order=123");
@@ -82,4 +83,18 @@ test("usa outra chave idempotente ao recriar checkout encerrado", async (t) => {
     if (previousPublicUrl === undefined) delete process.env.PAYMENT_PUBLIC_URL;
     else process.env.PAYMENT_PUBLIC_URL = previousPublicUrl;
   }
+});
+
+test("não reutiliza checkout expirado mesmo quando o provedor ainda retorna created", async () => {
+  const { isPaymentCheckoutReusable } = await import("../src/services/mercado-pago.service");
+  const now = Date.parse("2026-11-24T15:00:00.000Z");
+  assert.equal(isPaymentCheckoutReusable({
+    status: "created", status_detail: "created", created_date: "2026-11-23T14:59:59.000Z", expiration_time: "P1D",
+  }, now), false);
+  assert.equal(isPaymentCheckoutReusable({
+    status: "created", status_detail: "expired", created_date: "2026-11-24T14:00:00.000Z",
+  }, now), false);
+  assert.equal(isPaymentCheckoutReusable({
+    status: "created", status_detail: "created", created_date: "2026-11-24T14:00:00.000Z", expiration_time: "PT2H",
+  }, now), true);
 });

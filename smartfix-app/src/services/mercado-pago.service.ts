@@ -9,6 +9,8 @@ export { MARKETPLACE_FEE_PERCENT, marketplaceFeeCents } from "./payment-split.se
 
 const api = "https://api.mercadopago.com";
 const oauthAuthorizationEndpoint = "https://auth.mercadopago.com/authorization";
+const CHECKOUT_EXPIRATION = "P1D";
+const DEFAULT_CHECKOUT_VALIDITY_MS = 24 * 60 * 60_000;
 export type OAuthCredentials = { accessToken: string; refreshToken: string; userId: string; expiresAt: Date };
 
 function requiredEnvironment(name: string) {
@@ -163,6 +165,7 @@ export async function createPreference(input: { orderId: string; title: string; 
       `checkout:${input.orderId}:${input.previousProviderOrderId || "initial"}`) },
     body: JSON.stringify({
       type: "online", processing_mode: "manual", capture_mode: "automatic_async",
+      expiration_time: CHECKOUT_EXPIRATION,
       total_amount: amount, marketplace_fee: fee,
       items: [{ external_code: input.orderId, title: input.title, quantity: 1, unit_price: amount }],
       payer: { email: input.payerEmail },
@@ -181,10 +184,36 @@ export async function createPreference(input: { orderId: string; title: string; 
 
 export function getPaymentOrder(id: string, accessToken: string) {
   return mercadoPago<{ id: string; status: string; status_detail?: string; external_reference: string | null;
+    created_date?: string; expiration_time?: string;
     total_amount: string; total_paid_amount: string; currency: string;
     transactions?: { payments?: Array<{ id: string; status: string; status_detail?: string;
       amount: string; paid_amount: string; payment_method?: { type?: string } }> } }>(
     `/v1/orders/${encodeURIComponent(id)}`, accessToken);
+}
+
+function isoDurationMilliseconds(value?: string) {
+  if (!value) return DEFAULT_CHECKOUT_VALIDITY_MS;
+  const duration = value.match(
+    /^P(?:(\d+(?:\.\d+)?)W)?(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i,
+  );
+  if (!duration) return DEFAULT_CHECKOUT_VALIDITY_MS;
+  const [, weeks = "0", days = "0", hours = "0", minutes = "0", seconds = "0"] = duration;
+  const milliseconds = (Number(weeks) * 7 * 24 * 60 * 60 + Number(days) * 24 * 60 * 60 +
+    Number(hours) * 60 * 60 + Number(minutes) * 60 + Number(seconds)) * 1000;
+  return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds : DEFAULT_CHECKOUT_VALIDITY_MS;
+}
+
+export function isPaymentCheckoutReusable(order: {
+  status: string; status_detail?: string; created_date?: string; expiration_time?: string;
+}, now = Date.now()) {
+  if (["canceled", "failed", "expired"].includes(order.status.toLowerCase())) return false;
+  if (order.status_detail?.toLowerCase() === "expired") return false;
+  if (order.status.toLowerCase() !== "created") return true;
+
+  const createdAt = order.created_date ? Date.parse(order.created_date) : Number.NaN;
+  if (!Number.isFinite(createdAt)) return true;
+
+  return now < createdAt + isoDurationMilliseconds(order.expiration_time);
 }
 
 export async function refundPayment(input: { orderId: string; paymentId: string; accessToken: string;
