@@ -1,0 +1,2 @@
+export const MINIMUM_CHECKOUT_CENTS = 500;
+

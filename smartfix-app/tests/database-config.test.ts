@@ -4,6 +4,7 @@ import { usesLocalAuthStore } from "../src/services/local-auth.service";
 import {
   assertDatabaseConfigured,
   databaseUrlWithDriverSsl,
+  getPoolMax,
 } from "../src/config/database";
 import { DatabaseController } from "../src/controllers/DatabaseController";
 
@@ -38,4 +39,22 @@ test("preserva parâmetros da conexão e delega SSL ao driver configurado", () =
   ));
   assert.equal(normalized.searchParams.has("sslmode"), false);
   assert.equal(normalized.searchParams.get("pgbouncer"), "true");
+});
+
+test("limita cada instância serverless a uma conexão com o banco", () => {
+  const previousVercel = process.env.VERCEL;
+  const previousPoolMax = process.env.DB_POOL_MAX;
+  try {
+    process.env.VERCEL = "1";
+    process.env.DB_POOL_MAX = "5";
+    assert.equal(getPoolMax(), 1);
+
+    process.env.VERCEL = "";
+    assert.equal(getPoolMax(), 5);
+  } finally {
+    if (previousVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = previousVercel;
+    if (previousPoolMax === undefined) delete process.env.DB_POOL_MAX;
+    else process.env.DB_POOL_MAX = previousPoolMax;
+  }
 });

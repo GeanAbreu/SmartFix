@@ -144,6 +144,17 @@ test("impede orçamento sem valor e alteração depois do início do checkout", 
     })),
     { code: "INVALID_QUOTE_TOTAL" },
   );
+  const belowMinimum = order();
+  assert.throws(
+    () => applyOrderAction(belowMinimum, partner, orderAction.parse({
+      action: "quote",
+      diagnosis: "Teste funcional",
+      estimatedDays: 2,
+      warrantyDays: 90,
+      items: [{ name: "Diagnóstico", category: "labor", details: "", quantity: 1, unitPriceCents: 499 }],
+    })),
+    { code: "INVALID_QUOTE_TOTAL", message: "O valor mínimo do orçamento para pagamento é R$ 5,00." },
+  );
   const locked = order();
   locked.serviceDetails.paymentPreferenceId = "pref-1";
   locked.status = "quoted";
@@ -157,6 +168,15 @@ test("impede orçamento sem valor e alteração depois do início do checkout", 
       items: [{ name: "Serviço", category: "labor", details: "", quantity: 1, unitPriceCents: 1000 }],
     })),
     { code: "QUOTE_ALREADY_SENT" },
+  );
+});
+test("impede checkout de orçamento legado abaixo do mínimo", () => {
+  const current = order();
+  current.status = "quoted";
+  current.quote = [{ name: "Diagnóstico", category: "labor", details: "", quantity: 1, unitPriceCents: 200 }];
+  assert.throws(
+    () => prepareOrderPayment(current, "client", {}),
+    { code: "INVALID_QUOTE_TOTAL", message: "O valor mínimo para pagamento é R$ 5,00. Solicite a correção do orçamento à assistência." },
   );
 });
 test("recusa exige motivo e ordens encerradas não aceitam gestão interna", () => {

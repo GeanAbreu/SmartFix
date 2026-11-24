@@ -42,6 +42,7 @@ export type LogisticsLeg = {
   direction: "pickup" | "return";
   quoteId?: string;
   quotedFeeCents?: number;
+  actualFeeCents?: number;
   quoteExpiresAt?: string;
   pickupAddress: string;
   dropoffAddress: string;
@@ -49,9 +50,12 @@ export type LogisticsLeg = {
   status: string;
   trackingUrl?: string;
   lastEventAt?: string;
-  verification: "photo_and_pin";
+  verification: "pod" | "photo_and_pin";
+  stopIds?: string[];
+  driverId?: string;
   events: LogisticsEvent[];
   error?: string;
+  resolutionNote?: string;
 };
 export type ServiceDetails = {
   estimatedDays: number;
@@ -59,7 +63,7 @@ export type ServiceDetails = {
   warrantyStartsAt?: string;
   warrantyEndsAt?: string;
   deliveredAt?: string;
-  completionMethod?: "uber_direct" | "client_confirmation";
+  completionMethod?: "uber_direct" | "lalamove" | "client_confirmation";
   deliveryFeeCents: number;
   couponCode: string;
   discountCents: number;
@@ -105,7 +109,7 @@ export type ServiceDetails = {
     response?: string;
   };
   logistics?: {
-    provider: "uber_direct";
+    provider: "lalamove" | "uber_direct";
     pickup?: LogisticsLeg;
     return?: LogisticsLeg;
   };

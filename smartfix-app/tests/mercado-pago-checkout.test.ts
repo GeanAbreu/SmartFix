@@ -60,3 +60,26 @@ test("cria preferência marketplace com split de 10%", async (t) => {
     else process.env.PAYMENT_PUBLIC_URL = previousPublicUrl;
   }
 });
+
+test("usa outra chave idempotente ao recriar checkout encerrado", async (t) => {
+  const previousPublicUrl = process.env.PAYMENT_PUBLIC_URL;
+  process.env.PAYMENT_PUBLIC_URL = "https://smartfix.example";
+  let initialKey = "";
+  const fetchMock = t.mock.method(globalThis, "fetch", async (_url: string | URL | Request, init?: RequestInit) => {
+    const key = new Headers(init?.headers).get("X-Idempotency-Key") || "";
+    if (!initialKey) initialKey = key;
+    else assert.notEqual(key, initialKey);
+    return Response.json({ id: "order-1", checkout_url: "https://www.mercadopago.com.br/checkout/order-1" });
+  });
+  try {
+    const { createPreference } = await import("../src/services/mercado-pago.service");
+    const common = { orderId: "123", title: "Reparo SmartFix", totalCents: 10_00,
+      payerEmail: "cliente@example.com", accessToken: "seller-access-token" };
+    await createPreference(common);
+    await createPreference({ ...common, previousProviderOrderId: "ORD-CANCELED" });
+    assert.equal(fetchMock.mock.callCount(), 2);
+  } finally {
+    if (previousPublicUrl === undefined) delete process.env.PAYMENT_PUBLIC_URL;
+    else process.env.PAYMENT_PUBLIC_URL = previousPublicUrl;
+  }
+});

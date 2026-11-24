@@ -39,17 +39,24 @@ em [`.env.example`](.env.example):
 Telefones nacionais recebem por padrão o DDI `55`; altere
 `WHATSAPP_DEFAULT_COUNTRY_CODE` para outra operação regional.
 
-## Logística com Uber Direct
+## Logística imediata com Lalamove
 
-Configure as credenciais `UBER_DIRECT_*` descritas em [`.env.example`](.env.example)
-e cadastre `/api/logistics/uber-direct/webhook` como webhook HTTPS no painel do
-Uber Direct. Cada trecho é criado separadamente: coleta do cliente para a
-assistência e devolução da assistência para o cliente. A integração solicita
-foto na coleta, PIN no destino, retorno em caso de insucesso e valida a
-assinatura de todos os eventos antes de atualizar a ordem.
+Configure `LALAMOVE_API_KEY`, `LALAMOVE_API_SECRET`, `LALAMOVE_MARKET=BR`,
+`LALAMOVE_SANDBOX` e `LALAMOVE_SERVICE_TYPE=MOTORCYCLE`, conforme
+[`.env.example`](.env.example). Cadastre o endpoint HTTPS
+`/api/logistics/lalamove/webhook` no Partner Portal do mesmo ambiente.
+
+Cada trecho é independente: cliente → assistência e assistência → cliente. A
+cotação V3 usa coordenadas obtidas no servidor, omite `scheduleAt` para solicitar
+um motorista imediatamente e permanece válida por cerca de cinco minutos. A
+criação usa o `quotationId`, contatos em E.164, POD, metadata interna e um
+`Request-ID` único por chamada. O bloqueio transacional da O.S. impede duplicatas;
+respostas incertas exigem reconciliação antes de nova tentativa. O link HTTPS retornado pela Lalamove
+é usado para acompanhamento. Eventos autenticados são deduplicados e não podem
+regredir o estado da entrega.
 
 ## Validação das integrações
 
 Use `npm run config:check` para detectar variáveis ausentes, grupos parcialmente configurados e URLs inseguras antes do deploy. O comando não exibe segredos.
 
-Use `npm run integrations:smoke` em um ambiente controlado para validar, de forma somente leitura, as credenciais configuradas de Mercado Pago, Resend, Supabase, Uber Direct e Photon. Esse smoke test não envia mensagens, não cria cobranças e não solicita entregas; Google OAuth e provedores de WhatsApp continuam exigindo seus fluxos de sandbox próprios.
+Use `npm run integrations:smoke` em um ambiente controlado para validar, de forma somente leitura, as credenciais configuradas de Mercado Pago, Resend, Supabase, Lalamove e Photon. Para a Lalamove, o teste consulta `GET /v3/cities`; não cria cotação nem entrega. Google OAuth e provedores de WhatsApp continuam exigindo seus fluxos de sandbox próprios.

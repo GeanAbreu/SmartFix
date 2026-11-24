@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import { createHmac, randomUUID } from "node:crypto";
 
 loadEnvConfig(process.cwd(), true);
 
@@ -11,7 +12,7 @@ const checks: Check[] = [
   { name: "Resend", variables: ["RESEND_API_KEY", "MAIL_FROM"], optional: true },
   { name: "Mercado Pago Marketplace", variables: ["MERCADO_PAGO_CLIENT_ID", "MERCADO_PAGO_CLIENT_SECRET",
     "MERCADO_PAGO_WEBHOOK_SECRET", "PAYMENT_CREDENTIALS_ENCRYPTION_KEY", "PAYMENT_PUBLIC_URL"], optional: true },
-  { name: "Uber Direct", variables: ["UBER_DIRECT_CLIENT_ID", "UBER_DIRECT_CLIENT_SECRET", "UBER_DIRECT_CUSTOMER_ID", "UBER_DIRECT_WEBHOOK_SECRET"], optional: true },
+  { name: "Lalamove", variables: ["LALAMOVE_API_KEY", "LALAMOVE_API_SECRET", "LALAMOVE_MARKET", "LALAMOVE_SERVICE_TYPE"], optional: true },
   { name: "Google OAuth", variables: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"], optional: true },
 ];
 
@@ -60,6 +61,7 @@ function configurationCheck() {
     validUrl("PAYMENT_PUBLIC_URL", true);
     validUrl("EVOLUTION_API_URL", process.env.NODE_ENV === "production");
     validUrl("PHOTON_API_URL", true);
+    validUrl("LALAMOVE_API_URL", true);
     if ((process.env.SESSION_SECRET?.length || 0) < 32) errors.push("SESSION_SECRET deve ter ao menos 32 caracteres.");
   } catch (error) {
     errors.push(error instanceof Error ? error.message : "URL inválida.");
@@ -91,11 +93,14 @@ async function liveSmoke() {
     `${process.env.SUPABASE_URL!.replace(/\/$/, "")}/auth/v1/settings`,
     { headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY!, Authorization: `Bearer ${process.env.SUPABASE_PUBLISHABLE_KEY}` }, signal: AbortSignal.timeout(12_000) },
   )));
-  if (configured("UBER_DIRECT_CLIENT_ID")) {
-    const body = new URLSearchParams({ client_id: process.env.UBER_DIRECT_CLIENT_ID!, client_secret: process.env.UBER_DIRECT_CLIENT_SECRET!, grant_type: "client_credentials", scope: "eats.deliveries" });
-    tasks.push(providerRequest("Uber Direct", () => fetch(process.env.UBER_DIRECT_AUTH_URL || "https://auth.uber.com/oauth/v2/token", {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, signal: AbortSignal.timeout(12_000),
-    })));
+  if (configured("LALAMOVE_API_KEY")) {
+    const path = "/v3/cities"; const timestamp = Date.now().toString();
+    const signature = createHmac("sha256", process.env.LALAMOVE_API_SECRET!).update(`${timestamp}\r\nGET\r\n${path}\r\n\r\n`).digest("hex");
+    const sandbox = process.env.LALAMOVE_SANDBOX !== "false";
+    const base = process.env.LALAMOVE_API_URL || (sandbox ? "https://rest.sandbox.lalamove.com" : "https://rest.lalamove.com");
+    tasks.push(providerRequest("Lalamove", () => fetch(`${base.replace(/\/$/, "")}${path}`, { headers: {
+      Authorization: `hmac ${process.env.LALAMOVE_API_KEY}:${timestamp}:${signature}`, Market: process.env.LALAMOVE_MARKET || "BR", "Request-ID": randomUUID(),
+    }, signal: AbortSignal.timeout(12_000) })));
   }
   if (configured("PHOTON_API_URL")) {
     const url = new URL(process.env.PHOTON_API_URL!);

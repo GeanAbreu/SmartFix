@@ -32,14 +32,18 @@ export function databaseUrlWithDriverSsl(value: string) {
   return url.toString();
 }
 
-function getPoolMax() {
+export function getPoolMax() {
   const configuredValue = Number.parseInt(process.env.DB_POOL_MAX ?? "5", 10);
+  const serverlessLimit = process.env.VERCEL === "1" ? 1 : 20;
 
   if (!Number.isFinite(configuredValue) || configuredValue < 1) {
-    return 5;
+    return Math.min(5, serverlessLimit);
   }
 
-  return Math.min(configuredValue, 20);
+  // A Vercel cria várias instâncias da aplicação. Um pool grande por
+  // instância multiplica rapidamente as conexões e esgota o limite do
+  // Supabase session pooler (EMAXCONNSESSION).
+  return Math.min(configuredValue, serverlessLimit);
 }
 
 export function assertDatabaseConfigured() {

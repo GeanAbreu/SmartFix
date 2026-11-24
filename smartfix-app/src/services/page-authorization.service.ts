@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -10,7 +11,10 @@ import type { SessionRole } from "@/src/types/api";
 import { isSessionRevoked } from "./session-revocation.service";
 import { accountById } from "./account.service";
 
-export async function requirePageRole(expectedRole: SessionRole) {
+// Layouts and pages both enforce authorization. React.cache keeps those
+// defense-in-depth checks while ensuring that a single render only reaches
+// the session store and account table once for each role.
+export const requirePageRole = cache(async (expectedRole: SessionRole) => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -37,4 +41,4 @@ export async function requirePageRole(expectedRole: SessionRole) {
   }
 
   return session;
-}
+});

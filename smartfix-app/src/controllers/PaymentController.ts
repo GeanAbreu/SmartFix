@@ -158,12 +158,34 @@ export class PaymentController {
             checkoutUrl: order.serviceDetails.paymentCheckoutUrl,
           } : null };
       }, true);
-      if (prepared.existingCheckout) return ok(prepared.existingCheckout);
+      const accessToken = await partnerAccessToken(prepared.order.partnerId);
+      let previousProviderOrderId: string | undefined;
+      if (prepared.existingCheckout) {
+        const providerOrder = await getPaymentOrder(prepared.existingCheckout.id, accessToken);
+        if (!["canceled", "failed"].includes(providerOrder.status)) return ok(prepared.existingCheckout);
+
+        // Orders do Checkout Pro expiram (por padrão, após um dia). A URL
+        // continua abrindo, mas o Mercado Pago desabilita o botão de pagar.
+        // Remova somente o checkout que acabamos de validar como encerrado;
+        // assim uma requisição concorrente nunca apaga uma Order mais nova.
+        previousProviderOrderId = prepared.existingCheckout.id;
+        delete prepared.order.serviceDetails.paymentPreferenceId;
+        delete prepared.order.serviceDetails.paymentCheckoutUrl;
+        await withWorkflow((records) => {
+          const record = records.find((item) => item.kind === "order" && item.id === input.orderId);
+          if (!record) return;
+          const details = orderFrom(record.data).serviceDetails;
+          if (details.paymentPreferenceId === previousProviderOrderId) {
+            delete details.paymentPreferenceId;
+            delete details.paymentCheckoutUrl;
+          }
+        }, true);
+      }
       if (prepared.order.serviceDetails.paymentPreferenceId)
         throw new AppError("O checkout existente não pode ser recuperado. Contate o suporte.", 409, "CHECKOUT_ALREADY_STARTED");
       const preference = await createPreference({ orderId: input.orderId, title: `Reparo SmartFix — ${prepared.order.device}`,
         totalCents: prepared.totalCents, payerEmail: account.email,
-        accessToken: await partnerAccessToken(prepared.order.partnerId) });
+        accessToken, previousProviderOrderId });
       await withWorkflow((records) => {
         const record = records.find((item) => item.kind === "order" && item.id === input.orderId);
         if (record) {

@@ -1,213 +1,87 @@
 import "server-only";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 
-export type LogisticsAddress = {
-  streetAddress: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country?: string;
-};
-
-export type LogisticsQuote = {
-  id: string;
-  feeCents: number;
-  currency: string;
-  expiresAt: string;
-  pickupEta?: string;
-  dropoffEta?: string;
-};
-
-export type LogisticsDelivery = {
-  id: string;
-  status: string;
-  trackingUrl?: string;
-  feeCents: number;
-};
-
+export type LogisticsAddress = { streetAddress: string; city: string; state: string; postalCode: string; country?: string; lat?: number; lng?: number };
+export type LogisticsQuote = { id: string; feeCents: number; currency: string; expiresAt: string; pickupEta?: string; dropoffEta?: string; stopIds: string[] };
+export type LogisticsDelivery = { id: string; status: string; trackingUrl?: string; feeCents: number; driverId?: string };
 type DeliveryContact = { name: string; phone: string };
-type CreateDeliveryInput = {
-  quoteId: string;
-  orderId: string;
-  device: string;
-  pickup: LogisticsAddress;
-  dropoff: LogisticsAddress;
-  pickupContact: DeliveryContact;
-  dropoffContact: DeliveryContact;
-  pickupReadyAt: string;
-  pickupDeadlineAt: string;
-};
+type CreateDeliveryInput = { quoteId: string; orderId: string; device: string; pickup: LogisticsAddress; dropoff: LogisticsAddress; pickupContact: DeliveryContact; dropoffContact: DeliveryContact; pickupReadyAt?: string; pickupDeadlineAt?: string; quoteExpiresAt?: string; stopIds?: string[]; direction: "pickup" | "return" };
+export type LogisticsWebhookEvent = { eventId: string; deliveryId: string; externalId: string; status: string; trackingUrl?: string; occurredAt: string; driverId?: string };
 
-export type LogisticsWebhookEvent = {
-  eventId: string;
-  deliveryId: string;
-  externalId: string;
-  status: string;
-  trackingUrl?: string;
-  occurredAt: string;
-};
-
-const LOGISTICS_PROGRESS: Record<string, number> = {
-  quoting: 0, creating: 1, pending: 2, pickup: 3,
-  pickup_complete: 4, dropoff: 5, delivered: 6, completed: 6,
-};
-
-export function shouldApplyLogisticsEvent(
-  current: { status: string; lastEventAt?: string },
-  event: Pick<LogisticsWebhookEvent, "status" | "occurredAt">,
-) {
-  const previousAt = current.lastEventAt ? Date.parse(current.lastEventAt) : 0;
-  const eventAt = Date.parse(event.occurredAt);
+const STATUS_MAP: Record<string, string> = { ASSIGNING_DRIVER: "pending", ON_GOING: "pickup", PICKED_UP: "dropoff", COMPLETED: "delivered", CANCELED: "canceled", CANCELLED: "canceled", REJECTED: "failed", EXPIRED: "failed" };
+const PROGRESS: Record<string, number> = { quoting: 0, creating: 1, pending: 2, pickup: 3, pickup_complete: 4, dropoff: 5, delivered: 6, completed: 6 };
+export function normalizeLalamoveStatus(status: string) { return STATUS_MAP[status.toUpperCase()] || status.toLowerCase(); }
+export function shouldApplyLogisticsEvent(current: { status: string; lastEventAt?: string }, event: Pick<LogisticsWebhookEvent, "status" | "occurredAt">) {
+  const previousAt = current.lastEventAt ? Date.parse(current.lastEventAt) : 0; const eventAt = Date.parse(event.occurredAt);
   if (!Number.isFinite(eventAt) || eventAt < previousAt) return false;
-  const previousRank = LOGISTICS_PROGRESS[current.status];
-  const nextRank = LOGISTICS_PROGRESS[event.status];
-  if (previousRank !== undefined && nextRank !== undefined && nextRank < previousRank) return false;
-  if (["delivered", "completed"].includes(current.status) &&
-    !["delivered", "completed"].includes(event.status)) return false;
-  return true;
+  const previousRank = PROGRESS[current.status]; const nextRank = PROGRESS[event.status];
+  return !(previousRank !== undefined && nextRank !== undefined && nextRank < previousRank) && !(current.status === "delivered" && event.status !== "delivered");
 }
-
-let tokenCache: { value: string; expiresAt: number } | undefined;
+export function hasProcessedLogisticsEvent(events: Array<{ id: string }>, eventId: string) { return events.some((event) => event.id === eventId); }
 
 function settings() {
-  const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
-  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
-  const customerId = process.env.UBER_DIRECT_CUSTOMER_ID?.trim();
-  if (!clientId || !clientSecret || !customerId)
-    throw new AppError("A logística integrada ainda não foi configurada.", 503, "LOGISTICS_NOT_CONFIGURED");
-  return {
-    clientId, clientSecret, customerId,
-    apiUrl: (process.env.UBER_DIRECT_API_URL || "https://api.uber.com").replace(/\/$/, ""),
-    authUrl: process.env.UBER_DIRECT_AUTH_URL || "https://auth.uber.com/oauth/v2/token",
-  };
+  const apiKey = process.env.LALAMOVE_API_KEY?.trim(); const apiSecret = process.env.LALAMOVE_API_SECRET?.trim();
+  if (!apiKey || !apiSecret) throw new AppError("A logística integrada ainda não foi configurada.", 503, "LOGISTICS_NOT_CONFIGURED");
+  const sandbox = process.env.LALAMOVE_SANDBOX !== "false";
+  const apiUrl = (process.env.LALAMOVE_API_URL || (sandbox ? "https://rest.sandbox.lalamove.com" : "https://rest.lalamove.com")).replace(/\/$/, "");
+  if (!/^https:\/\//.test(apiUrl)) throw new AppError("URL da Lalamove inválida.", 500, "LOGISTICS_CONFIGURATION_INVALID");
+  return { apiKey, apiSecret, apiUrl, market: (process.env.LALAMOVE_MARKET || "BR").toUpperCase(), serviceType: process.env.LALAMOVE_SERVICE_TYPE || "MOTORCYCLE" };
 }
-
-async function parseProviderResponse(response: Response) {
-  const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) {
-    const message = typeof body.message === "string" ? body.message : "O provedor logístico não aceitou a solicitação.";
-    throw new AppError(message, response.status >= 500 ? 502 : 422, "LOGISTICS_PROVIDER_ERROR");
-  }
-  return body;
+export function logisticsConfigured() { return Boolean(process.env.LALAMOVE_API_KEY?.trim() && process.env.LALAMOVE_API_SECRET?.trim()); }
+export function createLalamoveSignature(secret: string, timestamp: string, method: string, path: string, body = "") { return createHmac("sha256", secret).update(`${timestamp}\r\n${method.toUpperCase()}\r\n${path}\r\n\r\n${body}`).digest("hex"); }
+function safeTrackingUrl(value: unknown) { if (typeof value !== "string") return undefined; try { const url = new URL(value); return url.protocol === "https:" ? url.toString() : undefined; } catch { return undefined; } }
+function moneyToCents(value: unknown) { const valueText = String(value); if (!/^\d+(?:\.\d{1,2})?$/.test(valueText)) throw new AppError("Preço logístico inválido.", 502, "LOGISTICS_PROVIDER_ERROR"); const [whole, decimal = ""] = valueText.split("."); return Number(whole) * 100 + Number(decimal.padEnd(2, "0")); }
+function providerError(status: number, message: string) {
+  const known: Record<string, [string, number, string]> = { ERR_OUT_OF_SERVICE_AREA: ["A Lalamove não atende esta rota no momento.", 422, "LOGISTICS_OUT_OF_COVERAGE"], ERR_QUOTATION_EXPIRED: ["A cotação expirou. Solicite uma nova cotação.", 409, "LOGISTICS_QUOTE_EXPIRED"], ERR_INSUFFICIENT_CREDIT: ["A entrega está temporariamente indisponível por saldo operacional.", 503, "LOGISTICS_INSUFFICIENT_CREDIT"], ERR_CANCELLATION_FORBIDDEN: ["Esta entrega já não pode ser cancelada.", 409, "LOGISTICS_CANCELLATION_FORBIDDEN"] };
+  const mapped = known[message]; if (mapped) return new AppError(...mapped);
+  if (status === 429) return new AppError("A Lalamove está ocupada. Tente novamente em instantes.", 503, "LOGISTICS_RATE_LIMITED");
+  return new AppError("O provedor logístico não aceitou a solicitação.", status >= 500 ? 502 : 422, "LOGISTICS_PROVIDER_ERROR");
 }
-
-async function accessToken() {
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.value;
-  const config = settings();
-  const form = new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret,
-    grant_type: "client_credentials", scope: "eats.deliveries" });
-  const response = await fetch(config.authUrl, { method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form, cache: "no-store" });
-  const body = await parseProviderResponse(response);
-  if (typeof body.access_token !== "string")
-    throw new AppError("Resposta inválida do provedor logístico.", 502, "LOGISTICS_PROVIDER_ERROR");
-  tokenCache = { value: body.access_token, expiresAt: Date.now() + Number(body.expires_in || 3600) * 1000 };
-  return tokenCache.value;
+async function lalamoveRequest(method: string, path: string, data?: Record<string, unknown>, requestId: string = randomUUID()) {
+  const config = settings(); const body = data ? JSON.stringify({ data }) : ""; const timestamp = Date.now().toString(); let response: Response;
+  try { response = await fetch(`${config.apiUrl}${path}`, { method, cache: "no-store", body: body || undefined, signal: AbortSignal.timeout(15_000), headers: { Authorization: `hmac ${config.apiKey}:${timestamp}:${createLalamoveSignature(config.apiSecret, timestamp, method, path, body)}`, Market: config.market, "Request-ID": requestId, ...(body ? { "Content-Type": "application/json" } : {}) } }); }
+  catch (cause) { throw new AppError(cause instanceof DOMException && cause.name === "TimeoutError" ? "A Lalamove demorou para responder." : "A Lalamove está indisponível.", 504, "LOGISTICS_TIMEOUT"); }
+  if (response.status === 204) return {};
+  const payload = await response.json().catch(() => ({})) as { data?: Record<string, unknown>; message?: string };
+  if (!response.ok) throw providerError(response.status, payload.message || ""); return payload.data || {};
 }
-
-function providerAddress(address: LogisticsAddress) {
-  return JSON.stringify({ street_address: [address.streetAddress], city: address.city,
-    state: address.state, zip_code: address.postalCode.replace(/\D/g, ""), country: address.country || "BR" });
+function validateAddress(address: LogisticsAddress) {
+  const postalCode = address.postalCode.replace(/\D/g, ""); const state = address.state.trim().toUpperCase();
+  if (!address.streetAddress.trim() || !address.city.trim() || !/^[A-Z]{2}$/.test(state) || !/^\d{8}$/.test(postalCode) || (address.country || "BR") !== "BR") throw new AppError("Endereço logístico inválido. Confira logradouro, cidade, UF e CEP.", 422, "LOGISTICS_ADDRESS_INVALID");
+  if (!Number.isFinite(address.lat) || !Number.isFinite(address.lng) || Math.abs(address.lat!) > 90 || Math.abs(address.lng!) > 180) throw new AppError("Não foi possível validar as coordenadas do endereço.", 422, "LOGISTICS_COORDINATES_INVALID");
+  return { coordinates: { lat: String(address.lat), lng: String(address.lng) }, address: `${address.streetAddress}, ${address.city}/${state}, ${postalCode}` };
 }
+function phone(value: string) { const digits = value.replace(/\D/g, ""); const national = digits.startsWith("55") ? digits : `55${digits}`; if (!/^55[1-9]\d{9,10}$/.test(national)) throw new AppError("Telefone logístico inválido. Use DDD e número válidos.", 422, "LOGISTICS_PHONE_INVALID"); return `+${national}`; }
 
-function phone(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return `+${digits.startsWith("55") ? digits : `55${digits}`}`;
+export async function quotePickup(pickup: LogisticsAddress, dropoff: LogisticsAddress): Promise<LogisticsQuote> {
+  const config = settings(); const body = await lalamoveRequest("POST", "/v3/quotations", { serviceType: config.serviceType, language: "pt_BR", stops: [validateAddress(pickup), validateAddress(dropoff)] });
+  const price = body.priceBreakdown as Record<string, unknown> | undefined; const stops = Array.isArray(body.stops) ? body.stops as Array<Record<string, unknown>> : [];
+  if (typeof body.quotationId !== "string" || typeof body.expiresAt !== "string" || !price || typeof price.currency !== "string" || stops.length < 2) throw new AppError("Cotação logística inválida.", 502, "LOGISTICS_PROVIDER_ERROR");
+  return { id: body.quotationId, feeCents: moneyToCents(price.total), currency: price.currency, expiresAt: body.expiresAt, stopIds: stops.map((s) => String(s.stopId)) };
 }
-
-async function uberRequest(path: string, body: Record<string, unknown>) {
-  const config = settings();
-  const response = await fetch(`${config.apiUrl}/v1/customers/${encodeURIComponent(config.customerId)}${path}`, {
-    method: "POST", cache: "no-store",
-    headers: { Authorization: `Bearer ${await accessToken()}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return parseProviderResponse(response);
+export async function createDelivery(input: CreateDeliveryInput): Promise<LogisticsDelivery> {
+  if (input.quoteExpiresAt && (!Number.isFinite(Date.parse(input.quoteExpiresAt)) || Date.parse(input.quoteExpiresAt) <= Date.now() + 5_000)) throw new AppError("A cotação logística expirou. Solicite uma nova cotação.", 409, "LOGISTICS_QUOTE_EXPIRED");
+  if (!input.stopIds || input.stopIds.length < 2) throw new AppError("Cotação sem paradas válidas.", 409, "LOGISTICS_QUOTE_INVALID");
+  const body = await lalamoveRequest("POST", "/v3/orders", { quotationId: input.quoteId, sender: { stopId: input.stopIds[0], name: input.pickupContact.name.slice(0, 100), phone: phone(input.pickupContact.phone) }, recipients: [{ stopId: input.stopIds[1], name: input.dropoffContact.name.slice(0, 100), phone: phone(input.dropoffContact.phone), remarks: `SmartFix — ${input.device}`.slice(0, 1500) }], isPODEnabled: true, metadata: { smartfixRef: `smartfix-${input.orderId}-${input.direction}` } });
+  if (typeof body.orderId !== "string" || typeof body.status !== "string") throw new AppError("Entrega logística inválida.", 502, "LOGISTICS_PROVIDER_ERROR");
+  const price = body.priceBreakdown as Record<string, unknown> | undefined; const trackingUrl = safeTrackingUrl(body.shareLink);
+  if (body.shareLink && !trackingUrl) throw new AppError("A Lalamove retornou um link de rastreamento inseguro.", 502, "LOGISTICS_TRACKING_URL_INVALID");
+  return { id: body.orderId, status: normalizeLalamoveStatus(body.status), feeCents: price ? moneyToCents(price.total) : 0, trackingUrl, driverId: typeof body.driverId === "string" && body.driverId ? body.driverId : undefined };
 }
-
-export function logisticsConfigured() {
-  return Boolean(process.env.UBER_DIRECT_CLIENT_ID?.trim() && process.env.UBER_DIRECT_CLIENT_SECRET?.trim()
-    && process.env.UBER_DIRECT_CUSTOMER_ID?.trim());
+export async function getDelivery(id: string) { return lalamoveRequest("GET", `/v3/orders/${encodeURIComponent(id)}`); }
+export async function cancelDelivery(id: string) { await lalamoveRequest("DELETE", `/v3/orders/${encodeURIComponent(id)}`); }
+export function verifyLogisticsWebhook(rawBody: string, authorization: string | null, path = "/api/logistics/lalamove/webhook") {
+  const secret = process.env.LALAMOVE_API_SECRET?.trim(); const key = process.env.LALAMOVE_API_KEY?.trim(); const match = /^hmac\s+([^:]+):(\d+):([a-f0-9]{64})$/i.exec(authorization?.trim() || "");
+  if (!secret || !key || !match || match[1] !== key || Math.abs(Date.now() - Number(match[2])) > 5 * 60_000) return false;
+  const expected = createLalamoveSignature(secret, match[2], "POST", path, rawBody); const received = match[3].toLowerCase(); return expected.length === received.length && timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
-
-export async function quotePickup(pickup: LogisticsAddress, dropoff: LogisticsAddress,
-  pickupReadyAt: string, pickupDeadlineAt: string): Promise<LogisticsQuote> {
-  const body = await uberRequest("/delivery_quotes", { pickup_address: providerAddress(pickup),
-    dropoff_address: providerAddress(dropoff), pickup_ready_dt: pickupReadyAt, pickup_deadline_dt: pickupDeadlineAt });
-  if (typeof body.id !== "string" || typeof body.fee !== "number" || typeof body.expires !== "string")
-    throw new AppError("Cotação logística inválida.", 502, "LOGISTICS_PROVIDER_ERROR");
-  return { id: body.id, feeCents: body.fee, currency: String(body.currency_type || body.currency || "BRL"),
-    expiresAt: body.expires, pickupEta: typeof body.pickup_eta === "string" ? body.pickup_eta : undefined,
-    dropoffEta: typeof body.dropoff_eta === "string" ? body.dropoff_eta : undefined };
-}
-
-export async function createPickupDelivery(input: CreateDeliveryInput): Promise<LogisticsDelivery> {
-  const body = await uberRequest("/deliveries", { quote_id: input.quoteId, external_id: `smartfix-${input.orderId}-pickup`,
-    pickup_address: providerAddress(input.pickup), dropoff_address: providerAddress(input.dropoff),
-    pickup_name: input.pickupContact.name, pickup_phone_number: phone(input.pickupContact.phone),
-    dropoff_name: input.dropoffContact.name, dropoff_phone_number: phone(input.dropoffContact.phone),
-    pickup_ready_dt: input.pickupReadyAt, pickup_deadline_dt: input.pickupDeadlineAt,
-    pickup_verification: { picture: true },
-    dropoff_verification: { pincode: { enabled: true } },
-    undeliverable_action: "return",
-    manifest_items: [{ name: `Dispositivo eletrônico — ${input.device}`.slice(0, 100), quantity: 1 }] });
-  if (typeof body.id !== "string" || typeof body.status !== "string")
-    throw new AppError("Entrega logística inválida.", 502, "LOGISTICS_PROVIDER_ERROR");
-  return { id: body.id, status: body.status, feeCents: Number(body.fee || 0),
-    trackingUrl: typeof body.tracking_url === "string" ? body.tracking_url : undefined };
-}
-
-export async function createDelivery(input: CreateDeliveryInput & { direction: "pickup" | "return" }) {
-  const body = await uberRequest("/deliveries", { quote_id: input.quoteId,
-    external_id: `smartfix-${input.orderId}-${input.direction}`,
-    pickup_address: providerAddress(input.pickup), dropoff_address: providerAddress(input.dropoff),
-    pickup_name: input.pickupContact.name, pickup_phone_number: phone(input.pickupContact.phone),
-    dropoff_name: input.dropoffContact.name, dropoff_phone_number: phone(input.dropoffContact.phone),
-    pickup_ready_dt: input.pickupReadyAt, pickup_deadline_dt: input.pickupDeadlineAt,
-    pickup_verification: { picture: true },
-    dropoff_verification: { pincode: { enabled: true } },
-    undeliverable_action: "return",
-    manifest_items: [{ name: `Dispositivo eletrônico — ${input.device}`.slice(0, 100), quantity: 1 }] });
-  if (typeof body.id !== "string" || typeof body.status !== "string")
-    throw new AppError("Entrega logística inválida.", 502, "LOGISTICS_PROVIDER_ERROR");
-  return { id: body.id, status: body.status, feeCents: Number(body.fee || 0),
-    trackingUrl: typeof body.tracking_url === "string" ? body.tracking_url : undefined };
-}
-
-export function verifyLogisticsWebhook(rawBody: string, signature: string | null) {
-  const secret = process.env.UBER_DIRECT_WEBHOOK_SECRET?.trim();
-  if (!secret || !signature) return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const received = signature.trim().toLowerCase();
-  return expected.length === received.length &&
-    timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(received, "utf8"));
-}
-
 function text(value: unknown) { return typeof value === "string" ? value : undefined; }
-
 export function parseLogisticsWebhook(rawBody: string): LogisticsWebhookEvent {
-  let body: Record<string, unknown>;
-  try { body = JSON.parse(rawBody) as Record<string, unknown>; }
-  catch { throw new AppError("Webhook logístico inválido.", 400, "INVALID_WEBHOOK"); }
-  const data = body.data && typeof body.data === "object" ? body.data as Record<string, unknown> : {};
-  const meta = body.meta && typeof body.meta === "object" ? body.meta as Record<string, unknown> : {};
-  const deliveryId = text(data.id) || text(data.delivery_id) || text(meta.order_id);
-  const externalId = text(data.external_id) || text(meta.external_order_id);
-  const status = text(data.status) || text(meta.status);
-  if (!deliveryId || !externalId || !status)
-    throw new AppError("Webhook logístico incompleto.", 400, "INVALID_WEBHOOK");
-  const rawTime = body.event_time ?? data.updated ?? data.updated_at;
-  const date = typeof rawTime === "number"
-    ? new Date(rawTime < 10_000_000_000 ? rawTime * 1000 : rawTime)
-    : new Date(typeof rawTime === "string" ? rawTime : Date.now());
-  return { eventId: text(body.id) || text(body.event_id) || `${deliveryId}:${status}:${date.toISOString()}`,
-    deliveryId, externalId, status: status.toLowerCase(),
-    trackingUrl: text(data.tracking_url), occurredAt: date.toISOString() };
+  let body: Record<string, unknown>; try { body = JSON.parse(rawBody); } catch { throw new AppError("Webhook logístico inválido.", 400, "INVALID_WEBHOOK"); }
+  const data = body.data && typeof body.data === "object" ? body.data as Record<string, unknown> : {}; const order = data.order && typeof data.order === "object" ? data.order as Record<string, unknown> : data; const metadata = order.metadata && typeof order.metadata === "object" ? order.metadata as Record<string, unknown> : {};
+  const deliveryId = text(order.orderId); const externalId = text(metadata.smartfixRef); const rawStatus = text(order.status); const occurredAt = text(data.updatedAt) || text(body.updatedAt); const parsedAt = occurredAt ? new Date(occurredAt) : new Date(NaN);
+  if (!deliveryId || !externalId || !rawStatus || !Number.isFinite(parsedAt.getTime())) throw new AppError("Webhook logístico incompleto.", 400, "INVALID_WEBHOOK");
+  return { eventId: `${text(body.eventType) || "UPDATE"}:${deliveryId}:${rawStatus}:${parsedAt.toISOString()}`, deliveryId, externalId, status: normalizeLalamoveStatus(rawStatus), trackingUrl: safeTrackingUrl(order.shareLink), occurredAt: parsedAt.toISOString(), driverId: text(order.driverId) };
 }
-
-export function deliveryWindow(date: string, period: "morning" | "afternoon") {
-  const offset = process.env.LOGISTICS_TIMEZONE_OFFSET || "-03:00";
-  const [start, end] = period === "morning" ? ["08:00:00", "12:00:00"] : ["13:00:00", "18:00:00"];
-  return { readyAt: `${date}T${start}${offset}`, deadlineAt: `${date}T${end}${offset}` };
-}
+export function deliveryWindow() { const now = new Date().toISOString(); return { readyAt: now, deadlineAt: now }; }

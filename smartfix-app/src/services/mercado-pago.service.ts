@@ -153,12 +153,14 @@ export async function partnerAccessToken(partnerId: string) {
   return refreshed.accessToken;
 }
 
-export async function createPreference(input: { orderId: string; title: string; totalCents: number; payerEmail: string; accessToken: string }) {
+export async function createPreference(input: { orderId: string; title: string; totalCents: number; payerEmail: string;
+  accessToken: string; previousProviderOrderId?: string }) {
   const origin = paymentPublicUrl();
   const amount = (input.totalCents / 100).toFixed(2);
   const fee = (marketplaceFeeCents(input.totalCents) / 100).toFixed(2);
   const result = await mercadoPago<{ id: string; checkout_url?: string }>("/v1/orders", input.accessToken, {
-    method: "POST", headers: { "X-Idempotency-Key": idempotencyKey(`checkout:${input.orderId}`) },
+    method: "POST", headers: { "X-Idempotency-Key": idempotencyKey(
+      `checkout:${input.orderId}:${input.previousProviderOrderId || "initial"}`) },
     body: JSON.stringify({
       type: "online", processing_mode: "manual", capture_mode: "automatic_async",
       total_amount: amount, marketplace_fee: fee,

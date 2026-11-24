@@ -7,24 +7,22 @@ import { requireAdministrator } from "@/src/services/admin.service";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 import { listLocalOwnerAddresses, usesLocalAuthStore } from "@/src/services/local-auth.service";
 import { createDelivery, deliveryWindow, parseLogisticsWebhook, quotePickup,
-  shouldApplyLogisticsEvent, verifyLogisticsWebhook, type LogisticsAddress } from "@/src/services/logistics.service";
+  hasProcessedLogisticsEvent, shouldApplyLogisticsEvent, verifyLogisticsWebhook, type LogisticsAddress } from "@/src/services/logistics.service";
 import { nextWorkflowId, withWorkflow } from "@/src/services/workflow.service";
 import { databaseId } from "@/src/validations/database-id";
 import { completeOrder } from "@/src/services/order-policy.service";
+import { locate } from "@/src/services/geocoding.service";
 import type { RepairOrder } from "@/src/types/workflow";
 
 const dispatchInput = z.object({
   direction: z.enum(["pickup", "return"]),
+  confirm: z.boolean().default(false),
   scheduledDate: z.iso.date().optional(),
   schedulePeriod: z.enum(["morning", "afternoon"]).optional(),
 });
 
 function todayAtLogisticsOffset() {
-  const offset = process.env.LOGISTICS_TIMEZONE_OFFSET || "-03:00";
-  const match = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
-  if (!match) return new Date().toISOString().slice(0, 10);
-  const minutes = (Number(match[2]) * 60 + Number(match[3])) * (match[1] === "+" ? 1 : -1);
-  return new Date(Date.now() + minutes * 60_000).toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 }
 
 type AddressRecord = {
@@ -99,23 +97,28 @@ export class LogisticsController {
           throw new AppError("A entrega ao cliente só pode ser solicitada quando o reparo estiver pronto.", 409, "INVALID_TRANSITION");
         const existing = order.serviceDetails.logistics?.[input.direction];
         if (existing?.deliveryId) return { order, existing };
+        if (existing?.status === "quoted") {
+          if (!input.confirm) return { order, existing };
+          if (!existing.quoteId || !existing.quoteExpiresAt || !existing.stopIds?.length)
+            throw new AppError("A cotação salva está incompleta. Solicite uma nova cotação.", 409, "LOGISTICS_QUOTE_INVALID");
+          if (Date.parse(existing.quoteExpiresAt) <= Date.now() + 5_000)
+            throw new AppError("A cotação expirou. Solicite uma nova cotação.", 409, "LOGISTICS_QUOTE_EXPIRED");
+          existing.status = "creating";
+          return { order, existingQuote: existing, scheduledDate: input.scheduledDate || todayAtLogisticsOffset(), schedulePeriod: input.schedulePeriod || "morning" };
+        }
         if (["quoting", "creating", "reconciliation_required"].includes(existing?.status || ""))
           throw new AppError("Esta entrega já está sendo criada.", 409, "LOGISTICS_IN_PROGRESS");
-        const scheduledDate = input.direction === "pickup" ? order.serviceDetails.scheduledDate : input.scheduledDate;
-        const schedulePeriod = input.direction === "pickup" ? order.serviceDetails.schedulePeriod : input.schedulePeriod;
-        if (!scheduledDate || !schedulePeriod)
-          throw new AppError("Informe a data e o turno da entrega.", 422, "LOGISTICS_SCHEDULE_REQUIRED");
-        if (scheduledDate < todayAtLogisticsOffset())
-          throw new AppError("A entrega não pode ser agendada em uma data passada.", 422, "LOGISTICS_SCHEDULE_IN_PAST");
-        order.serviceDetails.logistics ??= { provider: "uber_direct" };
+        const scheduledDate = input.scheduledDate || todayAtLogisticsOffset();
+        const schedulePeriod = input.schedulePeriod || "morning";
+        order.serviceDetails.logistics ??= { provider: "lalamove" };
         order.serviceDetails.logistics[input.direction] = {
           direction: input.direction, pickupAddress: "", dropoffAddress: "", status: "quoting",
-          verification: "photo_and_pin", events: [], lastEventAt: new Date().toISOString(),
+          verification: "pod", events: [], lastEventAt: new Date().toISOString(),
         };
         record.data = { ...order };
         return { order, scheduledDate, schedulePeriod };
       }, true);
-      if ("existing" in prepared) return ok({ delivery: prepared.existing });
+      if ("existing" in prepared) return ok({ quote: prepared.existing });
 
       const [clientAddress, partnerAddress, client, partner] = await Promise.all([
         addressFor(prepared.order.clientId, "client", prepared.order.serviceDetails.serviceAddressId),
@@ -128,43 +131,58 @@ export class LogisticsController {
       const dropoffOwner = direction === "pickup" ? partner : client;
       const pickupRecord = direction === "pickup" ? clientAddress : partnerAddress;
       const dropoffRecord = direction === "pickup" ? partnerAddress : clientAddress;
-      const window = deliveryWindow(prepared.scheduledDate, prepared.schedulePeriod);
-      const quote = await quotePickup(providerAddress(pickupRecord), providerAddress(dropoffRecord), window.readyAt, window.deadlineAt);
-      await withWorkflow((records) => {
+      const [pickupLocations, dropoffLocations] = await Promise.all([locate(pickupRecord.cep), locate(dropoffRecord.cep)]);
+      if (!pickupLocations[0] || !dropoffLocations[0]) throw new AppError("Não foi possível validar as coordenadas dos endereços.", 422, "LOGISTICS_COORDINATES_INVALID");
+      const pickupAddress = { ...providerAddress(pickupRecord), lat: pickupLocations[0].lat, lng: pickupLocations[0].lng };
+      const dropoffAddress = { ...providerAddress(dropoffRecord), lat: dropoffLocations[0].lat, lng: dropoffLocations[0].lng };
+      const window = deliveryWindow();
+      const existingQuote = "existingQuote" in prepared ? prepared.existingQuote : undefined;
+      const quote = existingQuote ? {
+        id: existingQuote.quoteId!, feeCents: existingQuote.quotedFeeCents!,
+        expiresAt: existingQuote.quoteExpiresAt!, stopIds: existingQuote.stopIds!, currency: "BRL",
+      } : await quotePickup(pickupAddress, dropoffAddress);
+      const quotedLeg = await withWorkflow((records) => {
         const order = orderFrom(records.find((item) => item.kind === "order" && item.id === id)!.data);
         const leg = order.serviceDetails.logistics![direction! as "pickup" | "return"]!;
-        Object.assign(leg, { quoteId: quote.id, quotedFeeCents: quote.feeCents, quoteExpiresAt: quote.expiresAt,
-          pickupAddress: displayAddress(pickupRecord), dropoffAddress: displayAddress(dropoffRecord), status: "creating" });
+        Object.assign(leg, { quoteId: quote.id, quotedFeeCents: quote.feeCents, quoteExpiresAt: quote.expiresAt, stopIds: quote.stopIds,
+          pickupAddress: displayAddress(pickupRecord), dropoffAddress: displayAddress(dropoffRecord), status: input.confirm ? "creating" : "quoted" });
         const details = order.serviceDetails;
         details.logisticsActualFeeCents = (details.logistics?.pickup?.quotedFeeCents || 0) +
           (details.logistics?.return?.quotedFeeCents || 0);
         details.logisticsFeeVarianceCents = details.logisticsActualFeeCents - details.deliveryFeeCents;
         details.auditTrail ??= [];
-        details.auditTrail.push({ at: new Date().toISOString(), actorId: "uber_direct", actorRole: "system",
+        details.auditTrail.push({ at: new Date().toISOString(), actorId: "lalamove", actorRole: "system",
           action: "logistics_quote_reconciled" });
+        return leg;
       }, true);
+      if (!input.confirm) return ok({ quote: quotedLeg });
       createAttempted = true;
       const delivery = await createDelivery({ direction, quoteId: quote.id, orderId: id, device: prepared.order.device,
-        pickup: providerAddress(pickupRecord), dropoff: providerAddress(dropoffRecord),
+        pickup: pickupAddress, dropoff: dropoffAddress, stopIds: quote.stopIds,
         pickupContact: { name: pickupOwner.name, phone: pickupOwner.phone },
         dropoffContact: { name: dropoffOwner.name, phone: dropoffOwner.phone },
-        pickupReadyAt: window.readyAt, pickupDeadlineAt: window.deadlineAt });
+        pickupReadyAt: window.readyAt, pickupDeadlineAt: window.deadlineAt, quoteExpiresAt: quote.expiresAt });
       const leg = await withWorkflow((records) => {
         const order = orderFrom(records.find((item) => item.kind === "order" && item.id === id)!.data);
         const current = order.serviceDetails.logistics![direction! as "pickup" | "return"]!;
         Object.assign(current, { deliveryId: delivery.id, status: delivery.status, trackingUrl: delivery.trackingUrl,
-          lastEventAt: new Date().toISOString(), error: undefined });
+          actualFeeCents: delivery.feeCents, lastEventAt: new Date().toISOString(), error: undefined });
+        const details = order.serviceDetails;
+        details.logisticsActualFeeCents = (details.logistics?.pickup?.actualFeeCents ?? details.logistics?.pickup?.quotedFeeCents ?? 0) +
+          (details.logistics?.return?.actualFeeCents ?? details.logistics?.return?.quotedFeeCents ?? 0);
+        details.logisticsFeeVarianceCents = details.logisticsActualFeeCents - details.deliveryFeeCents;
         current.events.push({ id: `created:${delivery.id}`, status: delivery.status, at: current.lastEventAt! });
         return current;
       }, true);
       return ok({ delivery: leg }, 201);
     } catch (error) {
+      const creationUncertain = createAttempted && (!(error instanceof AppError) || error.statusCode >= 500);
       if (direction) await withWorkflow((records) => {
         const record = records.find((item) => item.kind === "order" && item.id === id);
         if (!record) return;
         const leg = orderFrom(record.data).serviceDetails.logistics?.[direction!];
-        if (leg && !leg.deliveryId) { leg.status = createAttempted ? "reconciliation_required" : "failed"; leg.error = createAttempted
-          ? "A confirmação do provedor não foi recebida. Verifique o painel do Uber Direct antes de tentar novamente."
+        if (leg && !leg.deliveryId) { leg.status = creationUncertain ? "reconciliation_required" : "failed"; leg.error = creationUncertain
+          ? "A confirmação do provedor não foi recebida. Reconcilie o pedido no Partner Portal da Lalamove antes de tentar novamente."
           : error instanceof Error ? error.message : "Falha ao criar entrega."; leg.lastEventAt = new Date().toISOString();
           records.push({ id: nextWorkflowId(records), kind: "notification",
             ownerId: direction === "pickup" ? orderFrom(record.data).partnerId : orderFrom(record.data).clientId,
@@ -179,7 +197,7 @@ export class LogisticsController {
   static async webhook(request: NextRequest) {
     try {
       const rawBody = await request.text();
-      if (!verifyLogisticsWebhook(rawBody, request.headers.get("x-uber-signature")))
+      if (!verifyLogisticsWebhook(rawBody, request.headers.get("authorization"), request.nextUrl.pathname))
         throw new AppError("Assinatura inválida.", 401, "INVALID_WEBHOOK");
       const event = parseLogisticsWebhook(rawBody);
       const match = /^smartfix-(\d+)-(pickup|return)$/.exec(event.externalId);
@@ -188,7 +206,7 @@ export class LogisticsController {
         const record = records.find((item) => item.kind === "order" && item.id === match[1]);
         if (!record) return;
         const leg = orderFrom(record.data).serviceDetails.logistics?.[match[2] as "pickup" | "return"];
-        if (!leg || leg.deliveryId !== event.deliveryId || leg.events.some((item) => item.id === event.eventId)) return;
+        if (!leg || leg.deliveryId !== event.deliveryId || hasProcessedLogisticsEvent(leg.events, event.eventId)) return;
         if (!shouldApplyLogisticsEvent(leg, event)) return;
         leg.status = event.status; leg.lastEventAt = event.occurredAt;
         if (event.trackingUrl) leg.trackingUrl = event.trackingUrl;
@@ -199,7 +217,7 @@ export class LogisticsController {
             order.status = "in_progress";
             order.history.push({ status: "in_progress", at: event.occurredAt });
           } else if (match[2] === "return" && order.status === "ready") {
-            completeOrder(order, event.occurredAt, "uber_direct");
+            completeOrder(order, event.occurredAt, "lalamove");
           }
           const ownerId = match[2] === "pickup" ? order.clientId : order.partnerId;
           records.push({ id: nextWorkflowId(records), kind: "notification", ownerId,

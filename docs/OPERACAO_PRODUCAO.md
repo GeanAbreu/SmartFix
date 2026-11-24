@@ -34,8 +34,81 @@ Antes da publicação, execute também `npm run db:check`, `npm run db:migrate` 
 - Rotacione chaves de sessão e webhooks em caso de exposição. A troca de
   `SESSION_SECRET` encerra todas as sessões existentes.
 - Configure HTTPS obrigatório, HSTS e allowlist de acesso ao painel operacional.
-- Webhooks do Mercado Pago e Uber Direct devem usar segredos diferentes por
+- Webhooks do Mercado Pago e da Lalamove devem usar credenciais próprias por
   ambiente e ser testados contra repetição e entrega fora de ordem.
+
+## Lalamove API V3
+
+### Credenciais e ambientes
+
+No Partner Portal da Lalamove, selecione Sandbox ou Production e obtenha a API
+Key e a API Secret em **Developers**. Cadastre o webhook do mesmo ambiente:
+
+`https://smartfix-sand.vercel.app/api/logistics/lalamove/webhook`
+
+Cadastre no projeto Vercel, em **Settings > Environment Variables**, sem expor
+os valores em commits ou logs:
+
+- `LALAMOVE_API_KEY`: chave `pk_test` ou `pk_prod` do ambiente;
+- `LALAMOVE_API_SECRET`: segredo `sk_test` ou `sk_prod` correspondente;
+- `LALAMOVE_MARKET=BR`;
+- `LALAMOVE_SANDBOX=true` em Preview e `false` em Production;
+- `LALAMOVE_SERVICE_TYPE=MOTORCYCLE` (confirme periodicamente em `GET /v3/cities`);
+- `LALAMOVE_API_URL` somente para override controlado. Os padrões são
+  `https://rest.sandbox.lalamove.com` e `https://rest.lalamove.com`.
+
+Use credenciais de teste em Preview e credenciais de produção apenas em
+Production. A autenticação V3 é HMAC-SHA256. A assinatura hexadecimal minúscula
+usa `timestamp`, método, caminho e corpo JSON separados por CRLF; o header é
+`Authorization: hmac KEY:TIMESTAMP:SIGNATURE`. Envie também `Market: BR` e um
+`Request-ID`. O webhook é validado da mesma forma contra o corpo bruto e o
+caminho `/api/logistics/lalamove/webhook`.
+
+### Validação e teste controlado
+
+1. Execute `npm run config:check` e depois `npm run check`.
+2. Em Preview, execute `npm run integrations:smoke`. O teste autentica uma
+   consulta a `GET /v3/cities` e não cria cotação nem entrega.
+3. Cadastre o webhook de Preview no Partner Portal. Confirme HTTP 200, assinatura
+   válida e ausência de PII nos logs.
+4. Faça uma cotação sandbox por `POST /v3/quotations`. Cotações V3 são honradas
+   por cinco minutos. Para entrega imediata, não envie `scheduleAt`.
+5. Crie somente após confirmação do preço, usando `POST /v3/orders`. Nunca rode
+   esse fluxo em Production sem autorização para uma entrega cobrável.
+
+Endereços têm país `BR`, UF de duas letras, CEP de oito dígitos e coordenadas
+obtidas no servidor. Telefones usam E.164 (`+55DDD...`). Consulte pedidos em
+`GET /v3/orders/{orderId}`, motorista/localização em
+`GET /v3/orders/{orderId}/drivers/{driverId}` e cancele, quando permitido, com
+`DELETE /v3/orders/{orderId}`. O `shareLink` HTTPS é o rastreamento oficial.
+
+### Monitoramento, incidentes e conciliação
+
+- Monitore 401 no webhook, 429/5xx da API, entregas em `creating` ou
+  `reconciliation_required`, idade do último evento e divergência de frete.
+- Eventos são deduplicados por ID e eventos antigos/regressivos não alteram a
+  O.S. Estados `canceled` e `returned` permanecem como incidentes operacionais.
+- A criação envia `Request-ID` único e metadata `smartfixRef` por O.S. e trecho.
+  A idempotência é garantida pelo estado persistido da O.S.; a Lalamove documenta
+  `Request-ID` como nonce de suporte, não como chave idempotente.
+  Se a resposta for perdida, não tente novamente às cegas: reconcilie no Partner
+  Portal e em `GET /v3/orders/{id}` antes de liberar nova tentativa no painel
+  `/admin/logistica`.
+- Compare `quotedFeeCents`/valor efetivamente retornado pela criação com o frete
+  cobrado do cliente. Divergências devem ser revisadas antes do fechamento.
+- Logs podem conter IDs técnicos, status e código de erro; não devem conter
+  segredo, bearer token, corpo integral do webhook, endereço ou telefone.
+
+### Incidente e rollback
+
+Em assinatura inválida, desabilite temporariamente o webhook no Partner Portal,
+preserve evidências, rotacione a API Key/Secret e atualize as variáveis no Vercel.
+Em duplicidade ou estado incerto, bloqueie novas tentativas para a O.S. e
+reconcilie primeiro no Dashboard. Para rollback de código, promova no Vercel o
+último deployment aprovado; mantenha o webhook apontado para uma versão que
+continue validando a assinatura. A remoção das credenciais desabilita novas
+criações, mas não cancela entregas já aceitas: acompanhe-as manualmente até o
+estado terminal.
 
 ## LGPD
 

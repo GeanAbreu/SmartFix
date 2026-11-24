@@ -1,51 +1,39 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
 import test from "node:test";
 
-test("valida assinatura e normaliza webhook moderno do Uber Direct", async () => {
-  const previous = process.env.UBER_DIRECT_WEBHOOK_SECRET;
-  process.env.UBER_DIRECT_WEBHOOK_SECRET = "webhook-test-secret";
-  try {
-    const { parseLogisticsWebhook, verifyLogisticsWebhook } = await import("../src/services/logistics.service");
-    const raw = JSON.stringify({ id: "evt-1", event_time: 1_800_000_000,
-      data: { id: "del-1", external_id: "smartfix-42-pickup", status: "DELIVERED",
-        tracking_url: "https://example.test/tracking" } });
-    const signature = createHmac("sha256", process.env.UBER_DIRECT_WEBHOOK_SECRET).update(raw).digest("hex");
-    assert.equal(verifyLogisticsWebhook(raw, signature), true);
-    assert.equal(verifyLogisticsWebhook(`${raw} `, signature), false);
-    assert.deepEqual(parseLogisticsWebhook(raw), {
-      eventId: "evt-1", deliveryId: "del-1", externalId: "smartfix-42-pickup",
-      status: "delivered", trackingUrl: "https://example.test/tracking",
-      occurredAt: "2027-01-15T08:00:00.000Z",
-    });
-  } finally {
-    if (previous === undefined) delete process.env.UBER_DIRECT_WEBHOOK_SECRET;
-    else process.env.UBER_DIRECT_WEBHOOK_SECRET = previous;
-  }
-});
+const pickup = { streetAddress: "Praça da Sé, 1", city: "São Paulo", state: "SP", postalCode: "01001000", country: "BR", lat: -23.5505, lng: -46.6333 };
+const dropoff = { streetAddress: "Av. Paulista, 1000", city: "São Paulo", state: "SP", postalCode: "01310100", country: "BR", lat: -23.5614, lng: -46.6559 };
+const keys = ["LALAMOVE_API_KEY", "LALAMOVE_API_SECRET", "LALAMOVE_MARKET", "LALAMOVE_SANDBOX", "LALAMOVE_API_URL", "LALAMOVE_SERVICE_TYPE"];
+function restore(old: Record<string, string | undefined>) { for (const k of keys) { if (old[k] === undefined) delete process.env[k]; else process.env[k] = old[k]; } }
+async function configured<T>(run: () => Promise<T>) { const old = Object.fromEntries(keys.map(k => [k, process.env[k]])); Object.assign(process.env, { LALAMOVE_API_KEY: "pk_test_smartfix", LALAMOVE_API_SECRET: "sk_test_smartfix", LALAMOVE_MARKET: "BR", LALAMOVE_SANDBOX: "true", LALAMOVE_API_URL: "https://rest.sandbox.lalamove.com", LALAMOVE_SERVICE_TYPE: "MOTORCYCLE" }); try { return await run(); } finally { restore(old); } }
 
-test("rejeita webhook logístico incompleto", async () => {
-  const { parseLogisticsWebhook } = await import("../src/services/logistics.service");
-  assert.throws(() => parseLogisticsWebhook(JSON.stringify({ data: { id: "del-1" } })),
-    { code: "INVALID_WEBHOOK" });
-});
+test("gera assinatura HMAC V3", async () => { const { createLalamoveSignature } = await import("../src/services/logistics.service"); assert.equal(createLalamoveSignature("secret", "1545880607433", "POST", "/v3/quotations", "{\"data\":{}}"), "457e96018bd7a3d6091d9e03d3ac0164747ee8143a0366b40b1e9290ac7768c9"); });
 
-test("ignora eventos logísticos antigos ou regressivos", async () => {
-  const { shouldApplyLogisticsEvent } = await import("../src/services/logistics.service");
-  assert.equal(shouldApplyLogisticsEvent(
-    { status: "dropoff", lastEventAt: "2026-11-04T15:00:00.000Z" },
-    { status: "pickup_complete", occurredAt: "2026-11-04T16:00:00.000Z" },
-  ), false);
-  assert.equal(shouldApplyLogisticsEvent(
-    { status: "delivered", lastEventAt: "2026-11-04T15:00:00.000Z" },
-    { status: "failed", occurredAt: "2026-11-04T16:00:00.000Z" },
-  ), false);
-  assert.equal(shouldApplyLogisticsEvent(
-    { status: "pickup", lastEventAt: "2026-11-04T15:00:00.000Z" },
-    { status: "pickup_complete", occurredAt: "2026-11-04T14:00:00.000Z" },
-  ), false);
-  assert.equal(shouldApplyLogisticsEvent(
-    { status: "pickup", lastEventAt: "2026-11-04T15:00:00.000Z" },
-    { status: "pickup_complete", occurredAt: "2026-11-04T16:00:00.000Z" },
-  ), true);
-});
+test("cotação imediata usa motocicleta, coordenadas e centavos", async () => configured(async () => {
+  const original = fetch; let request: RequestInit | undefined; globalThis.fetch = (async (_url, init) => { request = init; return new Response(JSON.stringify({ data: { quotationId: "q-1", expiresAt: "2099-01-01T00:05:00Z", priceBreakdown: { total: "19.90", currency: "BRL" }, stops: [{ stopId: "s-1" }, { stopId: "s-2" }] } }), { status: 201 }); }) as typeof fetch;
+  try { const { quotePickup } = await import("../src/services/logistics.service"); const quote = await quotePickup(pickup, dropoff); assert.equal(quote.feeCents, 1990); assert.deepEqual(quote.stopIds, ["s-1", "s-2"]); const body = JSON.parse(String(request?.body)); assert.equal(body.data.serviceType, "MOTORCYCLE"); assert.equal("scheduleAt" in body.data, false); assert.match(String(new Headers(request?.headers).get("authorization")), /^hmac pk_test_smartfix:\d+:[a-f0-9]{64}$/); assert.equal(new Headers(request?.headers).get("market"), "BR"); } finally { globalThis.fetch = original; }
+}));
+
+test("diferencia região sem cobertura", async () => configured(async () => { const original = fetch; globalThis.fetch = (async () => new Response(JSON.stringify({ message: "ERR_OUT_OF_SERVICE_AREA" }), { status: 422 })) as typeof fetch; try { const { quotePickup } = await import("../src/services/logistics.service"); await assert.rejects(() => quotePickup(pickup, dropoff), { code: "LOGISTICS_OUT_OF_COVERAGE" }); } finally { globalThis.fetch = original; } }));
+
+test("rejeita endereço e coordenadas inválidos", async () => configured(async () => { const original = fetch; let called = false; globalThis.fetch = (async () => { called = true; return new Response(); }) as typeof fetch; try { const { quotePickup } = await import("../src/services/logistics.service"); await assert.rejects(() => quotePickup({ ...pickup, postalCode: "123" }, dropoff), { code: "LOGISTICS_ADDRESS_INVALID" }); await assert.rejects(() => quotePickup({ ...pickup, lat: undefined }, dropoff), { code: "LOGISTICS_COORDINATES_INVALID" }); assert.equal(called, false); } finally { globalThis.fetch = original; } }));
+
+test("criação preserva valor, direção, POD e usa nonce único", async () => configured(async () => {
+  const original = fetch; const requests: Array<{ headers: Headers; body: { data: { metadata: { smartfixRef: string }; isPODEnabled: boolean; sender: { name: string } } } }> = []; globalThis.fetch = (async (_url, init) => { requests.push({ headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) }); return new Response(JSON.stringify({ data: { orderId: "1234567890123456789", status: "ASSIGNING_DRIVER", shareLink: "https://share.lalamove.com/order", priceBreakdown: { total: "25.90", currency: "BRL" } } }), { status: 201 }); }) as typeof fetch;
+  try { const { createDelivery } = await import("../src/services/logistics.service"); const input = { direction: "return" as const, quoteId: "q-2", quoteExpiresAt: "2099-01-01T00:05:00Z", stopIds: ["s-1", "s-2"], orderId: "42", device: "Celular", pickup, dropoff, pickupContact: { name: "Assistência", phone: "11988888888" }, dropoffContact: { name: "Cliente", phone: "11999999999" } }; const result = await createDelivery(input); await createDelivery(input); assert.deepEqual(result, { id: "1234567890123456789", status: "pending", feeCents: 2590, trackingUrl: "https://share.lalamove.com/order", driverId: undefined }); assert.equal(requests[0].body.data.metadata.smartfixRef, "smartfix-42-return"); assert.equal(requests[0].body.data.isPODEnabled, true); assert.notEqual(requests[0].headers.get("request-id"), requests[1].headers.get("request-id")); assert.equal(requests[0].body.data.sender.name, "Assistência"); } finally { globalThis.fetch = original; }
+}));
+
+test("timeout de criação exige reconciliação", async () => configured(async () => { const original = fetch; globalThis.fetch = (async () => { throw new DOMException("timeout", "TimeoutError"); }) as typeof fetch; try { const { createDelivery } = await import("../src/services/logistics.service"); await assert.rejects(() => createDelivery({ direction: "pickup", quoteId: "q", quoteExpiresAt: "2099-01-01T00:05:00Z", stopIds: ["a", "b"], orderId: "42", device: "Celular", pickup, dropoff, pickupContact: { name: "Cliente", phone: "11999999999" }, dropoffContact: { name: "Assistência", phone: "11988888888" } }), { code: "LOGISTICS_TIMEOUT", statusCode: 504 }); } finally { globalThis.fetch = original; } }));
+
+test("saldo insuficiente e URL insegura são diferenciados", async () => configured(async () => {
+  const original = fetch; let insufficient = true; globalThis.fetch = (async () => insufficient ? new Response(JSON.stringify({ message: "ERR_INSUFFICIENT_CREDIT" }), { status: 402 }) : new Response(JSON.stringify({ data: { orderId: "1", status: "ON_GOING", shareLink: "http://inseguro.test", priceBreakdown: { total: "10" } } }), { status: 201 })) as typeof fetch; const input = { direction: "pickup" as const, quoteId: "q", quoteExpiresAt: "2099-01-01T00:05:00Z", stopIds: ["a", "b"], orderId: "42", device: "Celular", pickup, dropoff, pickupContact: { name: "Cliente", phone: "11999999999" }, dropoffContact: { name: "Assistência", phone: "11988888888" } };
+  try { const { createDelivery } = await import("../src/services/logistics.service"); await assert.rejects(() => createDelivery(input), { code: "LOGISTICS_INSUFFICIENT_CREDIT" }); insufficient = false; await assert.rejects(() => createDelivery(input), { code: "LOGISTICS_TRACKING_URL_INVALID" }); } finally { globalThis.fetch = original; }
+}));
+
+test("webhook válido usa corpo bruto e assinatura inválida falha", async () => configured(async () => {
+  const { createLalamoveSignature, verifyLogisticsWebhook, parseLogisticsWebhook } = await import("../src/services/logistics.service"); const now = Date.now().toString(); const raw = JSON.stringify({ eventType: "ORDER_STATUS_CHANGED", data: { updatedAt: "2026-11-23T12:00:00Z", order: { orderId: "123", status: "COMPLETED", shareLink: "https://share.lalamove.com/x", metadata: { smartfixRef: "smartfix-42-pickup" } } } }); const auth = `hmac pk_test_smartfix:${now}:${createLalamoveSignature("sk_test_smartfix", now, "POST", "/api/logistics/lalamove/webhook", raw)}`; assert.equal(verifyLogisticsWebhook(raw, auth), true); assert.equal(verifyLogisticsWebhook(`${raw} `, auth), false); assert.equal(parseLogisticsWebhook(raw).status, "delivered");
+}));
+
+test("normaliza estados e ignora duplicação e regressão", async () => { const { normalizeLalamoveStatus, hasProcessedLogisticsEvent, shouldApplyLogisticsEvent } = await import("../src/services/logistics.service"); assert.deepEqual(["ASSIGNING_DRIVER", "ON_GOING", "PICKED_UP", "COMPLETED", "CANCELED", "REJECTED", "EXPIRED"].map(normalizeLalamoveStatus), ["pending", "pickup", "dropoff", "delivered", "canceled", "failed", "failed"]); assert.equal(hasProcessedLogisticsEvent([{ id: "e" }], "e"), true); assert.equal(shouldApplyLogisticsEvent({ status: "dropoff", lastEventAt: "2026-11-23T12:00:00Z" }, { status: "pickup", occurredAt: "2026-11-23T13:00:00Z" }), false); assert.equal(shouldApplyLogisticsEvent({ status: "pickup", lastEventAt: "2026-11-23T12:00:00Z" }, { status: "dropoff", occurredAt: "2026-11-23T11:00:00Z" }), false); });
+
+test("falha com configuração ausente", async () => { const old = Object.fromEntries(keys.map(k => [k, process.env[k]])); keys.forEach(k => delete process.env[k]); try { const { quotePickup } = await import("../src/services/logistics.service"); await assert.rejects(() => quotePickup(pickup, dropoff), { code: "LOGISTICS_NOT_CONFIGURED" }); } finally { restore(old); } });

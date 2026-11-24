@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { AppError } from "@/src/errors/AppError";
 import { databaseId } from "@/src/validations/database-id";
+import { MINIMUM_CHECKOUT_CENTS } from "@/src/constants/payment";
 import {
   CHECKLIST,
   SYMPTOMS,
@@ -118,9 +119,9 @@ export function applyOrderAction(
         "QUOTE_ALREADY_SENT",
       );
     if (!partner || status !== "pending") invalid();
-    if (quoteTotal(input.items) <= 0)
+    if (quoteTotal(input.items) < MINIMUM_CHECKOUT_CENTS)
       throw new AppError(
-        "O valor total do orçamento deve ser maior que zero.",
+        "O valor mínimo do orçamento para pagamento é R$ 5,00.",
         422,
         "INVALID_QUOTE_TOTAL",
       );
@@ -209,7 +210,7 @@ export function applyOrderAction(
   return order;
 }
 
-export function completeOrder(order: RepairOrder, at: string, method: "uber_direct" | "client_confirmation") {
+export function completeOrder(order: RepairOrder, at: string, method: "uber_direct" | "lalamove" | "client_confirmation") {
   if (order.status === "completed") return false;
   if (order.status !== "ready")
     throw new AppError("A ordem ainda não está pronta para conclusão.", 409, "INVALID_TRANSITION");
@@ -240,8 +241,8 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, _input
   order.serviceDetails.couponCode = "";
   order.serviceDetails.discountCents = 0;
   const total = quoteTotal(order.quote);
-  if (total <= 0)
-    throw new AppError("O valor total do orçamento deve ser maior que zero.", 422, "INVALID_QUOTE_TOTAL");
+  if (total < MINIMUM_CHECKOUT_CENTS)
+    throw new AppError("O valor mínimo para pagamento é R$ 5,00. Solicite a correção do orçamento à assistência.", 422, "INVALID_QUOTE_TOTAL");
   order.serviceDetails.paymentProvider = "mercado_pago";
   order.serviceDetails.paymentStatus = "pending";
   order.serviceDetails.paymentCheckoutFingerprint = fingerprint;
