@@ -41,6 +41,26 @@ test("preserva parâmetros da conexão e delega SSL ao driver configurado", () =
   assert.equal(normalized.searchParams.get("pgbouncer"), "true");
 });
 
+test("usa o transaction pooler do Supabase na Vercel", () => {
+  const previousVercel = process.env.VERCEL;
+  try {
+    process.env.VERCEL = "1";
+    const normalized = new URL(databaseUrlWithDriverSsl(
+      "postgresql://postgres.project:password@aws-0-sa-east-1.pooler.supabase.com:5432/postgres",
+    ));
+    assert.equal(normalized.port, "6543");
+
+    process.env.VERCEL = "";
+    const local = new URL(databaseUrlWithDriverSsl(
+      "postgresql://postgres.project:password@aws-0-sa-east-1.pooler.supabase.com:5432/postgres",
+    ));
+    assert.equal(local.port, "5432");
+  } finally {
+    if (previousVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = previousVercel;
+  }
+});
+
 test("limita cada instância serverless a uma conexão com o banco", () => {
   const previousVercel = process.env.VERCEL;
   const previousPoolMax = process.env.DB_POOL_MAX;

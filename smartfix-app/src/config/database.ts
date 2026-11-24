@@ -22,8 +22,18 @@ const sslCaFile =
   (usesVercelManagedPostgresUrl ? "certs/prod-ca-2021.crt" : undefined);
 
 export function databaseUrlWithDriverSsl(value: string) {
-  if (!useSsl) return value;
   const url = new URL(value);
+  // Supabase's session pooler (5432) has a small, fixed client limit and is
+  // unsuitable for Vercel's horizontally scaled functions. The transaction
+  // pooler uses the same credentials and database through port 6543.
+  if (
+    process.env.VERCEL === "1" &&
+    url.hostname.endsWith(".pooler.supabase.com") &&
+    (url.port === "" || url.port === "5432")
+  ) {
+    url.port = "6543";
+  }
+  if (!useSsl) return url.toString();
   // O pg converte sslmode da connection string em uma nova configuração SSL,
   // substituindo o CA fornecido em dialectOptions. A aplicação já configura
   // SSL explicitamente abaixo, portanto removemos apenas essa duplicidade.
