@@ -34,6 +34,9 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/smartfix
           SESSION_SECRET: ci-only-secret-with-at-least-thirty-two-characters
           APP_URL: http://localhost:3000
+          INFINITEPAY_API_KEY: ci-only-not-a-real-key
+          INFINITEPAY_HANDLE: ci-only-handle
+          PAYMENT_PUBLIC_URL: https://example.com
       - run: npm run build
         env:
           SESSION_SECRET: ci-only-secret-with-at-least-thirty-two-characters
