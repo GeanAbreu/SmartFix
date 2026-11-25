@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { ForeignKeyConstraintError, UniqueConstraintError } from "sequelize";
+import {
+  ConnectionError,
+  DatabaseError,
+  ForeignKeyConstraintError,
+  UniqueConstraintError,
+} from "sequelize";
 import { ZodError } from "zod";
 import { AppError } from "@/src/errors/AppError";
 
@@ -54,6 +59,21 @@ export function controllerErrorResponse(error: unknown) {
   if (error instanceof ForeignKeyConstraintError) {
     return NextResponse.json({ success: false, code: "RELATED_RECORD_CONFLICT",
       message: "A operação conflita com registros vinculados. Atualize a página e confira os vínculos." }, { status: 409 });
+  }
+
+  if (error instanceof ConnectionError) {
+    console.error("Banco de dados SmartFix indisponível:", error.name);
+    return NextResponse.json({ success: false, code: "DATABASE_UNAVAILABLE",
+      message: "O serviço de mensagens está temporariamente indisponível. Tente novamente em instantes." }, { status: 503 });
+  }
+
+  if (error instanceof DatabaseError) {
+    const code = (error.parent as Error & { code?: string }).code;
+    console.error("Falha de esquema no banco SmartFix:", code ?? error.name);
+    if (code === "42P01" || code === "42703") {
+      return NextResponse.json({ success: false, code: "DATABASE_SCHEMA_OUTDATED",
+        message: "O serviço de mensagens precisa de uma atualização do banco de dados." }, { status: 503 });
+    }
   }
 
   console.error("Erro interno SmartFix:", error);

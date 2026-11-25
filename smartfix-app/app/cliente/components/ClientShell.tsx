@@ -7,11 +7,12 @@ import type { ClientProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./client-shell.module.css";
 
-type IconName = "home" | "add" | "orders" | "devices" | "location" | "reviews" | "address" | "bell" | "profile" | "help" | "tool" | "menu";
+type IconName = "home" | "add" | "orders" | "messages" | "devices" | "location" | "reviews" | "address" | "bell" | "profile" | "help" | "tool" | "menu";
 const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/cliente/dashboard", label: "Início", icon: "home" },
   { href: "/cliente/solicitar-reparo", label: "Solicitar reparo", icon: "add" },
   { href: "/cliente/ordens", label: "Meus reparos", icon: "orders" },
+  { href: "/cliente/mensagens", label: "Mensagens", icon: "messages" },
   { href: "/cliente/assistencias", label: "Assistências", icon: "location" },
   { href: "/cliente/avaliacoes", label: "Minhas avaliações", icon: "reviews" },
   { href: "/cliente/enderecos", label: "Meus endereços", icon: "address" },
@@ -21,6 +22,7 @@ const links: { href: string; label: string; icon: IconName }[] = [
 ];
 
 const iconPaths: Record<IconName, ReactNode> = {
+  messages:<path d="M4 5h16v11H8l-4 4V5Z"/>,
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>, add:<><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></>, orders:<><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></>, devices:<><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></>, location:<><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>, reviews:<><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/></>, address:<><path d="M3 10 12 3l9 7v10H3Z"/><path d="M8 20v-7h8v7"/></>, bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></>, profile:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>, help:<><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01"/></>, tool:<path d="M14.7 6.3a4 4 0 0 0-5-5l2.1 2.1-2.4 2.4-2.1-2.1a4 4 0 0 0 5 5L20 16.4 16.4 20l-7.7-7.7"/>, menu:<path d="M4 7h16M4 12h16M4 17h16"/>,
 };
 function Icon({ name }: { name: IconName }) { return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{iconPaths[name]}</svg>; }

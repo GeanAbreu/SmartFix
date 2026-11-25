@@ -67,6 +67,7 @@ export type ServiceDetails = {
   warrantyClaim?: {
     status: "requested" | "accepted" | "rejected";
     reason: string;
+    photos?: string[];
     requestedAt: string;
     decidedAt?: string;
     response?: string;

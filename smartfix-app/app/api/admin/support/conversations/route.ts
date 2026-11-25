@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     const conversations = await sequelize.query<{
       clientId: string; clientName: string; lastMessageAt: string; lastMessage: string;
     }>(`SELECT DISTINCT ON (m.client_id)
-          m.client_id AS "clientId", c.nome AS "clientName",
+          m.client_id::text AS "clientId",
+          COALESCE(NULLIF(BTRIM(c.full_name), ''), 'Cliente SmartFix') AS "clientName",
           m.created_at AS "lastMessageAt", m.body AS "lastMessage"
         FROM public.support_messages m JOIN public.clients c ON c.id = m.client_id
         WHERE m.partner_id IS NULL

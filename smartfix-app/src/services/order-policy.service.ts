@@ -74,6 +74,7 @@ export const orderAction = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("request_warranty"),
     reason: z.string().trim().min(10).max(2000),
+    photos: z.array(z.string().startsWith("data:image/").max(2_800_000)).min(1).max(5),
   }),
   z.object({
     action: z.literal("warranty_decision"),
@@ -160,7 +161,7 @@ export function applyOrderAction(
     if (!client || status !== "completed" || warrantyEnd < Date.now() || order.serviceDetails.warrantyClaim)
       invalid();
     order.serviceDetails.warrantyClaim = {
-      status: "requested", reason: input.reason, requestedAt: new Date().toISOString(),
+      status: "requested", reason: input.reason, photos: input.photos, requestedAt: new Date().toISOString(),
     };
   } else if (input.action === "warranty_decision") {
     const warrantyClaim = order.serviceDetails.warrantyClaim;

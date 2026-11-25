@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./support-inbox.module.css";
 
-type Conversation = { clientId: string; clientName: string; lastMessageAt: string; lastMessage: string };
+type Conversation = { clientId: string; clientName: string; lastMessageAt: string | null; lastMessage: string | null };
 type Message = { id: string; senderRole: "client" | "partner" | "admin"; body: string; createdAt: string };
 const dateTime = (value: string) => new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
@@ -179,7 +179,7 @@ export default function SupportInbox({ mode }: { mode: "partner" | "admin" }) {
         {conversationsError && <p className={styles.error} role="alert">{conversationsError}</p>}
         {conversationsLoading && conversations.length === 0 ? <p role="status">Carregando…</p>
           : conversations.length === 0 ? <div className={styles.empty}>Nenhuma mensagem recebida.</div>
-          : conversations.map((conversation) => <button key={conversation.clientId} type="button" className={selectedId === conversation.clientId ? styles.selected : ""} aria-current={selectedId === conversation.clientId ? "true" : undefined} onClick={() => selectConversation(conversation.clientId)}><strong>{conversation.clientName}</strong><span>{conversation.lastMessage}</span><time dateTime={conversation.lastMessageAt}>{dateTime(conversation.lastMessageAt)}</time></button>)}
+          : conversations.map((conversation) => <button key={conversation.clientId} type="button" className={selectedId === conversation.clientId ? styles.selected : ""} aria-current={selectedId === conversation.clientId ? "true" : undefined} onClick={() => selectConversation(conversation.clientId)}><strong>{conversation.clientName}</strong><span>{conversation.lastMessage || "Conversa disponível pela O.S."}</span>{conversation.lastMessageAt && <time dateTime={conversation.lastMessageAt}>{dateTime(conversation.lastMessageAt)}</time>}</button>)}
       </aside>
       <div className={styles.chat}>{selected ? <>
         <div className={styles.chatHeader}><div className={styles.avatar}>{selected.clientName.slice(0, 1).toUpperCase()}</div><div><strong>{selected.clientName}</strong><span>Cliente SmartFix</span></div></div>

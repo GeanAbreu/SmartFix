@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     if (actor.role !== "client") throw new AppError("Acesso não autorizado.", 403, "FORBIDDEN");
     assertDatabaseConfigured();
     const partners = await sequelize.query<{ id: string; name: string }>(
-      `SELECT DISTINCT p.id, p.full_name AS name FROM public.repair_orders o
+      `SELECT DISTINCT p.id::text AS id,
+         COALESCE(NULLIF(BTRIM(p.company_name), ''), p.full_name) AS name
+       FROM public.repair_orders o
        JOIN public.partner p ON p.id = o.partner_id WHERE o.client_id = $1
        ORDER BY name`,
       { bind: [actor.sub], type: QueryTypes.SELECT });

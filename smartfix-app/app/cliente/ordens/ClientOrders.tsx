@@ -11,6 +11,7 @@ import OrderChat from "@/app/components/OrderChat";
 import OrderCheckout from "./OrderCheckout";
 import TrackingCode from "./TrackingCode";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
+import WarrantyClaimModal from "./WarrantyClaimModal";
 import { diagnosisDeadlineLabel } from "@/src/services/diagnosis-deadline";
 import { MINIMUM_CHECKOUT_CENTS } from "@/src/constants/payment";
 
@@ -68,6 +69,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState<ClientOrder | null>(null);
   const [pendingReceipt, setPendingReceipt] = useState<ClientOrder | null>(null);
+  const [pendingWarranty, setPendingWarranty] = useState<ClientOrder | null>(null);
 
   const refresh = useCallback(async () => {
     try { setOrders(await getOrders()); setError(""); }
@@ -139,22 +141,23 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
       });
       const result = await readApiResponse<{ order: ClientOrder }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível solicitar o cancelamento.");
-      setNotice("Cancelamento solicitado. A equipe analisará o reembolso antes da coleta.");
+      setNotice("Cancelamento solicitado. A equipe analisará o reembolso.");
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível solicitar o cancelamento."); }
     finally { setBusyId(null); }
   }
 
-  async function requestWarranty(order: ClientOrder, reason: string) {
+  async function requestWarranty(order: ClientOrder, reason: string, photos: string[]) {
     setBusyId(order.id); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}`, {
         method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request_warranty", reason }),
+        body: JSON.stringify({ action: "request_warranty", reason, photos }),
       });
       const result = await readApiResponse<{ order: ClientOrder }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível acionar a garantia.");
       setNotice("Garantia acionada. A assistência foi notificada.");
+      setPendingWarranty(null);
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível acionar a garantia."); }
     finally { setBusyId(null); }
@@ -207,7 +210,7 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
             {checkoutId === order.id && order.status === "quoted" && order.totalCents >= MINIMUM_CHECKOUT_CENTS ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} /> : <div className={styles.detailActions}>{order.status === "quoted" && (order.totalCents >= MINIMUM_CHECKOUT_CENTS ? <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Pagar · ${money(order.totalCents)}`}</button> : <p className={styles.nextStep}>Este orçamento está abaixo do mínimo de R$ 5,00 aceito pelo checkout. Solicite a correção à assistência.</p>)}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => setPendingCancel(order)}>Cancelar solicitação</button>}<Link href={`/cliente/ajuda?partnerId=${encodeURIComponent(order.partnerId)}&order=${encodeURIComponent(order.id)}`}>Falar sobre esta ordem →</Link></div>}
             {order.serviceDetails.paymentStatus === "confirmed" && <><section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>PAGAMENTO CONFIRMADO</span><h4>Leve o aparelho à assistência</h4><strong>{order.partnerName || "Assistência parceira"}</strong><p>{order.partnerAddress || "Consulte a assistência pelo chat para confirmar o endereço completo."}</p><p>Recomendamos levar o dispositivo pessoalmente. Se preferir, você pode contratar por conta própria serviços como Uber Entrega ou 99 Entrega.</p><p className={styles.nextStep}><strong>Aviso legal:</strong> a SmartFix não se responsabiliza pelo transporte nem por eventuais danos, extravios ou perdas do aparelho durante o trajeto realizado por aplicativos de terceiros.</p></div></section><OrderChat orderId={order.id} audience="client" /></>}
             {order.status === "ready" && <section className={styles.quote}><h4>Retirada do aparelho</h4><p>Combine a retirada diretamente com a assistência.</p><button type="button" className={styles.detailsButton} disabled={busyId !== null} onClick={() => setPendingReceipt(order)}>Já retirei presencialmente</button></section>}
-            {filter === "completed" && order.status === "completed" && order.serviceDetails.warrantyEndsAt && new Date(order.serviceDetails.warrantyEndsAt).getTime() >= renderedAt && <section className={styles.quote}><h4>Garantia do reparo</h4>{order.serviceDetails.warrantyClaim ? <p>Solicitação: {order.serviceDetails.warrantyClaim.status === "requested" ? "aguardando análise" : order.serviceDetails.warrantyClaim.status === "accepted" ? "aceita" : "recusada"}. {order.serviceDetails.warrantyClaim.response || ""}</p> : <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestWarranty(order, String(data.get("reason"))); }}><label>Descreva o problema que voltou<textarea name="reason" minLength={10} maxLength={2000} required /></label><button className={styles.primaryButton} disabled={busyId !== null}>Acionar garantia</button></form>}</section>}
+            {order.status === "completed" && order.serviceDetails.warrantyEndsAt && <section className={styles.quote}><h4>Garantia do reparo</h4>{order.serviceDetails.warrantyClaim ? <p><strong>GARANTIA ACIONADA</strong><br/>Solicitação: {order.serviceDetails.warrantyClaim.status === "requested" ? "aguardando análise" : order.serviceDetails.warrantyClaim.status === "accepted" ? "aceita" : "recusada"}. {order.serviceDetails.warrantyClaim.response || ""}</p> : new Date(order.serviceDetails.warrantyEndsAt).getTime() >= renderedAt ? <><p>Válida até {date(order.serviceDetails.warrantyEndsAt)}.</p><button type="button" className={styles.detailsButton} disabled={busyId !== null} onClick={() => setPendingWarranty(order)}>Acionar garantia</button></> : <p>O prazo de garantia terminou em {date(order.serviceDetails.warrantyEndsAt)}.</p>}</section>}
             {order.status === "approved" && (order.serviceDetails.cancellationRequestedAt ? <p className={styles.nextStep}>Cancelamento e reembolso em análise pela equipe SmartFix.</p> : <form className={integratedStyles.checkout} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestPaidCancellation(order, String(data.get("reason"))); }}><h4>Precisa cancelar?</h4><label htmlFor={`cancel-reason-${order.id}`}>Explique o motivo</label><textarea id={`cancel-reason-${order.id}`} name="reason" placeholder="Explique o motivo" minLength={10} maxLength={1000} required /><button className={styles.cancelButton} disabled={busyId !== null}>Solicitar cancelamento e reembolso</button></form>)}
             <TrackingCode orderId={order.id} device={order.device} />
           </div>}
@@ -216,5 +219,6 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
     </section>
     <ConfirmDialog open={pendingCancel !== null} title="Cancelar solicitação?" message={`A O.S. de ${pendingCancel?.device || "este dispositivo"} será cancelada e não poderá continuar para o reparo.`} confirmLabel="Cancelar solicitação" busyLabel="Cancelando..." busy={busyId === pendingCancel?.id} onCancel={() => { if (!busyId) setPendingCancel(null); }} onConfirm={() => { if (pendingCancel) void act(pendingCancel, "cancel"); }} />
     <ConfirmDialog open={pendingReceipt !== null} title="Confirmar retirada presencial?" message="Confirme somente se o aparelho já estiver em suas mãos. A O.S. será concluída e a garantia começará agora." confirmLabel="Confirmar recebimento" busyLabel="Confirmando..." busy={busyId === pendingReceipt?.id} onCancel={() => { if (!busyId) setPendingReceipt(null); }} onConfirm={() => { if (pendingReceipt) void confirmReceipt(pendingReceipt); }} />
+    <WarrantyClaimModal open={pendingWarranty !== null} busy={busyId === pendingWarranty?.id} orderLabel={pendingWarranty?.id.slice(0, 8).toUpperCase() || ""} onCancel={() => { if (!busyId) setPendingWarranty(null); }} onConfirm={(reason, photos) => pendingWarranty ? requestWarranty(pendingWarranty, reason, photos) : Promise.resolve()} />
   </div></main>;
 }

@@ -9,12 +9,12 @@ import styles from "./help.module.css";
 const faqs = [
   { question: "Como solicito um reparo?", answer: "Acesse Solicitar reparo, escolha o aparelho e a assistência, descreva o defeito e informe sintomas e acessórios. Fotos nítidas e uma descrição completa ajudam a assistência a preparar o diagnóstico." },
   { question: "O que acontece depois da solicitação?", answer: "A assistência analisa o pedido e prepara o diagnóstico e o orçamento. Você recebe as atualizações em Meus reparos e nas notificações. Nenhum reparo começa sem sua aprovação e a confirmação do pagamento." },
-  { question: "Como avalio um orçamento?", answer: "Confira cada peça e serviço, quantidades, valores, frete, desconto, prazo estimado e garantia. Se algo não estiver claro, fale com a assistência antes de aprovar. Uma alteração no orçamento exige uma nova confirmação." },
+  { question: "Como avalio um orçamento?", answer: "Confira cada peça e serviço, quantidades, valores, desconto, prazo estimado e garantia. Se algo não estiver claro, fale com a assistência antes de aprovar. Uma alteração no orçamento exige uma nova confirmação." },
   { question: "Como faço o pagamento?", answer: "Depois de aprovar o orçamento, use o botão de pagamento na O.S. Você será direcionado ao checkout seguro InfinitePay da SmartFix. O reparo só começa após a confirmação." },
   { question: "Por que o botão de pagamento está indisponível?", answer: "A O.S. precisa ter um orçamento válido e não expirado. Fale com a assistência pelo chat; nunca envie dados de cartão fora do checkout." },
-  { question: "Como acompanho o reparo?", answer: "Em Meus reparos, consulte o status, o histórico, o orçamento, o pagamento e a logística. Os status informam se a assistência está diagnosticando, reparando, aguardando peças ou preparando a devolução." },
-  { question: "Como funcionam coleta e entrega?", answer: "Quando a logística estiver disponível, o endereço e o turno aparecem na O.S. Acompanhe o link de rastreio e mantenha alguém no local. O entregador pode solicitar confirmação e registro da coleta ou entrega." },
-  { question: "Posso cancelar a solicitação?", answer: "Você pode cancelar antes de aprovar o orçamento. Depois da aprovação ou do início do serviço, fale com a assistência e com a SmartFix para avaliar peças já compradas, logística e eventual reembolso." },
+  { question: "Como acompanho o reparo?", answer: "Em Meus reparos, consulte o status, o histórico, o orçamento e o pagamento. Os status informam se a assistência está diagnosticando, reparando, aguardando peças ou se o aparelho está pronto." },
+  { question: "Como levo o aparelho à assistência?", answer: "Após a confirmação do pagamento, leve o aparelho diretamente ao endereço da assistência. Se preferir usar um aplicativo de entrega, contrate e acompanhe o serviço por conta própria; a SmartFix não opera transporte integrado." },
+  { question: "Posso cancelar a solicitação?", answer: "Você pode cancelar antes de aprovar o orçamento. Depois da aprovação ou do início do serviço, fale com a assistência e com a SmartFix para avaliar peças já compradas e eventual reembolso." },
   { question: "Como funciona o reembolso?", answer: "Quando aplicável, a solicitação é analisada pela SmartFix e processada no mesmo fluxo de pagamento. O prazo para o valor aparecer depende do meio de pagamento e do banco emissor." },
   { question: "Qual é a garantia do serviço?", answer: "O prazo e as condições aparecem no orçamento e na O.S. Se o mesmo problema retornar dentro da garantia, abra a solicitação pela ordem concluída e descreva o que aconteceu." },
   { question: "Como protejo meus dados?", answer: "Pague somente pelo checkout da O.S. A SmartFix e a assistência nunca devem pedir senha, código de verificação ou dados completos do cartão por mensagem. Em caso de suspeita, fale com a equipe SmartFix." },
@@ -24,7 +24,7 @@ const journey = [
   ["1", "Solicite", "Cadastre o aparelho, explique o problema e escolha uma assistência."],
   ["2", "Revise", "Leia diagnóstico, itens, prazo, garantia e valor antes de aprovar."],
   ["3", "Pague", "Finalize no provedor escolhido e aguarde a confirmação na própria O.S."],
-  ["4", "Acompanhe", "Veja reparo, logística, conclusão e garantia em Meus reparos."],
+  ["4", "Acompanhe", "Veja o reparo, a conclusão e a garantia em Meus reparos."],
 ] as const;
 type Message = { id: string; senderRole: "client" | "admin" | "partner"; body: string; createdAt: string };
 type Partner = { id: string; name: string };
