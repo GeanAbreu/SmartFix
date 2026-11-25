@@ -7,13 +7,13 @@ import styles from "./help.module.css";
 const topics = [
   { title: "Primeiros passos", text: "Complete os dados da assistência, cadastre o endereço principal e publique os serviços oferecidos. Essas informações ajudam o cliente a comparar opções e são necessárias para a logística.", href: "/parceiro/perfil", action: "Revisar minha assistência" },
   { title: "Ordens de serviço", text: "Analise a solicitação, registre um diagnóstico claro e envie um orçamento detalhado. O serviço só deve começar depois da aprovação e da confirmação do pagamento.", href: "/parceiro/ordens", action: "Ver ordens" },
-  { title: "Pagamentos e repasses", text: "Conecte sua conta Mercado Pago no Financeiro. A cada pagamento, 90% é destinado à assistência e 10% fica com a SmartFix. O painel mostra valor bruto, taxa e repasse líquido.", href: "/parceiro/financeiro", action: "Configurar recebimentos" },
+  { title: "Pagamentos e repasses", text: "Cadastre sua chave PIX no Financeiro e acompanhe valores a receber, taxas aplicáveis e repasses feitos pela SmartFix.", href: "/parceiro/financeiro", action: "Gerenciar repasses" },
   { title: "Coleta e devolução", text: "Após o pagamento confirmado, solicite a coleta na O.S. Acompanhe o rastreio e, quando o reparo estiver pronto, organize a devolução ao cliente.", href: "/parceiro/ordens", action: "Acompanhar logística" },
 ] as const;
 
 const faqs = [
-  ["Por que o cliente não consegue pagar?", "Confira em Financeiro se a conta Mercado Pago aparece como conectada. O orçamento também precisa ter sido enviado, aceito pelo cliente e permanecer sem alterações. Se você editar os valores, um novo checkout será gerado."],
-  ["Como funciona a taxa da SmartFix?", "A taxa da plataforma é de 10% sobre o total cobrado na O.S. O Mercado Pago faz a divisão no checkout: 90% corresponde ao repasse da assistência. O detalhamento fica disponível em Financeiro."],
+  ["Por que o cliente não consegue pagar?", "O orçamento precisa ter sido enviado, permanecer válido e estar dentro do prazo de 24 horas. O checkout InfinitePay é operado centralmente pela SmartFix."],
+  ["Como funcionam os repasses?", "Serviços pagos e concluídos entram no próximo ciclo de repasse, realizado pela SmartFix às quartas-feiras, às 10h. O detalhamento fica disponível em Financeiro."],
   ["Quando posso iniciar o reparo?", "Somente quando a O.S. indicar orçamento aprovado e pagamento confirmado. Antes disso, não compre peças nem execute o serviço, pois o cliente ainda pode recusar o orçamento."],
   ["Como montar um bom orçamento?", "Separe peças e mão de obra, informe quantidade, valor unitário, prazo estimado e garantia. Explique o diagnóstico em linguagem simples e evite itens genéricos sem descrição."],
   ["Como altero o status da O.S.?", "Use a própria O.S. e avance conforme o trabalho real: em reparo, aguardando peças, pronto e concluído. Atualizações precisas reduzem dúvidas e notificam o cliente."],
@@ -21,7 +21,7 @@ const faqs = [
   ["Como funciona coleta e devolução?", "A coleta fica disponível após o pagamento confirmado. Cliente e assistência precisam ter endereço e telefone válidos. A devolução pode ser solicitada quando a O.S. estiver pronta."],
   ["O que fazer se a entrega falhar?", "Não crie várias entregas seguidas. Consulte o status e o rastreio na O.S. Se houver aviso de verificação manual, fale com o suporte informando o número da O.S. e o ID da entrega, quando disponível."],
   ["Como falar com o cliente?", "Use Mensagens para manter orientações, dúvidas e combinações registradas. Nunca peça senha, código de pagamento ou dados completos de cartão."],
-  ["Como proteger minha conta?", "Use uma senha exclusiva, encerre a sessão em computadores compartilhados e conecte apenas a conta Mercado Pago oficial da assistência. A SmartFix nunca pede sua senha do Mercado Pago."],
+  ["Como proteger minha conta?", "Use uma senha exclusiva, encerre a sessão em computadores compartilhados e mantenha a chave PIX de titularidade do proprietário ou da assistência atualizada."],
 ] as const;
 
 export default function PartnerHelp() {

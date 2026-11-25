@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { readApiResponse } from "@/src/services/api-response.service";
-import { ORDER_LABELS, logisticsStatusLabel, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
+import { ORDER_LABELS, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
+import OrderChat from "@/app/components/OrderChat";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import styles from "./orders.module.css";
 import { diagnosisDeadlineLabel } from "@/src/services/diagnosis-deadline";
@@ -172,25 +173,6 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
     }
   }
 
-  async function dispatchDelivery(id: string, body: { direction: "pickup" | "return"; scheduledDate?: string; schedulePeriod?: string }) {
-    markBusy(id, true); setMessage("");
-    try {
-      const quoteResponse = await fetch(`/api/orders/${encodeURIComponent(id)}/logistics`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      const quoted = await readApiResponse<{ quote: { quotedFeeCents?: number } }>(quoteResponse);
-      if (!quoteResponse.ok || !quoted.success) throw new Error(quoted.message || "Não foi possível cotar a entrega.");
-      const fee = quoted.data?.quote.quotedFeeCents;
-      if (!window.confirm(`Entrega imediata Lalamove${fee !== undefined ? ` · ${money(fee)}` : ""}. Confirmar solicitação?`)) { await refresh(); return; }
-      const response = await fetch(`/api/orders/${encodeURIComponent(id)}/logistics`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ direction: body.direction, confirm: true }) });
-      const result = await readApiResponse<{ delivery: unknown }>(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível chamar o entregador.");
-      await refresh();
-      setMessage(body.direction === "pickup" ? "Coleta solicitada com segurança." : "Entrega ao cliente solicitada com segurança.");
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Não foi possível chamar o entregador."); }
-    finally { markBusy(id, false); }
-  }
-
   const counts = {
     all: orders.length,
     attention: orders.filter((order) => matchesFilter(order, "attention")).length,
@@ -235,15 +217,12 @@ export default function PartnerOrders({ initialOrderId }: { initialOrderId: stri
                 <section><h3>Defeito e descrição</h3><p>{selected.problem}</p>{selected.symptoms.length > 0 && <div className={styles.tags}>{selected.symptoms.map((symptom) => <span key={symptom}>{symptom}</span>)}</div>}</section>
                 {selected.checklist.length > 0 && <section><h3>Checklist do aparelho</h3><ul className={styles.simpleList}>{selected.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>}
                 {selected.diagnosis && <section><h3>Diagnóstico</h3><p>{selected.diagnosis}</p></section>}
-                {selected.quote.length > 0 && <section><h3>Orçamento</h3><div className={styles.quoteItems}>{selected.quote.map((item, index) => <div key={`${item.name}-${index}`}><span>{item.name}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div><div className={styles.quoteTotal}><span>Total</span><strong>{money(selected.totalCents)}</strong></div>{selected.serviceDetails.marketplaceFeeCents !== undefined && selected.serviceDetails.partnerGrossCents !== undefined && <div className={styles.quoteItems}><div><span>Taxa SmartFix<small>10% desta O.S.</small></span><strong>− {money(selected.serviceDetails.marketplaceFeeCents)}</strong></div><div><span>Valor do parceiro<small>Repasse pelo Mercado Pago</small></span><strong>{money(selected.serviceDetails.partnerGrossCents)}</strong></div></div>}</section>}
+                {selected.quote.length > 0 && <section><h3>Orçamento</h3><div className={styles.quoteItems}>{selected.quote.map((item, index) => <div key={`${item.name}-${index}`}><span>{item.name}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div><div className={styles.quoteTotal}><span>Total</span><strong>{money(selected.totalCents)}</strong></div></section>}
                 {selected.status === "quoted" && <p className={styles.waitingNote}>Orçamento enviado. Aguardando a aprovação do cliente.</p>}
                 {selected.serviceDetails.warrantyClaim?.status === "requested" && <form className={styles.operationsForm} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void act(selected.id, { action: "warranty_decision", decision: data.get("decision"), response: data.get("response") }); }}><div><h3>Garantia acionada</h3><p>{selected.serviceDetails.warrantyClaim.reason}</p></div><label>Decisão<select name="decision" defaultValue="accepted"><option value="accepted">Aceitar retorno em garantia</option><option value="rejected">Recusar com justificativa</option></select></label><label>Resposta ao cliente<textarea name="response" minLength={10} maxLength={2000} required /></label><button type="submit" className={styles.primaryButton} disabled={selectedBusy}>Responder garantia</button></form>}
                 {selected.status === "pending" && <QuoteForm key={selected.id} orderId={selected.id} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
                 {selected.status === "quoted" && selected.serviceDetails.paymentPreferenceId && <p className={styles.waitingNote}>O cliente iniciou o checkout. O orçamento está bloqueado para evitar divergência de valores.</p>}
-                {(selected.status === "approved" || selected.status === "ready" || selected.serviceDetails.logistics) && <section className={styles.logistics}><h3>Entrega imediata</h3><p>A Lalamove busca um motorista após a confirmação. O rastreio é atualizado automaticamente e a entrega pode ter POD.</p>
-                  {selected.serviceDetails.logistics?.pickup ? <div className={styles.deliveryCard}><strong>Cliente → assistência</strong><span>Status: {logisticsStatusLabel(selected.serviceDetails.logistics.pickup.status)}{selected.serviceDetails.logistics.pickup.quotedFeeCents !== undefined ? ` · ${money(selected.serviceDetails.logistics.pickup.quotedFeeCents)}` : ""}</span>{selected.serviceDetails.logistics.pickup.error && <small>{selected.serviceDetails.logistics.pickup.error}</small>}{selected.serviceDetails.logistics.pickup.trackingUrl && <a href={selected.serviceDetails.logistics.pickup.trackingUrl} target="_blank" rel="noreferrer">Acompanhar coleta ↗</a>}{["failed", "quoted"].includes(selected.serviceDetails.logistics.pickup.status) && <button type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => void dispatchDelivery(selected.id, { direction: "pickup" })}>{selectedBusy ? "Processando..." : selected.serviceDetails.logistics.pickup.status === "quoted" ? "Confirmar entrega imediata" : "Tentar coleta novamente"}</button>}</div> : selected.status === "approved" && selected.serviceDetails.paymentStatus === "confirmed" ? <button type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => void dispatchDelivery(selected.id, { direction: "pickup" })}>{selectedBusy ? "Solicitando..." : "Cotar entrega imediata"}</button> : selected.status === "approved" ? <p className={styles.waitingNote}>Aguardando a confirmação do pagamento para solicitar a coleta.</p> : null}
-                  {selected.serviceDetails.logistics?.return ? <div className={styles.deliveryCard}><strong>Assistência → cliente</strong><span>Status: {logisticsStatusLabel(selected.serviceDetails.logistics.return.status)}</span>{selected.serviceDetails.logistics.return.error && <small>{selected.serviceDetails.logistics.return.error}</small>}{selected.serviceDetails.logistics.return.trackingUrl && <a href={selected.serviceDetails.logistics.return.trackingUrl} target="_blank" rel="noreferrer">Acompanhar entrega ↗</a>}</div> : selected.status === "ready" && <p className={styles.waitingNote}>Aguardando o cliente escolher a data da devolução ou confirmar a retirada presencial.</p>}
-                </section>}
+                {selected.serviceDetails.paymentStatus === "confirmed" && <OrderChat orderId={selected.id} audience="partner" />}
                 {!!nextStatuses[selected.status]?.length && <section><h3>Próxima etapa</h3><div className={styles.statusActions}>{nextStatuses[selected.status]?.map((status) => <button key={status} type="button" className={styles.primaryButton} disabled={selectedBusy} onClick={() => setPendingStatus({ order: selected, status })}>{selectedBusy ? "Atualizando..." : `Marcar como ${ORDER_LABELS[status].toLocaleLowerCase("pt-BR")}`}</button>)}</div></section>}
                 {selected.status === "pending" && <RejectForm busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}
                 {!(["completed", "cancelled", "rejected"] as OrderStatus[]).includes(selected.status) && <OperationsForm key={`operations-${selected.id}-${selected.serviceDetails.technicianName}-${selected.serviceDetails.promisedDate}`} order={selected} busy={selectedBusy} onSubmit={(body) => act(selected.id, body)} />}

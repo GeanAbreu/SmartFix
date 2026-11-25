@@ -39,7 +39,7 @@ export const quoteItemInput = z.object({
   unitPriceCents: z.number().int().min(0).max(10_000_000),
 });
 export const checkoutInput = z.object({
-  payment: z.literal("mercado_pago").optional(),
+  payment: z.literal("infinitepay").optional(),
 });
 export const orderAction = z.discriminatedUnion("action", [
   z.object({
@@ -130,6 +130,7 @@ export function applyOrderAction(
     order.serviceDetails.estimatedDays = input.estimatedDays;
     order.serviceDetails.warrantyDays = input.warrantyDays;
     order.serviceDetails.deliveryFeeCents = 0;
+    order.serviceDetails.paymentExpiresAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
     status = "quoted";
   } else if (input.action === "operations") {
     if (!partner || ["completed", "cancelled", "rejected"].includes(status)) invalid();
@@ -171,12 +172,12 @@ export function applyOrderAction(
     warrantyClaim.decidedAt = new Date().toISOString();
     if (input.decision === "accepted") status = "in_progress";
   } else if (input.action === "confirm_receipt") {
-    if (!client || status !== "ready" || order.serviceDetails.logistics?.return?.deliveryId) invalid();
+    if (!client || status !== "ready") invalid();
     completeOrder(order, new Date().toISOString(), "client_confirmation");
     status = order.status;
   } else if (input.action === "request_cancellation") {
     if (!client || status !== "approved" || order.serviceDetails.paymentStatus !== "confirmed" ||
-      order.serviceDetails.logistics?.pickup?.deliveryId || order.serviceDetails.cancellationRequestedAt) invalid();
+      order.serviceDetails.cancellationRequestedAt) invalid();
     order.serviceDetails.cancellationRequestedAt = new Date().toISOString();
     order.serviceDetails.cancellationReason = input.reason;
     order.serviceDetails.refundStatus = "pending";
@@ -188,15 +189,6 @@ export function applyOrderAction(
       ready: [],
     };
     if (!partner || !allowed[status]?.includes(input.status)) invalid();
-    if (status === "approved" && input.status === "in_progress") {
-      const pickup = order.serviceDetails.logistics?.pickup;
-      if (pickup?.deliveryId && !["delivered", "completed"].includes(pickup.status))
-        throw new AppError(
-          "O reparo só pode começar depois que o aparelho chegar à assistência.",
-          409,
-          "PICKUP_NOT_DELIVERED",
-        );
-    }
     status = input.status;
   }
   if (order.status !== status)
@@ -210,7 +202,7 @@ export function applyOrderAction(
   return order;
 }
 
-export function completeOrder(order: RepairOrder, at: string, method: "uber_direct" | "lalamove" | "client_confirmation") {
+export function completeOrder(order: RepairOrder, at: string, method: "client_confirmation") {
   if (order.status === "completed") return false;
   if (order.status !== "ready")
     throw new AppError("A ordem ainda não está pronta para conclusão.", 409, "INVALID_TRANSITION");
@@ -243,22 +235,27 @@ export function prepareOrderPayment(order: RepairOrder, clientId: string, _input
   const total = quoteTotal(order.quote);
   if (total < MINIMUM_CHECKOUT_CENTS)
     throw new AppError("O valor mínimo para pagamento é R$ 5,00. Solicite a correção do orçamento à assistência.", 422, "INVALID_QUOTE_TOTAL");
-  order.serviceDetails.paymentProvider = "mercado_pago";
+  order.serviceDetails.paymentProvider = "infinitepay";
   order.serviceDetails.paymentStatus = "pending";
+  order.serviceDetails.paymentExpiresAt ??= new Date(Date.now() + 24 * 60 * 60_000).toISOString();
   order.serviceDetails.paymentCheckoutFingerprint = fingerprint;
   return total;
 }
 
-export function confirmOrderPayment(order: RepairOrder, paymentId: string, paymentMethod: "pix" | "card") {
+export function confirmOrderPayment(order: RepairOrder, paymentId: string, paymentMethod: "pix" | "card",
+  provider: "infinitepay" = "infinitepay") {
   if (order.status !== "quoted") return order.status === "approved" && order.serviceDetails.paymentId === paymentId;
   order.serviceDetails.paymentId = paymentId;
   order.serviceDetails.paymentMethod = paymentMethod;
+  order.serviceDetails.paymentProvider = provider;
   order.serviceDetails.paymentStatus = "confirmed";
   order.serviceDetails.paidAt = new Date().toISOString();
+  order.serviceDetails.payoutStatus = "pending";
+  delete order.serviceDetails.paymentExpiresAt;
   order.status = "approved";
   order.history.push({ status: "approved", at: order.serviceDetails.paidAt });
   order.serviceDetails.auditTrail ??= [];
-  order.serviceDetails.auditTrail.push({ at: order.serviceDetails.paidAt, actorId: "mercado_pago",
+  order.serviceDetails.auditTrail.push({ at: order.serviceDetails.paidAt, actorId: provider,
     actorRole: "system", action: "payment_confirmed", fromStatus: "quoted", toStatus: "approved" });
   return true;
 }

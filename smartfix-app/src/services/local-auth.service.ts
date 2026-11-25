@@ -17,6 +17,7 @@ export type LocalAuthUser = {
   phone: string;
   birthDate: string | null;
   companyName: string | null;
+  pixKey?: string | null;
   // Read compatibility for legacy files; new users store addresses separately.
   address?: string;
   city?: string;
@@ -181,6 +182,14 @@ export function updateLocalPartnerProfile(id: string, input: { companyName: stri
     if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
     user.companyName = input.companyName;
     user.phone = input.phone;
+  }, true);
+}
+
+export function updateLocalPartnerPixKey(id: string, pixKey: string) {
+  return withStore((store) => {
+    const user = store.users.find((candidate) => candidate.id === id && candidate.role === "partner");
+    if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
+    user.pixKey = pixKey;
   }, true);
 }
 

@@ -39,24 +39,15 @@ em [`.env.example`](.env.example):
 Telefones nacionais recebem por padrão o DDI `55`; altere
 `WHATSAPP_DEFAULT_COUNTRY_CODE` para outra operação regional.
 
-## Logística imediata com Lalamove
+## Pagamento central e entrega do aparelho
 
-Configure `LALAMOVE_API_KEY`, `LALAMOVE_API_SECRET`, `LALAMOVE_MARKET=BR`,
-`LALAMOVE_SANDBOX` e `LALAMOVE_SERVICE_TYPE=MOTORCYCLE`, conforme
-[`.env.example`](.env.example). Cadastre o endpoint HTTPS
-`/api/logistics/lalamove/webhook` no Partner Portal do mesmo ambiente.
-
-Cada trecho é independente: cliente → assistência e assistência → cliente. A
-cotação V3 usa coordenadas obtidas no servidor, omite `scheduleAt` para solicitar
-um motorista imediatamente e permanece válida por cerca de cinco minutos. A
-criação usa o `quotationId`, contatos em E.164, POD, metadata interna e um
-`Request-ID` único por chamada. O bloqueio transacional da O.S. impede duplicatas;
-respostas incertas exigem reconciliação antes de nova tentativa. O link HTTPS retornado pela Lalamove
-é usado para acompanhamento. Eventos autenticados são deduplicados e não podem
-regredir o estado da entrega.
+Configure `INFINITEPAY_API_KEY`, `INFINITEPAY_HANDLE` e `PAYMENT_PUBLIC_URL`.
+Todos os checkouts usam a conta central da SmartFix. Após o pagamento, o cliente
+recebe o endereço da assistência e combina a entrega diretamente, por meios
+próprios. Não há contratação automática de transporte pela plataforma.
 
 ## Validação das integrações
 
 Use `npm run config:check` para detectar variáveis ausentes, grupos parcialmente configurados e URLs inseguras antes do deploy. O comando não exibe segredos.
 
-Use `npm run integrations:smoke` em um ambiente controlado para validar, de forma somente leitura, as credenciais configuradas de Mercado Pago, Resend, Supabase, Lalamove e Photon. Para a Lalamove, o teste consulta `GET /v3/cities`; não cria cotação nem entrega. Google OAuth e provedores de WhatsApp continuam exigindo seus fluxos de sandbox próprios.
+Use `npm run integrations:smoke` em um ambiente controlado para validar, de forma somente leitura, Resend, Supabase e Photon. O checkout InfinitePay deve ser validado com uma OS de teste controlada. Google OAuth e provedores de WhatsApp continuam exigindo seus fluxos de sandbox próprios.

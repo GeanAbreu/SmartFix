@@ -45,8 +45,7 @@ export type PartnerProfile = {
   companyName: string | null;
   phone: string | null;
   isVerified: boolean;
-  mercadoPagoConnected: boolean;
-  mercadoPagoUserId: string | null;
+  pixKey: string | null;
 };
 
 export type ApiFieldErrors = Record<string, string[] | undefined>;

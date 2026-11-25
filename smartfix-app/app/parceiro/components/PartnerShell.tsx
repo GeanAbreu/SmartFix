@@ -7,7 +7,7 @@ import type { PartnerProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "@/app/cliente/components/client-shell.module.css";
 
-type IconName = "home" | "orders" | "services" | "messages" | "finance" | "notifications" | "profile" | "network" | "help" | "tool" | "menu";
+type IconName = "home" | "orders" | "services" | "messages" | "finance" | "notifications" | "profile" | "help" | "tool" | "menu";
 
 const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/parceiro/dashboard", label: "Início", icon: "home" },
@@ -17,7 +17,6 @@ const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/parceiro/financeiro", label: "Financeiro", icon: "finance" },
   { href: "/parceiro/notificacoes", label: "Notificações", icon: "notifications" },
   { href: "/parceiro/perfil", label: "Minha assistência", icon: "profile" },
-  { href: "/parceiro/parceiros", label: "Rede de assistências", icon: "network" },
   { href: "/parceiro/ajuda", label: "Ajuda", icon: "help" },
 ];
 
@@ -29,7 +28,6 @@ const iconPaths: Record<IconName, ReactNode> = {
   finance: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M16 15h2"/></>,
   notifications: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></>,
   profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
-  network: <><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="m11 7-5 9m7-9 5 9M7 18h10"/></>,
   help: <><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .6-1.5 1.1-1.5 2.2M12 17h.01"/></>,
   tool: <path d="M14.7 6.3a4 4 0 0 0-5-5l2.1 2.1-2.4 2.4-2.1-2.1a4 4 0 0 0 5 5L20 16.4 16.4 20l-7.7-7.7a4 4 0 0 0-5-5l2.1 2.1"/>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,

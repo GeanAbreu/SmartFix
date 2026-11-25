@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import type { RepairOrder } from "@/src/types/workflow";
 import { readApiResponse } from "@/src/services/api-response.service";
-import styles from "./prototype-integration.module.css";
+import modalStyles from "./payment-provider-modal.module.css";
 
 type Order = RepairOrder & { totalCents: number };
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -18,9 +18,9 @@ export default function OrderCheckout({ order, busy, onCancel }: {
     event.preventDefault();
     setRedirecting(true); setError("");
     try {
-      const response = await fetch("/api/payments/mercado-pago/checkout", {
+      const response = await fetch("/api/payments/infinitepay/checkout", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, payment: "infinitepay" }),
       });
       const result = await readApiResponse<{ checkoutUrl: string }>(response);
       if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível iniciar o pagamento.");
@@ -31,10 +31,15 @@ export default function OrderCheckout({ order, busy, onCancel }: {
     }
   }
 
-  return <form className={styles.checkout} onSubmit={submit}>
-    <div className={styles.checkoutHeader}><div><span className={styles.eyebrow}>PAGAMENTO</span><h4>Finalize o serviço</h4></div><strong>{money(order.totalCents)}</strong></div>
-    <p className={styles.checkoutNote}>Você será redirecionado ao Mercado Pago. A assistência só poderá iniciar após a confirmação do pagamento.</p>
-    {error && <p className={styles.checkoutNote} role="alert">{error}</p>}
-    <div className={styles.actions}><button className={styles.primary} disabled={busy || redirecting}>{redirecting ? "Abrindo Mercado Pago…" : `Pagar ${money(order.totalCents)}`}</button><button type="button" className={styles.secondary} disabled={busy || redirecting} onClick={onCancel}>Voltar</button></div>
-  </form>;
+  return <div className={modalStyles.backdrop} role="presentation" onMouseDown={(event) => {
+    if (event.target === event.currentTarget && !redirecting) onCancel();
+  }}>
+    <form className={modalStyles.modal} role="dialog" aria-modal="true" aria-labelledby="payment-provider-title" onSubmit={submit}>
+      <button type="button" className={modalStyles.close} aria-label="Fechar" disabled={redirecting} onClick={onCancel}>×</button>
+      <div className={modalStyles.header}><div><span>PAGAMENTO SMARTFIX</span><h3 id="payment-provider-title">Checkout seguro InfinitePay</h3><p>Pix e cartão são processados exclusivamente pela conta central da SmartFix.</p></div><strong>{money(order.totalCents)}</strong></div>
+      {error && <p className={modalStyles.error} role="alert">{error}</p>}
+      <div className={modalStyles.actions}><button type="button" className={modalStyles.cancel} disabled={busy || redirecting} onClick={onCancel}>Cancelar</button><button className={modalStyles.continue} disabled={busy || redirecting}>{redirecting ? "Abrindo checkout…" : "Pagar com InfinitePay"}</button></div>
+      <small className={modalStyles.security}>🔒 Seus dados de pagamento são informados somente no ambiente seguro da InfinitePay.</small>
+    </form>
+  </div>;
 }

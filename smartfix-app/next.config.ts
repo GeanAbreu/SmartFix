@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
         value: [
           "default-src 'self'",
           "base-uri 'self'",
-          "form-action 'self' https://www.mercadopago.com.br https://www.mercadopago.com",
+          "form-action 'self' https://checkout.infinitepay.io https://*.infinitepay.io",
           "frame-ancestors 'none'",
           "object-src 'none'",
           scriptSource,

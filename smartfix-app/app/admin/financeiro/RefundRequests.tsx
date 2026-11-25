@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { readApiResponse } from "@/src/services/api-response.service";
-import styles from "../logistica/logistica.module.css";
+import styles from "./refunds.module.css";
 
 type RefundRequest = { orderId: string; device: string; reason: string; requestedAt?: string; totalCents: number };
 const money = (value: number) => (value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

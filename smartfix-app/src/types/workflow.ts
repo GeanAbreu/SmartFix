@@ -15,55 +15,13 @@ export type QuoteItem = {
   quantity: number;
   unitPriceCents: number;
 };
-export type LogisticsEvent = {
-  id: string;
-  status: string;
-  at: string;
-};
-export const LOGISTICS_STATUS_LABELS: Record<string, string> = {
-  quoting: "Calculando frete",
-  creating: "Chamando entregador",
-  pending: "Aguardando entregador",
-  pickup: "Entregador a caminho da coleta",
-  pickup_complete: "Coleta realizada",
-  dropoff: "A caminho do destino",
-  delivered: "Entregue",
-  completed: "Entregue",
-  failed: "Falha no envio",
-  reconciliation_required: "Verificação manual necessária",
-  returned: "Devolvido à origem",
-  canceled: "Cancelado",
-  cancelled: "Cancelado",
-};
-export function logisticsStatusLabel(status: string) {
-  return LOGISTICS_STATUS_LABELS[status.toLowerCase()] || status.replaceAll("_", " ");
-}
-export type LogisticsLeg = {
-  direction: "pickup" | "return";
-  quoteId?: string;
-  quotedFeeCents?: number;
-  actualFeeCents?: number;
-  quoteExpiresAt?: string;
-  pickupAddress: string;
-  dropoffAddress: string;
-  deliveryId?: string;
-  status: string;
-  trackingUrl?: string;
-  lastEventAt?: string;
-  verification: "pod" | "photo_and_pin";
-  stopIds?: string[];
-  driverId?: string;
-  events: LogisticsEvent[];
-  error?: string;
-  resolutionNote?: string;
-};
 export type ServiceDetails = {
   estimatedDays: number;
   warrantyDays: number;
   warrantyStartsAt?: string;
   warrantyEndsAt?: string;
   deliveredAt?: string;
-  completionMethod?: "uber_direct" | "lalamove" | "client_confirmation";
+  completionMethod?: "client_confirmation";
   deliveryFeeCents: number;
   couponCode: string;
   discountCents: number;
@@ -74,13 +32,20 @@ export type ServiceDetails = {
   paymentMethod: "pix" | "card" | "";
   paymentStatus: "pending" | "confirmed";
   paidAt: string;
-  paymentProvider?: "mercado_pago";
+  paymentProvider?: "infinitepay";
+  paymentExpiresAt?: string;
   paymentPreferenceId?: string;
   paymentCheckoutUrl?: string;
   paymentCheckoutFingerprint?: string;
   paymentId?: string;
+  paymentReceiptUrl?: string;
   marketplaceFeeCents?: number;
   partnerGrossCents?: number;
+  payoutFeeCents?: number;
+  payoutNetCents?: number;
+  payoutStatus?: "pending" | "paid";
+  payoutPaidAt?: string;
+  payoutReference?: string;
   technicianName?: string;
   promisedDate?: string;
   internalNotes?: string;
@@ -91,8 +56,6 @@ export type ServiceDetails = {
   refundId?: string;
   refundAmountCents?: number;
   refundedAt?: string;
-  logisticsActualFeeCents?: number;
-  logisticsFeeVarianceCents?: number;
   auditTrail?: Array<{
     at: string;
     actorId: string;
@@ -107,11 +70,6 @@ export type ServiceDetails = {
     requestedAt: string;
     decidedAt?: string;
     response?: string;
-  };
-  logistics?: {
-    provider: "lalamove" | "uber_direct";
-    pickup?: LogisticsLeg;
-    return?: LogisticsLeg;
   };
 };
 export type RepairOrder = {
@@ -145,7 +103,7 @@ export type RepairOrder = {
 };
 export type WorkflowRecord = {
   id: string;
-  kind: "order" | "notification" | "reset" | "google" | "service";
+  kind: "order" | "notification" | "reset" | "google" | "service" | "order_message";
   ownerId: string;
   data: Record<string, unknown>;
 };

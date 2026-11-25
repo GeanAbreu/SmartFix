@@ -53,6 +53,18 @@ export default function PartnerNotifications({ audience = "partner" }: { audienc
     finally { setBusyId(null); }
   }
 
+  async function clearAll() {
+    if (!notifications.length) return;
+    setBusyId("all"); setError("");
+    try {
+      const response = await fetch("/api/notifications", { method: "DELETE", credentials: "include" });
+      const result = await readApiResponse(response);
+      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível limpar as notificações.");
+      setNotifications([]);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível limpar as notificações."); }
+    finally { setBusyId(null); }
+  }
+
   const dashboardHref = audience === "client" ? "/cliente/dashboard" : "/parceiro/dashboard";
   const description = audience === "client" ? "Acompanhe seus reparos, pagamentos e comunicados da plataforma." : "Acompanhe mudanças nas ordens, pagamentos e comunicados da plataforma.";
 
@@ -60,7 +72,7 @@ export default function PartnerNotifications({ audience = "partner" }: { audienc
     <header className={styles.header}><div><span className={styles.eyebrow}>CENTRAL DE ATUALIZAÇÕES</span><h1>Notificações</h1><p>{description}</p></div><div className={styles.summary}><BellIcon/><div><strong>{unread}</strong><span>{unread === 1 ? "não lida" : "não lidas"}</span></div></div></header>
     {error && <div className={styles.error} role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div>}
     <section className={styles.panel} aria-labelledby="notification-list-title">
-      <div className={styles.panelHeader}><div><h2 id="notification-list-title">Sua atividade</h2><p>{notifications.length ? `${notifications.length} ${notifications.length === 1 ? "registro" : "registros"}` : "Atualizações da sua assistência"}</p></div></div>
+      <div className={styles.panelHeader}><div><h2 id="notification-list-title">Sua atividade</h2><p>{notifications.length ? `${notifications.length} ${notifications.length === 1 ? "registro" : "registros"}` : "Atualizações da sua assistência"}</p></div>{notifications.length > 0 && <button type="button" disabled={busyId !== null} onClick={() => void clearAll()}>{busyId === "all" ? "Limpando…" : "Limpar notificações"}</button>}</div>
       {loading ? <div className={styles.loading} role="status"><span/><span/><span/><p>Carregando notificações...</p></div>
         : notifications.length === 0 ? <div className={styles.empty}><span className={styles.emptyIcon}><BellIcon/></span><h3>Tudo em dia por aqui</h3><p>Quando houver uma atualização importante, ela aparecerá nesta central.</p><Link href={dashboardHref}>Voltar ao painel</Link></div>
         : <ul className={styles.list}>{notifications.map((notification) => <li key={notification.id} className={notification.data.read ? styles.read : styles.unread}><span className={styles.itemIcon}><BellIcon/></span><div className={styles.content}><div className={styles.meta}><span>{notification.data.read ? "Lida" : "Nova"}</span><time dateTime={notification.data.createdAt}>{new Date(notification.data.createdAt).toLocaleString("pt-BR")}</time></div><p>{notification.data.message}</p><div className={styles.actions}><Link href={notification.data.href}>Ver detalhes <span aria-hidden="true">→</span></Link>{!notification.data.read && <button type="button" disabled={busyId !== null} onClick={() => void markAsRead(notification)}>{busyId === notification.id ? "Atualizando..." : "Marcar como lida"}</button>}</div></div></li>)}</ul>}

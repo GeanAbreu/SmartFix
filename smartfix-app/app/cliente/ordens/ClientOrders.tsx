@@ -4,17 +4,17 @@ import Link from "next/link";
 import VisualIcon from "@/app/cliente/components/VisualIcon";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { readApiResponse } from "@/src/services/api-response.service";
-import { ORDER_LABELS, logisticsStatusLabel, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
+import { ORDER_LABELS, type OrderStatus, type RepairOrder } from "@/src/types/workflow";
 import styles from "./orders.module.css";
 import integratedStyles from "./prototype-integration.module.css";
+import OrderChat from "@/app/components/OrderChat";
 import OrderCheckout from "./OrderCheckout";
 import TrackingCode from "./TrackingCode";
 import ConfirmDialog from "@/app/cliente/components/ConfirmDialog";
 import { diagnosisDeadlineLabel } from "@/src/services/diagnosis-deadline";
-import { collectionScheduleLabel } from "@/src/services/order-display.service";
 import { MINIMUM_CHECKOUT_CENTS } from "@/src/constants/payment";
 
-type ClientOrder = RepairOrder & { totalCents: number; partnerName?: string };
+type ClientOrder = RepairOrder & { totalCents: number; partnerName?: string; partnerAddress?: string };
 type Filter = "all" | "active" | "quoted" | "completed" | "cancelled";
 const activeStatuses = new Set<OrderStatus>(["pending", "quoted", "approved", "in_progress", "waiting_parts", "ready"]);
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -77,23 +77,25 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => void refresh());
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 30000);
-    return () => { cancelAnimationFrame(frame); window.clearInterval(timer); };
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 5000);
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => { cancelAnimationFrame(frame); window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisibilityChange); };
   }, [refresh]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const providerOrderId = params.get("order_id");
-    if (!providerOrderId || params.get("payment") !== "success") return;
-    void fetch(`/api/payments/mercado-pago/confirm?orderId=${encodeURIComponent(providerOrderId)}`, {
-      credentials: "include", cache: "no-store",
-    }).then(async (response) => {
-      const result = await readApiResponse<{ confirmed: boolean }>(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível confirmar o pagamento.");
-      setNotice("Pagamento confirmado. A assistência já pode iniciar o reparo.");
-      await refresh();
-      window.history.replaceState(null, "", "/cliente/ordens");
-    }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Não foi possível confirmar o pagamento."));
+    if (params.get("provider") === "infinitepay" && params.get("payment") === "success") {
+      void fetch(`/api/payments/infinitepay/confirm?${params.toString()}`, { credentials: "include", cache: "no-store" })
+        .then(async (response) => {
+          const result = await readApiResponse<{ confirmed: boolean }>(response);
+          if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível confirmar o pagamento.");
+          setNotice("Pagamento InfinitePay confirmado. A assistência já pode iniciar o reparo.");
+          await refresh();
+          window.history.replaceState(null, "", "/cliente/ordens");
+        }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Não foi possível confirmar o pagamento."));
+      return;
+    }
   }, [refresh]);
 
   async function act(order: ClientOrder, action: "approve" | "cancel", approval?: Record<string, unknown>) {
@@ -110,26 +112,6 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
       if (action === "approve") setCheckoutId(null);
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o reparo."); }
-    finally { setBusyId(null); }
-  }
-
-  async function scheduleReturn(order: ClientOrder, scheduledDate: string, schedulePeriod: string) {
-    setBusyId(order.id); setError(""); setNotice("");
-    try {
-      const quoteResponse = await fetch(`/api/orders/${encodeURIComponent(order.id)}/logistics`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: "return", scheduledDate, schedulePeriod }),
-      });
-      const quoted = await readApiResponse<{ quote: { quotedFeeCents?: number } }>(quoteResponse);
-      if (!quoteResponse.ok || !quoted.success) throw new Error(quoted.message || "Não foi possível cotar a devolução.");
-      const fee = quoted.data?.quote.quotedFeeCents;
-      if (!window.confirm(`Entrega imediata Lalamove${fee !== undefined ? ` · ${money(fee)}` : ""}. Confirmar solicitação?`)) { await refresh(); return; }
-      const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/logistics`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ direction: "return", confirm: true }) });
-      const result = await readApiResponse<{ delivery: unknown }>(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível solicitar a devolução.");
-      setNotice("Entrega imediata solicitada. Você poderá acompanhar o motorista por aqui.");
-      await refresh();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível agendar a devolução."); }
     finally { setBusyId(null); }
   }
 
@@ -223,10 +205,10 @@ export default function ClientOrders({ initialQuery }: { initialQuery: string })
           {expanded && <div id={`details-${order.id}`} className={styles.details}><div className={styles.detailsGrid}><section><h4>Problema informado</h4><p>{order.problem}</p>{order.symptoms.length > 0 && <p className={styles.subtle}>Sintomas: {order.symptoms.join(" · ")}</p>}{order.checklist.length > 0 && <p className={styles.subtle}>Informações do aparelho: {order.checklist.join(" · ")}</p>}{order.diagnosis && <><h4>Diagnóstico da assistência</h4><p>{order.diagnosis}</p></>}{order.status === "rejected" && order.serviceDetails.rejectionReason && <><h4>Motivo da recusa</h4><p>{order.serviceDetails.rejectionReason}</p></>}</section><section><h4>Andamento</h4><ol className={styles.timeline}>{order.history.map((item, index) => <li key={`${item.status}-${index}`}><strong>{ORDER_LABELS[item.status]}</strong><time dateTime={item.at}>{dateTime(item.at)}</time></li>)}</ol></section></div>
             {order.quote.length > 0 && <section className={styles.quote}><div className={styles.quoteHeading}><div><h4>Orçamento detalhado</h4><small>{order.serviceDetails.estimatedDays} dias úteis · {order.serviceDetails.warrantyDays} dias de garantia</small></div><strong>{money(order.totalCents)}</strong></div><div className={styles.quoteItems}>{order.quote.map((item, index) => <div key={`${item.name}-${index}`}><span><b>{item.category === "part" ? "Peça" : "Mão de obra"} · {item.name}</b>{item.details && <small>{item.details}</small>}<small>{item.quantity} × {money(item.unitPriceCents)}</small></span><strong>{money(item.quantity * item.unitPriceCents)}</strong></div>)}</div>{order.status === "quoted" && <p>O reparo só começa após a confirmação do pagamento.</p>}</section>}
             {checkoutId === order.id && order.status === "quoted" && order.totalCents >= MINIMUM_CHECKOUT_CENTS ? <OrderCheckout order={order} busy={busyId === order.id} onCancel={() => setCheckoutId(null)} /> : <div className={styles.detailActions}>{order.status === "quoted" && (order.totalCents >= MINIMUM_CHECKOUT_CENTS ? <button type="button" className={styles.primaryButton} disabled={busyId !== null} onClick={() => setCheckoutId(order.id)}>{`Pagar · ${money(order.totalCents)}`}</button> : <p className={styles.nextStep}>Este orçamento está abaixo do mínimo de R$ 5,00 aceito pelo checkout. Solicite a correção à assistência.</p>)}{canCancel && <button type="button" className={styles.cancelButton} disabled={busyId !== null} onClick={() => setPendingCancel(order)}>Cancelar solicitação</button>}<Link href={`/cliente/ajuda?partnerId=${encodeURIComponent(order.partnerId)}&order=${encodeURIComponent(order.id)}`}>Falar sobre esta ordem →</Link></div>}
-            {order.serviceDetails.paymentStatus === "confirmed" && <section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>COMPROVANTE</span><h4>Pagamento confirmado</h4><p>{order.serviceDetails.paymentMethod === "pix" ? "PIX" : "Cartão"} · {dateTime(order.serviceDetails.paidAt)}</p></div><div><strong>{money(order.totalCents)}</strong><small>{collectionScheduleLabel(order.serviceDetails.scheduledDate, order.serviceDetails.schedulePeriod)}</small></div><p>{order.serviceDetails.serviceAddress}</p></section>}
-            {(order.serviceDetails.logistics || order.status === "ready") && <section className={styles.quote}><h4>Entrega imediata</h4><p>A Lalamove inicia a busca por um motorista assim que a solicitação é confirmada. A comprovação de entrega (POD) pode ser registrada pelo motorista.</p>{(["pickup", "return"] as const).map((direction) => { const leg = order.serviceDetails.logistics?.[direction]; if (!leg) return null; return <div className={integratedStyles.quoteExtra} key={direction}><span>{direction === "pickup" ? "Cliente → assistência" : "Assistência → cliente"} · {logisticsStatusLabel(leg.status)}{leg.quotedFeeCents !== undefined ? ` · ${money(leg.quotedFeeCents)}` : ""}</span>{leg.trackingUrl ? <a href={leg.trackingUrl} target="_blank" rel="noreferrer">Acompanhar ↗</a> : <strong>{leg.error || "Preparando"}</strong>}</div>; })}{order.status === "ready" && !order.serviceDetails.logistics?.return?.deliveryId && <div className={integratedStyles.checkoutGrid}><button className={styles.primaryButton} disabled={busyId !== null} onClick={() => void scheduleReturn(order, "", "")}>Solicitar agora</button><button type="button" className={styles.detailsButton} disabled={busyId !== null} onClick={() => setPendingReceipt(order)}>Já retirei presencialmente</button></div>}{order.status === "completed" && order.serviceDetails.warrantyEndsAt && <p>Garantia válida até {date(order.serviceDetails.warrantyEndsAt)}.</p>}</section>}
-            {order.status === "completed" && order.serviceDetails.warrantyEndsAt && new Date(order.serviceDetails.warrantyEndsAt).getTime() >= renderedAt && <section className={styles.quote}><h4>Garantia do reparo</h4>{order.serviceDetails.warrantyClaim ? <p>Solicitação: {order.serviceDetails.warrantyClaim.status === "requested" ? "aguardando análise" : order.serviceDetails.warrantyClaim.status === "accepted" ? "aceita" : "recusada"}. {order.serviceDetails.warrantyClaim.response || ""}</p> : <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestWarranty(order, String(data.get("reason"))); }}><label>Descreva o problema que voltou<textarea name="reason" minLength={10} maxLength={2000} required /></label><button className={styles.primaryButton} disabled={busyId !== null}>Acionar garantia</button></form>}</section>}
-            {order.status === "approved" && !order.serviceDetails.logistics?.pickup?.deliveryId && (order.serviceDetails.cancellationRequestedAt ? <p className={styles.nextStep}>Cancelamento e reembolso em análise pela equipe SmartFix.</p> : <form className={integratedStyles.checkout} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestPaidCancellation(order, String(data.get("reason"))); }}><h4>Precisa cancelar?</h4><label>Explique o motivo<textarea name="reason" minLength={10} maxLength={1000} required /></label><button className={styles.cancelButton} disabled={busyId !== null}>Solicitar cancelamento e reembolso</button></form>)}
+            {order.serviceDetails.paymentStatus === "confirmed" && <><section className={integratedStyles.receipt}><div><span className={styles.eyebrow}>PAGAMENTO CONFIRMADO</span><h4>Leve o aparelho à assistência</h4><strong>{order.partnerName || "Assistência parceira"}</strong><p>{order.partnerAddress || "Consulte a assistência pelo chat para confirmar o endereço completo."}</p><p>Recomendamos levar o dispositivo pessoalmente. Se preferir, você pode contratar por conta própria serviços como Uber Entrega ou 99 Entrega.</p><p className={styles.nextStep}><strong>Aviso legal:</strong> a SmartFix não se responsabiliza pelo transporte nem por eventuais danos, extravios ou perdas do aparelho durante o trajeto realizado por aplicativos de terceiros.</p></div></section><OrderChat orderId={order.id} audience="client" /></>}
+            {order.status === "ready" && <section className={styles.quote}><h4>Retirada do aparelho</h4><p>Combine a retirada diretamente com a assistência.</p><button type="button" className={styles.detailsButton} disabled={busyId !== null} onClick={() => setPendingReceipt(order)}>Já retirei presencialmente</button></section>}
+            {filter === "completed" && order.status === "completed" && order.serviceDetails.warrantyEndsAt && new Date(order.serviceDetails.warrantyEndsAt).getTime() >= renderedAt && <section className={styles.quote}><h4>Garantia do reparo</h4>{order.serviceDetails.warrantyClaim ? <p>Solicitação: {order.serviceDetails.warrantyClaim.status === "requested" ? "aguardando análise" : order.serviceDetails.warrantyClaim.status === "accepted" ? "aceita" : "recusada"}. {order.serviceDetails.warrantyClaim.response || ""}</p> : <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestWarranty(order, String(data.get("reason"))); }}><label>Descreva o problema que voltou<textarea name="reason" minLength={10} maxLength={2000} required /></label><button className={styles.primaryButton} disabled={busyId !== null}>Acionar garantia</button></form>}</section>}
+            {order.status === "approved" && (order.serviceDetails.cancellationRequestedAt ? <p className={styles.nextStep}>Cancelamento e reembolso em análise pela equipe SmartFix.</p> : <form className={integratedStyles.checkout} onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void requestPaidCancellation(order, String(data.get("reason"))); }}><h4>Precisa cancelar?</h4><label htmlFor={`cancel-reason-${order.id}`}>Explique o motivo</label><textarea id={`cancel-reason-${order.id}`} name="reason" placeholder="Explique o motivo" minLength={10} maxLength={1000} required /><button className={styles.cancelButton} disabled={busyId !== null}>Solicitar cancelamento e reembolso</button></form>)}
             <TrackingCode orderId={order.id} device={order.device} />
           </div>}
         </article>;

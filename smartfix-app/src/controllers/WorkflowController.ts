@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ClientDevice, Partner, PartnerService, Review } from "@/src/models";
+import { ClientAddress, ClientDevice, Partner, PartnerService, Review } from "@/src/models";
 import { AppError } from "@/src/errors/AppError";
 import {
   actorFrom,
@@ -23,6 +23,7 @@ import {
 } from "@/src/services/whatsapp.service";
 import {
   listLocalDevices,
+  listLocalOwnerAddresses,
   listLocalPartners,
   usesLocalAuthStore,
   verifyLocalPartner,
@@ -33,6 +34,7 @@ import {
   type WorkflowRecord,
 } from "@/src/types/workflow";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
+import { cancelExpiredUnpaidOrders } from "@/src/services/order-expiration.service";
 
 function ok(data: unknown, status = 200) {
   return noStoreResponse(
@@ -91,6 +93,7 @@ export class WorkflowController {
   static async list(request: NextRequest) {
     try {
       const actor = await actorFrom(request);
+      await cancelExpiredUnpaidOrders();
       const orders = await withWorkflow((records) =>
         records
           .filter((record) => record.kind === "order")
@@ -108,12 +111,21 @@ export class WorkflowController {
       const clientAccounts = actor.role === "partner"
         ? new Map((await Promise.all([...new Set(orders.map((order) => order.clientId))].map(async (id) => [id, await accountById(id, "client")] as const))).map(([id, account]) => [id, account]))
         : null;
+      const partnerAddresses = actor.role === "client" ? new Map(await Promise.all([...new Set(orders.map((order) => order.partnerId))].map(async (partnerId) => {
+        const addresses = usesLocalAuthStore()
+          ? await listLocalOwnerAddresses(partnerId, "partner")
+          : await ClientAddress.findAll({ where: { partner_id: partnerId }, order: [["principal", "DESC"]] });
+        const address = addresses[0];
+        const formatted = address ? `${address.logradouro}, ${address.numero}${address.complemento ? `, ${address.complemento}` : ""} — ${address.bairro}, ${address.cidade}/${address.estado} — CEP ${address.cep}` : "";
+        return [partnerId, formatted] as const;
+      }))) : null;
       return ok({
         orders: orders.map((order) => ({
           ...order,
           serviceDetails: actor.role === "client" ? { ...order.serviceDetails, internalNotes: "" } : order.serviceDetails,
           totalCents: quoteTotal(order.quote, order.serviceDetails.deliveryFeeCents, order.serviceDetails.discountCents),
           ...(partnerNames ? { partnerName: partnerNames.get(order.partnerId) || "Assistência parceira" } : {}),
+          ...(partnerAddresses && order.serviceDetails.paymentStatus === "confirmed" ? { partnerAddress: partnerAddresses.get(order.partnerId) || "" } : {}),
           ...(clientAccounts ? { clientName: clientAccounts.get(order.clientId)?.name || "Cliente", clientEmail: clientAccounts.get(order.clientId)?.email || "", clientPhone: clientAccounts.get(order.clientId)?.phone || "" } : {}),
         })),
       });
@@ -410,5 +422,15 @@ export class WorkflowController {
     } catch (error) {
       return failure(error);
     }
+  }
+  static async clearNotifications(request: NextRequest) {
+    try {
+      const actor = await actorFrom(request);
+      await withWorkflow((records) => {
+        for (let index = records.length - 1; index >= 0; index -= 1)
+          if (records[index].kind === "notification" && records[index].ownerId === actor.sub) records.splice(index, 1);
+      }, true);
+      return ok({});
+    } catch (error) { return failure(error); }
   }
 }

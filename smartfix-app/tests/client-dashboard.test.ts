@@ -11,7 +11,7 @@ function order(id: string, status: OrderStatus, createdAt: string, reviewed = fa
       scheduledDate: "", schedulePeriod: "", serviceAddress: "", paymentMethod: "", paymentStatus: "pending", paidAt: "" } };
 }
 
-test("destaca orçamento, retirada e avaliação antes dos reparos recentes", () => {
+test("destaca somente etapas que exigem ação e não alerta ordens concluídas", () => {
   const result = summarizeClientOrders([
     order("pending", "pending", "2026-09-17T12:00:00Z"),
     order("done", "completed", "2026-09-16T12:00:00Z"),
@@ -21,8 +21,8 @@ test("destaca orçamento, retirada e avaliação antes dos reparos recentes", ()
   ]);
   assert.deepEqual({ active: result.active, awaitingApproval: result.awaitingApproval, completed: result.completed },
     { active: 3, awaitingApproval: 1, completed: 2 });
-  assert.deepEqual(result.attention.map(({ id }) => id), ["quoted", "ready", "done"]);
-  assert.deepEqual(result.recent.map(({ id }) => id), ["pending", "reviewed"]);
+  assert.deepEqual(result.attention.map(({ id }) => id), ["quoted", "ready"]);
+  assert.deepEqual(result.recent.map(({ id }) => id), ["pending", "done", "reviewed"]);
 });
 
 test("mantém indicadores e listas vazios sem pedidos", () => {

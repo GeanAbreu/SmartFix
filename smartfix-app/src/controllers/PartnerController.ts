@@ -6,6 +6,7 @@ import { Partner } from "@/src/models";
 import { actorFrom } from "@/src/services/account.service";
 import {
   findLocalUserById,
+  updateLocalPartnerPixKey,
   updateLocalPartnerProfile,
   usesLocalAuthStore,
 } from "@/src/services/local-auth.service";
@@ -14,7 +15,6 @@ import {
   sessionCookieOptions,
 } from "@/src/services/session.service";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
-import { exchangeAuthorizationCode, mercadoPagoAuthorizationUrl, readOAuthState, savePartnerAuthorization } from "@/src/services/mercado-pago.service";
 
 export class PartnerController {
   static async me(request: NextRequest) {
@@ -43,7 +43,7 @@ export class PartnerController {
               "company_name",
               "phone",
               "is_verified",
-              "mercado_pago_user_id",
+              "pix_key",
             ],
           }));
 
@@ -67,8 +67,7 @@ export class PartnerController {
               ? partner.isVerified
               : partner.is_verified,
             phone: isLocalPartner ? partner.phone : partner.phone,
-            mercadoPagoConnected: isLocalPartner ? false : Boolean(partner.mercado_pago_user_id),
-            mercadoPagoUserId: isLocalPartner ? null : partner.mercado_pago_user_id,
+            pixKey: isLocalPartner ? partner.pixKey || null : partner.pix_key,
           },
         },
       }));
@@ -106,29 +105,19 @@ export class PartnerController {
     }
   }
 
-  static async connectMercadoPago(request: NextRequest) {
+  static async updatePixKey(request: NextRequest) {
     try {
       const actor = await actorFrom(request);
       if (actor.role !== "partner") throw new AppError("Esta área é exclusiva para parceiros.", 403, "FORBIDDEN");
-      if (usesLocalAuthStore()) throw new AppError("A conexão com o Mercado Pago exige o banco de dados.", 503, "DATABASE_REQUIRED");
-      return NextResponse.redirect(mercadoPagoAuthorizationUrl(actor.sub));
+      const input = z.object({
+        pixKey: z.string().trim().min(5, "Informe uma chave PIX válida.").max(150),
+      }).parse(await request.json());
+      if (usesLocalAuthStore()) await updateLocalPartnerPixKey(actor.sub, input.pixKey);
+      else {
+        const [updated] = await Partner.update({ pix_key: input.pixKey }, { where: { id: actor.sub } });
+        if (!updated) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
+      }
+      return noStoreResponse(NextResponse.json({ success: true, data: input }));
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
-  }
-
-  static async mercadoPagoCallback(request: NextRequest) {
-    const target = new URL("/parceiro/financeiro", request.nextUrl.origin);
-    try {
-      const actor = await actorFrom(request);
-      const state = readOAuthState(z.string().min(20).parse(request.nextUrl.searchParams.get("state")));
-      if (actor.role !== "partner" || actor.sub !== state.partnerId)
-        throw new AppError("A autorização não pertence a esta conta.", 403, "FORBIDDEN");
-      const credentials = await exchangeAuthorizationCode(
-        z.string().min(5).parse(request.nextUrl.searchParams.get("code")), state.codeVerifier);
-      await savePartnerAuthorization(actor.sub, credentials);
-      target.searchParams.set("mercadoPago", "connected");
-    } catch {
-      target.searchParams.set("mercadoPago", "error");
-    }
-    return NextResponse.redirect(target);
   }
 }
