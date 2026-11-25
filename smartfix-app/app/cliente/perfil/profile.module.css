@@ -10,6 +10,10 @@
 .pageHeader p { margin: 0; color: #aab7c7; }
 .identityBanner { display: flex; align-items: center; gap: 20px; min-height: 144px; margin-bottom: 24px; padding: 24px 28px; border: 1px solid rgba(60,130,190,.3); border-radius: 16px; background: linear-gradient(115deg, #102c48, #0d1b2d 72%); }
 .heroAvatar { flex: 0 0 70px; width: 70px; height: 70px; display: grid; place-items: center; border: 1px solid rgba(130,196,243,.28); border-radius: 18px; background: #194366; color: #fff; font-size: 24px; font-weight: 800; }
+.avatarButton { position: relative; flex: 0 0 70px; width: 70px; height: 70px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(130,196,243,.4); border-radius: 18px; background: #194366 center/cover no-repeat; color: #fff; font: inherit; font-size: 24px; font-weight: 800; cursor: pointer; }
+.avatarButton img { width: 100%; height: 100%; object-fit: cover; }
+.avatarButton span { position: absolute; right: 4px; bottom: 4px; display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; background: #ff6b1a; font-size: 12px; }
+.identityBanner small { color: #7992aa; font-size: 11px; }
 .identityBanner h2 { margin: 5px 0 2px; font-size: 24px; }
 .identityBanner p { margin: 0; color: #aab7c7; overflow-wrap: anywhere; }
 .contentGrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(275px, .9fr); align-items: start; gap: 20px; }
@@ -19,9 +23,13 @@
 .cardHeading p, .sideDescription { margin: 9px 0 0; color: #9eafbf; font-size: 13px; line-height: 1.5; }
 .form { display: grid; gap: 21px; padding-top: 22px; }
 .form label { display: grid; gap: 8px; color: #dce8f3; font-size: 13px; font-weight: 700; }
-.form input { width: 100%; min-width: 0; height: 45px; padding: 10px 13px; border: 1px solid rgba(90,146,190,.38); border-radius: 9px; outline: none; background: #071524; color: #fff; font: inherit; font-size: 15px; font-weight: 400; }
+.form input, .form textarea { width: 100%; min-width: 0; min-height: 45px; padding: 10px 13px; border: 1px solid rgba(90,146,190,.38); border-radius: 9px; outline: none; background: #071524; color: #fff; font: inherit; font-size: 15px; font-weight: 400; }
+.form textarea { min-height: 88px; resize: vertical; }
 .form input:focus { border-color: #72b9ed; box-shadow: 0 0 0 3px rgba(114,185,237,.15); }
 .form label small { color: #91a5b7; font-size: 12px; font-weight: 400; }
+.form .checkbox { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+.form .checkbox input { width: 16px; min-height: 16px; accent-color: #ff6b1a; }
+.form .fieldError { color: #ff9f9f; }
 .formActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 3px; }
 .primaryButton, .secondaryButton { min-height: 43px; padding: 10px 17px; border: 0; border-radius: 9px; background: #ff6b1a; color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
 .primaryButton:hover, .secondaryButton:hover { background: #e65b0c; }
@@ -33,6 +41,12 @@
 .details div { padding: 13px 0; border-top: 1px solid rgba(60,130,190,.2); }
 .details dt { margin-bottom: 5px; color: #91a5b7; font-size: 12px; }
 .details dd { margin: 0; color: #e8edf5; font-size: 14px; overflow-wrap: anywhere; }
+.privateValue { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.privateValue button { border: 0; background: transparent; color: #8bc6f0; font-size: 19px; cursor: pointer; }
+.linkedBadge, .pendingBadge, .statusApproved, .statusPending { display: inline-block; width: fit-content; padding: 6px 9px; border: 1px solid rgba(52,211,153,.3); border-radius: 999px; background: rgba(16,185,129,.13); color: #6ee7b7; font-size: 12px; font-weight: 750; }
+.pendingBadge, .statusPending { border-color: rgba(251,191,36,.3); background: rgba(245,158,11,.13); color: #fcd34d; }
+.statusApproved, .statusPending { padding: 4px 8px; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .securityLinks { display: grid; margin-top: 18px; border-top: 1px solid rgba(60,130,190,.2); }
 .securityLinks a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 0; border-bottom: 1px solid rgba(60,130,190,.2); color: #8bc6f0; font-size: 13px; font-weight: 700; text-decoration: none; }
 .securityLinks a:last-child { border-bottom: 0; padding-bottom: 0; }

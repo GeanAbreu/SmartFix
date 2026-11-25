@@ -1,64 +1,24 @@
 "use client";
-
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type { PartnerProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "@/app/cliente/perfil/profile.module.css";
 import AddressManager from "@/app/cliente/enderecos/AddressManager";
-
-type Form = { companyName: string; phone: string };
-const editable = (profile: PartnerProfile): Form => ({ companyName: profile.companyName || "", phone: profile.phone || "" });
+type Form = { companyName: string; phone: string; businessHours: string };
+const editable = (p: PartnerProfile): Form => ({ companyName: p.companyName || "", phone: p.phone || "", businessHours: p.businessHours || "" });
 const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SF";
-
 export default function PartnerProfilePage() {
-  const [profile, setProfile] = useState<PartnerProfile | null>(null);
-  const [form, setForm] = useState<Form>({ companyName: "", phone: "" });
-  const [saved, setSaved] = useState<Form>({ companyName: "", phone: "" });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  async function load() {
-    setLoading(true); setError("");
-    try {
-      const response = await fetch("/api/partners/me", { credentials: "include", cache: "no-store" });
-      const result = await readApiResponse<{ partner: PartnerProfile }>(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os dados da assistência.");
-      const next = editable(result.data.partner); setProfile(result.data.partner); setForm(next); setSaved(next);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível carregar os dados da assistência."); }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => { let active = true; void fetch("/api/partners/me", { credentials: "include", cache: "no-store" }).then(async (response) => {
-    const result = await readApiResponse<{ partner: PartnerProfile }>(response);
-    if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os dados da assistência.");
-    if (active) { const next = editable(result.data.partner); setProfile(result.data.partner); setForm(next); setSaved(next); }
-  }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Não foi possível carregar os dados da assistência."); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (saving) return; setSaving(true); setError(""); setSuccess("");
-    const input = { companyName: form.companyName.trim(), phone: form.phone.trim() };
-    try {
-      const response = await fetch("/api/partners/me", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-      const result = await readApiResponse(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível salvar as alterações.");
-      setForm(input); setSaved(input); setProfile((current) => current ? { ...current, ...input } : current); setSuccess("Dados da assistência atualizados.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar as alterações."); }
-    finally { setSaving(false); }
-  }
-
+  const fileRef = useRef<HTMLInputElement>(null); const [profile, setProfile] = useState<PartnerProfile | null>(null); const [form, setForm] = useState<Form>({ companyName: "", phone: "", businessHours: "" }); const [saved, setSaved] = useState(form); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [uploading, setUploading] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  async function load() { setLoading(true); setError(""); try { const response = await fetch("/api/partners/me", { credentials: "include", cache: "no-store" }); const result = await readApiResponse<{ partner: PartnerProfile }>(response); if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível carregar os dados da assistência."); const next = editable(result.data.partner); setProfile(result.data.partner); setForm(next); setSaved(next); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível carregar os dados da assistência."); } finally { setLoading(false); } }
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
+  const changed = JSON.stringify(form) !== JSON.stringify(saved);
+  async function save(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (saving) return; setSaving(true); setError(""); setSuccess(""); const input = { companyName: form.companyName.trim(), phone: form.phone.trim(), businessHours: form.businessHours.trim() }; try { const response = await fetch("/api/partners/me", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); const result = await readApiResponse(response); if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível salvar as alterações."); setForm(input); setSaved(input); setProfile((current) => current ? { ...current, ...input } : current); setSuccess("Dados da assistência atualizados."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar as alterações."); } finally { setSaving(false); } }
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) { const file = event.target.files?.[0]; if (!file) return; setUploading(true); setError(""); try { const body = new FormData(); body.set("avatar", file); const response = await fetch("/api/profile/avatar", { method: "POST", body }); const result = await readApiResponse<{ avatarUrl: string }>(response); if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível alterar a logo."); setProfile((current) => current ? { ...current, avatarUrl: result.data.avatarUrl } : current); setSuccess("Logo da assistência atualizada."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível alterar a logo."); } finally { setUploading(false); event.target.value = ""; } }
   const name = profile?.companyName || profile?.name || "Assistência SmartFix";
-  const changed = form.companyName.trim() !== saved.companyName || form.phone.trim() !== saved.phone;
-  return <main className={styles.page}><section className={styles.mainArea}>
-    <div className={styles.topLine}><Link href="/parceiro/dashboard">← Voltar ao início</Link></div>
-    <header className={styles.pageHeader}><span className={styles.eyebrow}>CONFIGURAÇÕES</span><h1>Minha assistência</h1><p>Mantenha os dados da empresa e as opções de acesso atualizados.</p></header>
-    {loading ? <section className={styles.card} role="status"><p className={styles.stateMessage}>Carregando dados...</p></section> : error && !profile ? <section className={styles.card} role="alert"><p className={styles.stateMessage}>{error}</p><button className={styles.secondaryButton} onClick={() => void load()}>Tentar novamente</button></section> : profile && <>
-      <section className={styles.identityBanner}><span className={styles.heroAvatar}>{initials(name)}</span><div><span className={styles.eyebrow}>{profile.isVerified ? "ASSISTÊNCIA APROVADA" : "CREDENCIAMENTO EM ANÁLISE"}</span><h2>{name}</h2><p>{profile.email}</p></div></section>
-      <div className={styles.contentGrid}><section className={styles.card}><div className={styles.cardHeading}><div><span className={styles.eyebrow}>DADOS PÚBLICOS</span><h2>Informações da assistência</h2></div><p>Esses dados identificam sua empresa para clientes e entregadores.</p></div>{error && <p className={styles.error} role="alert">{error}</p>}{success && <p className={styles.success} role="status">{success}</p>}
-        <form className={styles.form} onSubmit={(event) => void save(event)}><label>Nome da assistência<input value={form.companyName} minLength={3} maxLength={150} required onChange={(event) => { setForm((current) => ({ ...current, companyName: event.target.value })); setSuccess(""); }} /></label><label>Telefone / WhatsApp<input type="tel" inputMode="tel" autoComplete="tel" value={form.phone} minLength={10} maxLength={20} required onChange={(event) => { setForm((current) => ({ ...current, phone: event.target.value })); setSuccess(""); }} /><small>Usado no atendimento e na logística de coleta e entrega.</small></label><div className={styles.formActions}><button className={styles.primaryButton} disabled={saving || !changed}>{saving ? "Salvando..." : "Salvar alterações"}</button>{changed && <button type="button" className={styles.textButton} onClick={() => { setForm(saved); setError(""); setSuccess(""); }}>Cancelar</button>}</div></form>
-      </section><div className={styles.sideCards}><section className={styles.card}><span className={styles.eyebrow}>REPASSES</span><h2>Recebimento centralizado</h2><p>Os pagamentos são processados pela SmartFix. Cadastre sua chave PIX e acompanhe os repasses no Financeiro.</p><div className={styles.securityLinks}><Link href="/parceiro/financeiro">Gerenciar repasses <span>→</span></Link></div></section><section className={styles.card}><span className={styles.eyebrow}>CONTA</span><h2>Dados protegidos</h2><dl className={styles.details}><div><dt>E-mail</dt><dd>{profile.email}</dd></div><div><dt>Responsável</dt><dd>{profile.name}</dd></div><div><dt>Status</dt><dd>{profile.isVerified ? "Aprovada" : "Em análise"}</dd></div></dl></section><section className={styles.card}><span className={styles.eyebrow}>SEGURANÇA E SUPORTE</span><h2>Acesso à conta</h2><div className={styles.securityLinks}><a href="/api/auth/google?link=true">Vincular conta Google <span>↗</span></a><Link href="/esqueci-senha">Redefinir senha <span>→</span></Link><Link href="/parceiro/mensagens">Falar com a SmartFix <span>→</span></Link></div></section></div></div><AddressManager endpoint="/api/partners/addresses" partnerMode />
-    </>}
+  return <main className={styles.page}><section className={styles.mainArea}><div className={styles.topLine}><Link href="/parceiro/dashboard">← Voltar ao início</Link></div><header className={styles.pageHeader}><span className={styles.eyebrow}>CONFIGURAÇÕES</span><h1>Minha assistência</h1><p>Mantenha os dados públicos da empresa atualizados.</p></header>
+    {loading ? <section className={styles.card}>Carregando dados...</section> : !profile ? <section className={styles.card}><p>{error}</p><button className={styles.secondaryButton} onClick={() => void load()}>Tentar novamente</button></section> : <><section className={styles.identityBanner}><button type="button" className={styles.avatarButton} style={profile.avatarUrl ? { backgroundImage: `url(${profile.avatarUrl})` } : undefined} onClick={() => fileRef.current?.click()} disabled={uploading} aria-label="Alterar logo da assistência">{profile.avatarUrl ? <span className={styles.srOnly}>Logo da assistência</span> : initials(name)}<span>{uploading ? "…" : "✎"}</span></button><input ref={fileRef} className={styles.srOnly} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadAvatar(event)} /><div><span className={styles.eyebrow}>{profile.isVerified ? "ASSISTÊNCIA APROVADA" : "CREDENCIAMENTO EM ANÁLISE"}</span><h2>{name}</h2><p>{profile.email}</p><small>Clique na logo para alterar</small></div></section>
+      <div className={styles.contentGrid}><section className={styles.card}><div className={styles.cardHeading}><div><span className={styles.eyebrow}>DADOS PÚBLICOS</span><h2>Informações da assistência</h2></div><p>Esses dados identificam sua assistência para os clientes após a contratação do reparo.</p></div>{error && <p className={styles.error} role="alert">{error}</p>}{success && <p className={styles.success} role="status">{success}</p>}<form className={styles.form} onSubmit={(event) => void save(event)}><label>Nome da assistência<input value={form.companyName} minLength={3} maxLength={150} required onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))} /></label><label>Telefone / WhatsApp<input type="tel" inputMode="tel" autoComplete="tel" value={form.phone} minLength={10} maxLength={20} required onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /><small>Contato de atendimento ao cliente.</small></label><label>Horário de funcionamento<textarea value={form.businessHours} minLength={5} maxLength={300} required placeholder="Seg a Sex: 09h às 18h | Sáb: 09h às 13h" onChange={(event) => setForm((current) => ({ ...current, businessHours: event.target.value }))} /></label><div className={styles.formActions}><button className={styles.primaryButton} disabled={saving || !changed}>{saving ? "Salvando..." : "Salvar alterações"}</button>{changed && <button type="button" className={styles.textButton} onClick={() => setForm(saved)}>Cancelar</button>}</div></form></section>
+      <div className={styles.sideCards}><section className={styles.card}><span className={styles.eyebrow}>REPASSES</span><h2>Recebimento centralizado</h2><p className={styles.sideDescription}>Os pagamentos são processados pela SmartFix.</p><p className={profile.pixKey ? styles.linkedBadge : styles.pendingBadge}>{profile.pixKey ? "✓ Chave PIX cadastrada" : "! Chave PIX pendente — cadastre no Financeiro"}</p><div className={styles.securityLinks}><Link href="/parceiro/financeiro">Gerenciar repasses <span>→</span></Link></div></section><section className={styles.card}><span className={styles.eyebrow}>CONTA</span><h2>Dados protegidos</h2><dl className={styles.details}><div><dt>Responsável 🔒</dt><dd>{profile.name}</dd></div><div><dt>Status 🔒</dt><dd><span className={profile.isVerified ? styles.statusApproved : styles.statusPending}>{profile.isVerified ? "Aprovada" : "Em análise"}</span></dd></div></dl><div className={styles.securityLinks}><Link href="/parceiro/mensagens">Precisa alterar dados cadastrais? Fale com o suporte <span>→</span></Link></div></section><section className={styles.card}><span className={styles.eyebrow}>SEGURANÇA</span><h2>Acesso à conta</h2><div className={styles.securityLinks}>{profile.googleLinked ? <p className={styles.linkedBadge}>✓ Conta Google vinculada</p> : <a href="/api/auth/google?link=true">Vincular conta Google <span>→</span></a>}<Link href="/esqueci-senha">Redefinir senha <span>→</span></Link></div></section></div></div><AddressManager endpoint="/api/partners/addresses" partnerMode /></>}
   </section></main>;
 }

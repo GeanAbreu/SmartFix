@@ -1,135 +1,28 @@
 "use client";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type { ClientProfile } from "@/src/types/api";
 import { readApiResponse } from "@/src/services/api-response.service";
 import styles from "./profile.module.css";
-
-type ProfileData = { client: ClientProfile };
-type EditableProfile = { nome: string; telefone: string };
-
-function editableProfile(client: ClientProfile): EditableProfile {
-  return { nome: client.nome ?? "", telefone: client.telefone ?? "" };
-}
-
-function initialsFor(name: string) {
-  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SF";
-}
-
+type Data = { client: ClientProfile }; type Form = { nome: string; telefone: string; whatsapp: boolean };
+const editable = (p: ClientProfile): Form => ({ nome: p.nome ?? "", telefone: p.telefone ?? "", whatsapp: p.whatsapp });
+const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SF";
+const formatCpf = (value: string) => value.replace(/\D/g, "").slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+const hideCpf = (value: string) => { const d = value.replace(/\D/g, ""); return d.length === 11 ? `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**` : "Não informado"; };
 export default function ClientProfilePage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<ClientProfile | null>(null);
-  const [form, setForm] = useState<EditableProfile>({ nome: "", telefone: "" });
-  const [savedForm, setSavedForm] = useState<EditableProfile>({ nome: "", telefone: "" });
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function loadProfile() {
-    setLoading(true);
-    setLoadError("");
-    try {
-      const response = await fetch("/api/clients/me", { credentials: "include", cache: "no-store" });
-      const result = await readApiResponse<ProfileData>(response);
-      if (!response.ok || !result.success) {
-        if (!result.success && result.redirectTo) { router.replace(result.redirectTo); return; }
-        throw new Error(result.message || "Não foi possível carregar seu perfil.");
-      }
-      setProfile(result.data.client);
-      setForm(editableProfile(result.data.client));
-      setSavedForm(editableProfile(result.data.client));
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Não foi possível carregar seu perfil.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/clients/me", { credentials: "include", cache: "no-store" })
-      .then(async (response) => {
-        const result = await readApiResponse<ProfileData>(response);
-        if (!response.ok || !result.success) {
-          if (!result.success && result.redirectTo) { router.replace(result.redirectTo); return; }
-          throw new Error(result.message || "Não foi possível carregar seu perfil.");
-        }
-        if (active) {
-          setProfile(result.data.client);
-          setForm(editableProfile(result.data.client));
-          setSavedForm(editableProfile(result.data.client));
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) setLoadError(error instanceof Error ? error.message : "Não foi possível carregar seu perfil.");
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [router]);
-
-  async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (saving) return;
-    setSaving(true);
-    setSaveError("");
-    setSaveSuccess("");
-    const input = { nome: form.nome.trim(), telefone: form.telefone.trim() };
-    try {
-      const response = await fetch("/api/clients/me", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const result = await readApiResponse(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível salvar as alterações.");
-      setForm(input);
-      setSavedForm(input);
-      setProfile((current) => current ? { ...current, ...input } : current);
-      setSaveSuccess("Seus dados foram atualizados.");
-      window.dispatchEvent(new Event("smartfix:profile-updated"));
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Não foi possível salvar as alterações.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
+  const router = useRouter(); const fileRef = useRef<HTMLInputElement>(null);
+  const [profile, setProfile] = useState<ClientProfile | null>(null); const [form, setForm] = useState<Form>({ nome: "", telefone: "", whatsapp: false }); const [saved, setSaved] = useState<Form>(form);
+  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [uploading, setUploading] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState(""); const [cpfVisible, setCpfVisible] = useState(false);
+  async function load() { setLoading(true); setError(""); try { const response = await fetch("/api/clients/me", { credentials: "include", cache: "no-store" }); const result = await readApiResponse<Data>(response); if (!response.ok || !result.success) { if (!result.success && result.redirectTo) { router.replace(result.redirectTo); return; } throw new Error(result.message || "Não foi possível carregar seu perfil."); } const next = editable(result.data.client); setProfile(result.data.client); setForm(next); setSaved(next); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível carregar seu perfil."); } finally { setLoading(false); } }
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const nameValid = form.nome.trim().split(/\s+/).filter(Boolean).length >= 2; const changed = JSON.stringify(form) !== JSON.stringify(saved);
+  async function save(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (saving || !nameValid) return; setSaving(true); setError(""); setSuccess(""); const input = { ...form, nome: form.nome.trim(), telefone: form.telefone.trim() }; try { const response = await fetch("/api/clients/me", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); const result = await readApiResponse(response); if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível salvar as alterações."); setForm(input); setSaved(input); setProfile((current) => current ? { ...current, ...input } : current); setSuccess("Seus dados foram atualizados."); window.dispatchEvent(new Event("smartfix:profile-updated")); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar as alterações."); } finally { setSaving(false); } }
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) { const file = event.target.files?.[0]; if (!file) return; setUploading(true); setError(""); setSuccess(""); try { const body = new FormData(); body.set("avatar", file); const response = await fetch("/api/profile/avatar", { method: "POST", body }); const result = await readApiResponse<{ avatarUrl: string }>(response); if (!response.ok || !result.success) throw new Error(result.message || "Não foi possível alterar a foto."); setProfile((current) => current ? { ...current, avatarUrl: result.data.avatarUrl } : current); setSuccess("Foto de perfil atualizada."); window.dispatchEvent(new Event("smartfix:profile-updated")); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível alterar a foto."); } finally { setUploading(false); event.target.value = ""; } }
   const displayName = profile?.nome?.trim() || "Cliente SmartFix";
-  const changed = form.nome.trim() !== savedForm.nome.trim() || form.telefone.trim() !== savedForm.telefone.trim();
-
-  return <main className={styles.page}>
-    <section className={styles.mainArea}>
-      <div className={styles.topLine}><Link href="/cliente/dashboard">← Voltar ao início</Link></div>
-      <header className={styles.pageHeader}><span className={styles.eyebrow}>MINHA CONTA</span><h1>Meu perfil</h1><p>Gerencie seus dados pessoais e as opções de acesso à sua conta.</p></header>
-
-      {loading ? <section className={styles.card} role="status"><p className={styles.stateMessage}>Carregando seu perfil...</p></section>
-        : loadError ? <section className={styles.card} role="alert"><p className={styles.stateMessage}>{loadError}</p><button type="button" className={styles.secondaryButton} onClick={() => void loadProfile()}>Tentar novamente</button></section>
-        : profile && <>
-          <section className={styles.identityBanner} aria-label="Resumo da conta"><span className={styles.heroAvatar}>{initialsFor(displayName)}</span><div><span className={styles.eyebrow}>CONTA DE CLIENTE</span><h2>{displayName}</h2><p>{profile.email || "E-mail não informado"}</p></div></section>
-
-          <div className={styles.contentGrid}>
-            <section className={styles.card} aria-labelledby="personal-title">
-              <div className={styles.cardHeading}><div><span className={styles.eyebrow}>DADOS PESSOAIS</span><h2 id="personal-title">Informações de contato</h2></div><p>Esses dados ajudam a assistência a falar com você durante o reparo.</p></div>
-              {saveError && <p className={styles.error} role="alert">{saveError}</p>}
-              {saveSuccess && <p className={styles.success} role="status">{saveSuccess}</p>}
-              <form className={styles.form} onSubmit={(event) => void saveProfile(event)}>
-                <label htmlFor="profile-name">Nome completo<input id="profile-name" autoComplete="name" value={form.nome} minLength={3} maxLength={150} required onChange={(event) => { setForm((current) => ({ ...current, nome: event.target.value })); setSaveSuccess(""); }} /></label>
-                <label htmlFor="profile-phone">Telefone<input id="profile-phone" type="tel" autoComplete="tel" inputMode="tel" value={form.telefone} maxLength={20} required onChange={(event) => { setForm((current) => ({ ...current, telefone: event.target.value })); setSaveSuccess(""); }} /><small>Informe um número com DDD.</small></label>
-                <div className={styles.formActions}><button type="submit" className={styles.primaryButton} disabled={saving || !changed}>{saving ? "Salvando..." : "Salvar alterações"}</button>{changed && <button type="button" className={styles.textButton} disabled={saving} onClick={() => { setForm(savedForm); setSaveError(""); setSaveSuccess(""); }}>Cancelar</button>}</div>
-              </form>
-            </section>
-
-            <div className={styles.sideCards}>
-              <section className={styles.card} aria-labelledby="account-title"><span className={styles.eyebrow}>CADASTRO</span><h2 id="account-title">Dados da conta</h2><dl className={styles.details}><div><dt>E-mail</dt><dd>{profile.email || "Não informado"}</dd></div><div><dt>CPF</dt><dd>{profile.cpf || "Não informado"}</dd></div></dl></section>
-              <section className={styles.card} aria-labelledby="security-title"><span className={styles.eyebrow}>SEGURANÇA</span><h2 id="security-title">Acesso à conta</h2><p className={styles.sideDescription}>Mantenha suas opções de entrada atualizadas.</p><div className={styles.securityLinks}><a href="/api/auth/google?link=true">Vincular conta Google <span aria-hidden="true">↗</span></a><Link href="/esqueci-senha">Redefinir senha <span aria-hidden="true">→</span></Link></div></section>
-            </div>
-          </div>
-        </>}
-    </section>
-  </main>;
+  return <main className={styles.page}><section className={styles.mainArea}><div className={styles.topLine}><Link href="/cliente/dashboard">← Voltar ao início</Link></div><header className={styles.pageHeader}><span className={styles.eyebrow}>MINHA CONTA</span><h1>Meu perfil</h1><p>Gerencie seus dados pessoais e as opções de acesso à sua conta.</p></header>
+    {loading ? <section className={styles.card}>Carregando seu perfil...</section> : !profile ? <section className={styles.card}><p>{error}</p><button className={styles.secondaryButton} onClick={() => void load()}>Tentar novamente</button></section> : <><section className={styles.identityBanner}><button type="button" className={styles.avatarButton} style={profile.avatarUrl ? { backgroundImage: `url(${profile.avatarUrl})` } : undefined} onClick={() => fileRef.current?.click()} disabled={uploading} aria-label="Alterar foto de perfil">{profile.avatarUrl ? <span className={styles.srOnly}>Foto do perfil</span> : initials(displayName)}<span>{uploading ? "…" : "✎"}</span></button><input ref={fileRef} className={styles.srOnly} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadAvatar(event)} /><div><span className={styles.eyebrow}>CONTA DE CLIENTE</span><h2>{displayName}</h2><p>{profile.email || "E-mail não informado"}</p><small>Clique na foto para alterar</small></div></section>
+      <div className={styles.contentGrid}><section className={styles.card}><div className={styles.cardHeading}><div><span className={styles.eyebrow}>DADOS PESSOAIS</span><h2>Informações de contato</h2></div><p>Esses dados ajudam a assistência a falar com você durante o reparo.</p></div>{error && <p className={styles.error} role="alert">{error}</p>}{success && <p className={styles.success} role="status">{success}</p>}<form className={styles.form} onSubmit={(event) => void save(event)}><label>Nome completo<input autoComplete="name" value={form.nome} maxLength={150} required aria-invalid={!nameValid} onChange={(event) => { setForm((current) => ({ ...current, nome: event.target.value })); setSuccess(""); }} />{!nameValid && form.nome.trim() && <small className={styles.fieldError}>Informe nome e sobrenome.</small>}</label><label>Telefone / WhatsApp<input type="tel" autoComplete="tel" inputMode="tel" value={form.telefone} maxLength={20} required onChange={(event) => { setForm((current) => ({ ...current, telefone: event.target.value })); setSuccess(""); }} /><small>Informe um número com DDD.</small></label><label className={styles.checkbox}><input type="checkbox" checked={form.whatsapp} onChange={(event) => setForm((current) => ({ ...current, whatsapp: event.target.checked }))} /> Este número também é WhatsApp</label><div className={styles.formActions}><button className={styles.primaryButton} disabled={saving || !changed || !nameValid}>{saving ? "Salvando..." : "Salvar alterações"}</button>{changed && <button type="button" className={styles.textButton} onClick={() => { setForm(saved); setError(""); }}>Cancelar</button>}</div></form></section>
+      <div className={styles.sideCards}><section className={styles.card}><span className={styles.eyebrow}>CADASTRO</span><h2>Dados da conta</h2><dl className={styles.details}><div><dt>CPF</dt><dd className={styles.privateValue}>{cpfVisible ? formatCpf(profile.cpf || "") : hideCpf(profile.cpf || "")}<button type="button" onClick={() => setCpfVisible((value) => !value)} aria-label={cpfVisible ? "Ocultar CPF" : "Exibir CPF"}>{cpfVisible ? "◉" : "◎"}</button></dd></div></dl></section><section className={styles.card}><span className={styles.eyebrow}>SEGURANÇA</span><h2>Acesso à conta</h2><p className={styles.sideDescription}>Mantenha suas opções de entrada atualizadas.</p><div className={styles.securityLinks}>{profile.googleLinked ? <p className={styles.linkedBadge}>✓ Conta Google vinculada</p> : <a href="/api/auth/google?link=true">Vincular conta Google <span>→</span></a>}<Link href="/esqueci-senha">Redefinir senha <span>→</span></Link></div></section></div></div></>}
+  </section></main>;
 }

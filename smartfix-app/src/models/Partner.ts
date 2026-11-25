@@ -20,6 +20,8 @@ export class Partner extends Model {
   declare document_url: string | null;
   declare approval_reason: string | null;
   declare pix_key: string | null;
+  declare business_hours: string | null;
+  declare avatar_url: string | null;
 }
 
 Partner.init(
@@ -80,6 +82,8 @@ Partner.init(
     document_url: { type: DataTypes.TEXT, allowNull: true },
     approval_reason: { type: DataTypes.TEXT, allowNull: true },
     pix_key: { type: DataTypes.TEXT, allowNull: true },
+    business_hours: { type: DataTypes.TEXT, allowNull: true },
+    avatar_url: { type: DataTypes.TEXT, allowNull: true },
   },
   {
     sequelize,

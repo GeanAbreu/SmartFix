@@ -194,7 +194,7 @@ export default function AddressManager({ endpoint = "/api/clients/addresses", pa
   return (
     <Root className={`${styles.page} ${partnerMode ? styles.embedded : ""}`}>
       <section className={styles.hero}>
-        <div><p>{partnerMode ? "MINHA ASSISTÊNCIA / LOJAS" : "Meu Perfil / Endereços"}</p><h1>{partnerMode ? "Endereços das lojas" : "Meus Endereços"}</h1><span>{partnerMode ? "Mantenha ao menos um endereço para sua assistência aparecer corretamente nas buscas." : "Gerencie locais de coleta e entrega dos seus aparelhos."}</span></div>
+        <div><p>{partnerMode ? "MINHA ASSISTÊNCIA / ENDEREÇO" : "Meu Perfil / Endereços"}</p><h1>{partnerMode ? "Endereço da assistência" : "Meus Endereços"}</h1><span>{partnerMode ? "Informe onde o cliente deverá levar o aparelho após a contratação do reparo." : "Gerencie os endereços vinculados à sua conta."}</span></div>
         <button type="button" onClick={openNew}>+ Novo endereço</button>
       </section>
 
@@ -203,7 +203,7 @@ export default function AddressManager({ endpoint = "/api/clients/addresses", pa
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && <p className={styles.error} role="alert">{error}</p>}
         {loading ? <div className={styles.empty}>Carregando endereços...</div> : addresses.length === 0 ? (
-          <div className={styles.empty}><strong>Nenhum endereço cadastrado</strong><p>{partnerMode ? "Cadastre a primeira loja para corrigir sua localização nas buscas." : "Adicione um endereço para usar coleta e entrega."}</p><button type="button" onClick={openNew}>Cadastrar endereço</button></div>
+          <div className={styles.empty}><strong>Nenhum endereço cadastrado</strong><p>{partnerMode ? "Cadastre o endereço completo para orientar seus clientes." : "Adicione um endereço à sua conta."}</p><button type="button" onClick={openNew}>Cadastrar endereço</button></div>
         ) : (
           <div className={styles.grid}>{addresses.map((address) => (
             <article key={address.id} className={`${styles.card} ${address.principal ? styles.primary : ""}`}>

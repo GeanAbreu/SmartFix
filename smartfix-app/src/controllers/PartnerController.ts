@@ -15,6 +15,7 @@ import {
   sessionCookieOptions,
 } from "@/src/services/session.service";
 import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
+import { withWorkflow } from "@/src/services/workflow.service";
 
 export class PartnerController {
   static async me(request: NextRequest) {
@@ -44,6 +45,8 @@ export class PartnerController {
               "phone",
               "is_verified",
               "pix_key",
+              "business_hours",
+              "avatar_url",
             ],
           }));
 
@@ -52,6 +55,7 @@ export class PartnerController {
       }
 
       const isLocalPartner = "role" in partner;
+      const googleLinked = await withWorkflow((records) => records.some((item) => item.kind === "google" && item.ownerId === actor.sub && item.data.role === "partner"), false);
 
       return noStoreResponse(NextResponse.json({
         success: true,
@@ -68,6 +72,9 @@ export class PartnerController {
               : partner.is_verified,
             phone: isLocalPartner ? partner.phone : partner.phone,
             pixKey: isLocalPartner ? partner.pixKey || null : partner.pix_key,
+            businessHours: isLocalPartner ? partner.businessHours || null : partner.business_hours,
+            avatarUrl: isLocalPartner ? partner.avatarUrl || null : partner.avatar_url,
+            googleLinked,
           },
         },
       }));
@@ -92,11 +99,12 @@ export class PartnerController {
       const input = z.object({
         companyName: z.string().trim().min(3, "Informe o nome da assistência.").max(150),
         phone: z.string().trim().min(10, "Informe um telefone com DDD.").max(20).refine((value) => value.replace(/\D/g, "").length >= 10, "Informe um telefone com DDD."),
+        businessHours: z.string().trim().min(5, "Informe o horário de funcionamento.").max(300),
       }).parse(await request.json());
       if (usesLocalAuthStore()) await updateLocalPartnerProfile(actor.sub, input);
       else {
         assertDatabaseConfigured();
-        const [updated] = await Partner.update({ company_name: input.companyName, phone: input.phone }, { where: { id: actor.sub } });
+        const [updated] = await Partner.update({ company_name: input.companyName, phone: input.phone, business_hours: input.businessHours }, { where: { id: actor.sub } });
         if (!updated) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
       }
       return noStoreResponse(NextResponse.json({ success: true, data: { partner: input } }));

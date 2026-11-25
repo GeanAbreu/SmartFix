@@ -18,6 +18,9 @@ export type LocalAuthUser = {
   birthDate: string | null;
   companyName: string | null;
   pixKey?: string | null;
+  whatsapp?: boolean;
+  businessHours?: string | null;
+  avatarUrl?: string | null;
   // Read compatibility for legacy files; new users store addresses separately.
   address?: string;
   city?: string;
@@ -168,20 +171,21 @@ export function localWorkflow<T>(operation: (records: WorkflowRecord[]) => Promi
   return withStore((store) => { store.workflow ??= []; return operation(store.workflow); }, write);
 }
 
-export function updateLocalProfile(id: string, input: { name: string; phone: string }) {
+export function updateLocalProfile(id: string, input: { name: string; phone: string; whatsapp: boolean }) {
   return withStore((store) => {
     const user = store.users.find((candidate) => candidate.id === id);
     if (!user) throw new AppError("Usuário não encontrado.", 404, "NOT_FOUND");
-    user.name = input.name; user.phone = input.phone;
+    user.name = input.name; user.phone = input.phone; user.whatsapp = input.whatsapp;
   }, true);
 }
 
-export function updateLocalPartnerProfile(id: string, input: { companyName: string; phone: string }) {
+export function updateLocalPartnerProfile(id: string, input: { companyName: string; phone: string; businessHours: string }) {
   return withStore((store) => {
     const user = store.users.find((candidate) => candidate.id === id && candidate.role === "partner");
     if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
     user.companyName = input.companyName;
     user.phone = input.phone;
+    user.businessHours = input.businessHours;
   }, true);
 }
 
@@ -190,6 +194,14 @@ export function updateLocalPartnerPixKey(id: string, pixKey: string) {
     const user = store.users.find((candidate) => candidate.id === id && candidate.role === "partner");
     if (!user) throw new AppError("Parceiro não encontrado.", 404, "NOT_FOUND");
     user.pixKey = pixKey;
+  }, true);
+}
+
+export function updateLocalAvatar(id: string, avatarUrl: string) {
+  return withStore((store) => {
+    const user = store.users.find((candidate) => candidate.id === id);
+    if (!user) throw new AppError("Usuário não encontrado.", 404, "NOT_FOUND");
+    user.avatarUrl = avatarUrl;
   }, true);
 }
 

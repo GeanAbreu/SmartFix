@@ -13,6 +13,9 @@ export type ClientProfile = {
   email: string | null;
   telefone: string | null;
   cpf: string | null;
+  whatsapp: boolean;
+  avatarUrl: string | null;
+  googleLinked: boolean;
 };
 
 export type ClientAddress = {
@@ -46,6 +49,9 @@ export type PartnerProfile = {
   phone: string | null;
   isVerified: boolean;
   pixKey: string | null;
+  businessHours: string | null;
+  avatarUrl: string | null;
+  googleLinked: boolean;
 };
 
 export type ApiFieldErrors = Record<string, string[] | undefined>;

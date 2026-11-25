@@ -14,6 +14,7 @@ import { controllerErrorResponse, noStoreResponse } from "./controller.utils";
 import { actorFrom } from "@/src/services/account.service";
 import { profileInput } from "@/src/validations/profile.validation";
 import { updateLocalProfile } from "@/src/services/local-auth.service";
+import { withWorkflow } from "@/src/services/workflow.service";
 
 export class ClientController {
   static async update(request: NextRequest) {
@@ -21,7 +22,7 @@ export class ClientController {
       const actor = await actorFrom(request);
       if (actor.role !== "client") throw new AppError("Área exclusiva de clientes.", 403, "FORBIDDEN");
       const input = profileInput.parse(await request.json());
-      if (usesLocalAuthStore()) await updateLocalProfile(actor.sub, { name: input.nome, phone: input.telefone });
+      if (usesLocalAuthStore()) await updateLocalProfile(actor.sub, { name: input.nome, phone: input.telefone, whatsapp: input.whatsapp });
       else await Client.update(input, { where: { id: actor.sub } });
       return noStoreResponse(NextResponse.json({ success: true, data: {} }));
     } catch (error) { return noStoreResponse(controllerErrorResponse(error)); }
@@ -45,7 +46,7 @@ export class ClientController {
         ? await findLocalUserById(actor.sub)
         : (assertDatabaseConfigured(),
           await Client.findByPk(actor.sub, {
-            attributes: ["id", "nome", "email", "telefone", "cpf"],
+            attributes: ["id", "nome", "email", "telefone", "cpf", "whatsapp", "avatar_url"],
           }));
 
       if (!client || ("role" in client && client.role !== "client")) {
@@ -53,6 +54,7 @@ export class ClientController {
       }
 
       const isLocalClient = "role" in client;
+      const googleLinked = await withWorkflow((records) => records.some((item) => item.kind === "google" && item.ownerId === actor.sub && item.data.role === "client"), false);
 
       return noStoreResponse(NextResponse.json({
         success: true,
@@ -63,6 +65,9 @@ export class ClientController {
             email: client.email,
             telefone: isLocalClient ? client.phone : client.telefone,
             cpf: isLocalClient ? client.document : client.cpf,
+            whatsapp: isLocalClient ? Boolean(client.whatsapp) : client.whatsapp,
+            avatarUrl: isLocalClient ? client.avatarUrl || null : client.avatar_url,
+            googleLinked,
           },
         },
       }));

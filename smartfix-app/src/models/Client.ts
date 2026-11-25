@@ -8,6 +8,8 @@ export class Client extends Model {
   declare senha: string;
   declare cpf: string;
   declare telefone: string | null;
+  declare whatsapp: boolean;
+  declare avatar_url: string | null;
   declare data_nascimento: string | null;
   declare created_at: Date;
   declare terms_accepted_at: Date;
@@ -49,6 +51,8 @@ Client.init(
       type: DataTypes.STRING(20),
       allowNull: true,
     },
+    whatsapp: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    avatar_url: { type: DataTypes.TEXT, allowNull: true },
     data_nascimento: {
       field: "birth_date",
       type: DataTypes.DATEONLY,
