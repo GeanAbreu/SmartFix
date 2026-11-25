@@ -24,7 +24,7 @@ Configure na Vercel Production:
 - `INFINITEPAY_API_KEY`: chave secreta do Checkout Integrado;
 - `INFINITEPAY_HANDLE`: InfiniteTag da conta central;
 - `PAYMENT_PUBLIC_URL`: origem HTTPS pública da plataforma;
-- `CRON_SECRET`: segredo usado pelo agendador de expiração das ordens.
+- `CRON_SECRET`: segredo da rota administrativa de execução manual do job.
 
 O webhook público é `/api/payments/infinitepay/webhook`. Nunca exponha a API Key
 em variáveis `NEXT_PUBLIC_*`, commits, logs ou respostas da API.
@@ -35,9 +35,11 @@ repasses de serviços pagos e concluídos são operados às quartas-feiras, às 
 
 ## Expiração das ordens
 
-O cron da Vercel chama `/api/cron/expire-orders` de hora em hora. A rota exige
-`Authorization: Bearer CRON_SECRET`. Ordens orçadas não pagas em 24 horas são
-canceladas e notificadas para cliente e assistência.
+O PostgreSQL/Supabase executa `smartfix_cancel_expired_unpaid_orders()` de hora
+em hora por meio do `pg_cron`. A rota `/api/cron/expire-orders`, protegida por
+`Authorization: Bearer CRON_SECRET`, permanece disponível para contingência.
+Ordens orçadas não pagas em 24 horas são canceladas e notificadas para cliente e
+assistência.
 
 ## Entrega do aparelho
 
