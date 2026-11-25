@@ -37,6 +37,8 @@ export default function ClientMessages() {
     return () => { active = false; };
   }, []);
 
+  // The callback is intentionally keyed only by the selected conversation.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const refresh = useCallback(async (showLoading = false) => {
     if (!recipient) { setLoading(false); setMessages([]); return; }
     if (showLoading) setLoading(true);
