@@ -255,6 +255,19 @@ test("integra persistência, isolamento, aprovação, triagem, orçamento, notif
       googleUnavailable.headers.get("location") || "",
       /GOOGLE_NOT_CONFIGURED/,
     );
+    process.env.GOOGLE_CLIENT_ID = "google-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "google-client-secret";
+    const canonicalGoogleStart = await GoogleController.start(
+      new NextRequest("https://smartfix-preview.vercel.app/api/auth/google?link=true"),
+    );
+    assert.equal(canonicalGoogleStart.status, 307);
+    assert.equal(
+      canonicalGoogleStart.headers.get("location"),
+      "http://localhost:3000/api/auth/google?link=true",
+    );
+    assert.equal(canonicalGoogleStart.headers.get("set-cookie"), null);
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
     assert.equal(
       (
         await RecoveryController.request(

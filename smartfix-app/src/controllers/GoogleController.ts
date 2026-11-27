@@ -47,6 +47,12 @@ export class GoogleController {
   static async start(request: NextRequest) {
     try {
       const config = configured();
+      const callbackUrl = new URL(config.callback);
+      if (request.nextUrl.origin !== callbackUrl.origin) {
+        const canonicalUrl = new URL(request.nextUrl.pathname, callbackUrl.origin);
+        canonicalUrl.search = request.nextUrl.search;
+        return noStoreResponse(NextResponse.redirect(canonicalUrl));
+      }
       const link = request.nextUrl.searchParams.get("link") === "true";
       const actor = link ? await actorFrom(request) : null;
       const state = randomBytes(32).toString("base64url");
